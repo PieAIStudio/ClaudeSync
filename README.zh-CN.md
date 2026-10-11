@@ -4,7 +4,7 @@
 
 [English](README.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Português](README.pt-BR.md)
 
-ClaudeSync 用来整理同一台电脑上 **两个或更多 Claude 账号** 的本地 Claude Code 会话列表。它会自动发现本机账号目录，先显示计划，再让你在同一页面选择标题，Claude 完全停止后才写入。
+ClaudeSync 用来整理同一台电脑上 **两个或更多 Claude 账号** 的本地 Claude Code 会话列表。它会自动发现本机账号目录，先显示计划，再让你在同一页面选择标题，Claude 完全停止后才写入。**角色：**目前免费分享、自用优先；**技术：**Python 桌面 GUI/命令行，并带本地浏览器回退界面；**状态：**v1.3.1 已公开发布。
 
 ![ClaudeSync 界面预览](docs/images/claudesync-preview.svg)
 

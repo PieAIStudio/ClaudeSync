@@ -4,7 +4,7 @@
 
 [English](README.md) · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)
 
-ClaudeSync mantiene claras las listas locales de sesiones de Claude Code para **dos o más cuentas** en un mismo ordenador. Descubre las carpetas locales, muestra un plan, permite elegir los conflictos de título en la misma pantalla y solo escribe cuando Claude está cerrado.
+ClaudeSync mantiene claras las listas locales de sesiones de Claude Code para **dos o más cuentas** en un mismo ordenador. Descubre las carpetas locales, muestra un plan, permite elegir los conflictos de título en la misma pantalla y solo escribe cuando Claude está cerrado. **Rol:** actualmente gratuito y primero para uso propio. **Tecnología:** GUI/CLI de escritorio en Python con navegador local de respaldo. **Estado:** versión pública v1.3.1.
 
 ![Vista de ClaudeSync](docs/images/claudesync-preview.es.svg)
 

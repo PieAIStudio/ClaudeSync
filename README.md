@@ -4,7 +4,7 @@
 
 [中文](README.zh-CN.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Português](README.pt-BR.md)
 
-ClaudeSync keeps local Claude Code session lists aligned across **two or more accounts** on one computer. It discovers local account folders automatically, shows a readable plan, lets you choose a title once for each conflict, and writes only after Claude has stopped.
+ClaudeSync keeps local Claude Code session lists aligned across **two or more accounts** on one computer. It discovers local account folders automatically, shows a readable plan, lets you choose a title once for each conflict, and writes only after Claude has stopped. **Role:** currently free to share, self-use first. **Technology:** Python desktop GUI/CLI with local browser fallback. **Status:** public release v1.3.1.
 
 ![ClaudeSync interface preview](docs/images/claudesync-preview.en.svg)
 
