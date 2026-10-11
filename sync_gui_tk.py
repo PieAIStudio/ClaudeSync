@@ -61,6 +61,13 @@ class ClaudeSyncGUI(tk.Tk):
     def t(self, key):
         return tr(self.language, key)
 
+    def display_account_label(self, label, index):
+        value = str(label or "")
+        if any(value.startswith(prefix) and value[len(prefix):].isdigit()
+               for prefix in ("账号 ", "Account ", "アカウント ", "Cuenta ", "Conta ")):
+            return self.t("account_prefix") + " " + str(index + 1)
+        return value
+
     def change_language(self, _event=None):
         selected = self.language_var.get()
         self.language = save_language(BASE, next((code for code, label in LANGUAGES.items() if label == selected), selected))
@@ -131,7 +138,7 @@ class ClaudeSyncGUI(tk.Tk):
             if isinstance(account, dict):
                 root = Path(session_root).expanduser() if session_root else Path()
                 self.account_rows.append({
-                    "label": tk.StringVar(value=str(account.get("label", ""))),
+                    "label": tk.StringVar(value=self.display_account_label(account.get("label", ""), len(self.account_rows))),
                     "path": tk.StringVar(value=str(root / account["scope"]) if account.get("scope") else ""),
                 })
         while len(self.account_rows) < 2:
@@ -360,7 +367,8 @@ class ClaudeSyncGUI(tk.Tk):
         skipped = sum(e.get("status") not in {"add", "branch", "present", "planned"} for e in entries)
         for key, value in (("add", additions), ("title", titles), ("conflict", conflicts), ("skip", skipped)):
             self.metric_vars[key].set(str(value))
-        self.account_var.set(self.t("account") + " / ".join(sorted(counts)) if counts else "")
+        self.account_var.set(self.t("account") + " / ".join(
+            self.display_account_label(label, index) for index, label in enumerate(sorted(counts))) if counts else "")
         self.render_title_rows(actions)
         blockers = preflight.get("blockers") or []
         if verified and data.get("result", {}).get("verified"):
@@ -413,8 +421,8 @@ class ClaudeSyncGUI(tk.Tk):
             row = visible_row
             visible_row += 1
             options = group.get("options") or []
-            titles = "；".join("%s：%s" % (item.get("label", ""), item.get("title", ""))
-                              for item in options)
+            titles = "；".join("%s：%s" % (self.display_account_label(item.get("label", ""), index), item.get("title", ""))
+                              for index, item in enumerate(options))
             values = [status_labels.get(status, status), str(session)[:12] + "…",
                       titles, action_labels.get(status, status)]
             for column, value in enumerate(values):
@@ -423,7 +431,8 @@ class ClaudeSyncGUI(tk.Tk):
             if status == "conflict":
                 variable = tk.StringVar(value=self.choices.get(session, group.get("choice") or "skip"))
                 self.choices[session] = variable.get()
-                radio_options = [(item.get("scope", ""), item.get("label", "")) for item in options]
+                radio_options = [(item.get("scope", ""), self.display_account_label(item.get("label", ""), index))
+                                 for index, item in enumerate(options)]
                 radio_options.append(("skip", self.t("skip")))
                 for index, (value, label) in enumerate(radio_options):
                     ttk.Radiobutton(

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claudesync"
-version = "1.3.0"
+version = "1.3.1"
 description = "A safe, manual, cross-platform local session index sync tool for Claude."
 readme = "README.md"
 requires-python = ">=3.9"

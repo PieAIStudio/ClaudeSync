@@ -28,7 +28,7 @@ from .configuration import (MAX_ACCOUNTS, MIN_ACCOUNTS, discover_account_specs,
 
 from .titles import load_tool_state, save_tool_state, title_candidate, make_title_group
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 ZONE = timezone(timedelta(hours=8))
 UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 LOCAL = re.compile(r"local_([0-9a-f-]{36})\.json\Z")

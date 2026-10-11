@@ -10,7 +10,7 @@ cp "$base/dist/ClaudeSyncCLI" "$base/dist/linux/claudesync/opt/claudesync/Claude
 chmod +x "$base/dist/linux/claudesync/opt/claudesync"/*
 cat > "$base/dist/linux/claudesync/DEBIAN/control" <<EOF
 Package: claudesync
-Version: 1.3.0
+Version: 1.3.1
 Section: utils
 Priority: optional
 Architecture: amd64

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1 — 2026-10-11
+
+- Localized automatically generated account labels when switching the Tk GUI language.
+
 ## 1.3.0 — 2026-10-11
 
 - Added automatic discovery and refresh of multiple local Claude account scopes.
