@@ -366,7 +366,7 @@ class ManualSyncTest(unittest.TestCase):
         self.assertTrue(report["result"]["verified"])
         self.assertEqual(report["result"]["remaining_eligible"], 0)
         self.assertEqual(report["result"]["after_counts"]["账号 B"]["ordinary"], 1)
-        self.assertIn("同步后 1 条", (self.base / "reports/latest.txt").read_text())
+        self.assertIn("同步后 1 条", (self.base / "reports/latest.txt").read_text(encoding="utf-8"))
 
     def test_command_sync_while_running_only_reports_and_never_writes(self):
         self.record()
@@ -449,7 +449,7 @@ class ManualSyncTest(unittest.TestCase):
         report = json.loads((self.base / "reports/latest.json").read_bytes())
         self.assertFalse(report["result"]["verified"])
         self.assertEqual(len(report["result"]["created"]), 1)
-        self.assertIn("已新增，整体校验未完成", (self.base / "reports/latest.txt").read_text())
+        self.assertIn("已新增，整体校验未完成", (self.base / "reports/latest.txt").read_text(encoding="utf-8"))
         self.assertEqual(len(list((self.base / "reports").glob("*/report.txt"))), 1)
 
 
