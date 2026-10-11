@@ -1,0 +1,28 @@
+# Local account configuration and tool-owned state
+config.json
+sync-state.json
+.sync.lock
+migration-receipt.json
+verification-receipt.json
+reports/
+backups/
+legacy/
+
+# Local builds and OS files
+Sync.app/
+.DS_Store
+__pycache__/
+*.py[cod]
+*.disabled
+*.swp
+.pytest_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+*.spec
+
+# Temporary title-resolution files
+claudesync-title-resolutions-*.json
+preferences.json

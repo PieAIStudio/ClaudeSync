@@ -1,0 +1,23 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.9', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run isolated tests
+        run: python -m unittest -v test_sessions test_platforms test_configuration
+      - name: Compile Python files
+        run: python -m py_compile claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync/*.py
