@@ -13,13 +13,16 @@ LABEL = "local.claude-session-sync.on-exit"
 
 
 def desktop_directory(home=None, platform_name=None):
+    explicit_home = home is not None
     home = home or Path.home()
     platform_name = platform_name or sys.platform
     if platform_name == "darwin":
         return home / "Library/Application Support/Claude"
     if platform_name == "win32":
-        return Path(os.environ.get("APPDATA", str(home / "AppData/Roaming"))) / "Claude"
-    return Path(os.environ.get("XDG_CONFIG_HOME", str(home / ".config"))) / "Claude"
+        appdata = os.environ.get("APPDATA") if not explicit_home else None
+        return Path(appdata or home / "AppData/Roaming") / "Claude"
+    xdg = os.environ.get("XDG_CONFIG_HOME") if not explicit_home else None
+    return Path(xdg or home / ".config") / "Claude"
 
 
 def default_data_directory():
@@ -72,7 +75,7 @@ class Environment:
     def root(self):
         if self.session_root:
             return Path(self.session_root).expanduser()
-        override = os.environ.get("CLAUDESYNC_SESSION_ROOT")
+        override = os.environ.get("CLAUDESYNC_SESSION_ROOT") if self.home == Path.home() else None
         if override:
             return Path(override).expanduser()
         candidates = (
@@ -86,7 +89,7 @@ class Environment:
     def projects(self):
         if self.projects_root:
             return Path(self.projects_root).expanduser()
-        config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+        config_dir = os.environ.get("CLAUDE_CONFIG_DIR") if self.home == Path.home() else None
         if config_dir:
             return Path(config_dir).expanduser() / "projects"
         return self.home / ".claude/projects"

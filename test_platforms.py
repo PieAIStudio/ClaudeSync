@@ -34,6 +34,18 @@ class PlatformAdapterTest(unittest.TestCase):
             self.assertEqual(env.root, session_root)
             self.assertEqual(env.projects, projects)
 
+    def test_explicit_test_home_does_not_leak_process_environment_paths(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
+            "XDG_CONFIG_HOME": str(Path(folder) / "shared-config"),
+            "CLAUDE_CONFIG_DIR": str(Path(folder) / "shared-claude"),
+            "CLAUDESYNC_SESSION_ROOT": str(Path(folder) / "shared-sessions"),
+        }):
+            home = Path(folder) / "isolated-home"
+            env = Environment(Path(folder) / "tool", home, platform_name="linux")
+            self.assertEqual(env.desktop, home / ".config/Claude")
+            self.assertEqual(env.root, home / ".config/Claude/claude-code-sessions")
+            self.assertEqual(env.projects, home / ".claude/projects")
+
     def test_lock_is_non_reentrant(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / ".lock"

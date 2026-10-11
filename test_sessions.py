@@ -331,7 +331,7 @@ class ManualSyncTest(unittest.TestCase):
         args = ("4 /opt/homebrew/bin/python3 /Users/test/.local/share/claude-session-sync/watch_exit.py\n"
                 "5 node /opt/lib/node_modules/@anthropic-ai/claude-code/cli.js\n")
         with patch.object(sync.subprocess, "run", side_effect=[SimpleNamespace(stdout=commands), SimpleNamespace(stdout=args)]):
-            writers, automatic = sync.process_state()
+            writers, automatic = sync.process_state("darwin")
         self.assertEqual({p["pid"] for p in writers}, {2, 3, 5, 6})
         self.assertEqual(automatic, [4])
 
@@ -408,7 +408,7 @@ class ManualSyncTest(unittest.TestCase):
         calls = []
         with patch.object(sync.subprocess, "run", side_effect=lambda *args, **kwargs: calls.append((args, kwargs)) or
                                                        SimpleNamespace(returncode=0, stdout="", stderr="")):
-            sync.request_claude_quit()
+            sync.request_claude_quit(SimpleNamespace(platform_name="darwin"))
         self.assertEqual(calls[0][0][0], ["/usr/bin/osascript", "-e",
                                           'tell application id "com.anthropic.claudefordesktop" to quit'])
         self.assertFalse(calls[0][1].get("check", False))
@@ -417,7 +417,7 @@ class ManualSyncTest(unittest.TestCase):
         with patch.object(sync.subprocess, "run", return_value=SimpleNamespace(
                 returncode=1, stdout="", stderr="AppleScript denied")):
             with self.assertRaisesRegex(RuntimeError, "AppleScript denied"):
-                sync.request_claude_quit()
+                sync.request_claude_quit(SimpleNamespace(platform_name="darwin"))
 
     def test_wait_for_claude_stopped_accepts_graceful_exit(self):
         states = iter([([{"pid": 1}], []), ([], [])])
