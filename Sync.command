@@ -9,11 +9,14 @@ if [[ $# -eq 0 ]]; then
   if [[ -x "$tool_dir/ClaudeSync.app/Contents/MacOS/ClaudeSync" ]]; then
     exec /usr/bin/open -a "$tool_dir/ClaudeSync.app"
   fi
-  if [[ -n "$python_bin" ]]; then
-    exec "$python_bin" "$tool_dir/sync_gui.py"
-  fi
   if [[ -x "$tool_dir/Sync.app/Contents/MacOS/ClaudeSync" ]]; then
     exec /usr/bin/open -a "$tool_dir/Sync.app"
+  fi
+  if [[ -x "$tool_dir/dist/ClaudeSync.app/Contents/MacOS/ClaudeSync" ]]; then
+    exec /usr/bin/open -a "$tool_dir/dist/ClaudeSync.app"
+  fi
+  if [[ -n "$python_bin" ]]; then
+    exec "$python_bin" "$tool_dir/sync_gui.py"
   fi
   echo "ClaudeSync 需要 Python 3，或请使用发布版 ClaudeSync.app。" >&2
   exit 1

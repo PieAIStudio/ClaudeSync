@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.3 — 2026-10-11
+
+- Made Sync.command prefer the current packaged Sync.app before the Python fallback.
+
 ## 1.3.2 — 2026-10-11
 
 - Removed the obsolete native AppKit entry and build recipe.

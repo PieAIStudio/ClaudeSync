@@ -33,5 +33,5 @@
 
 - 本地：50 项会话、平台、配置和多账号测试通过；浏览器页面脚本通过 Node 语法检查；Tk/浏览器标题选择路径已做冒烟检查。
 - CI：Ubuntu、Windows、macOS × Python 3.9/3.12 的 6 组检查全部通过。
-- 发布：[`v1.3.2`](https://github.com/PieAIStudio/ClaudeSync/releases/tag/v1.3.2) 已生成 macOS arm64/x64、Windows x64、Debian/Ubuntu amd64 和 Linux tar.gz 安装包。
+- 发布：[`v1.3.3`](https://github.com/PieAIStudio/ClaudeSync/releases/tag/v1.3.3) 已生成 macOS arm64/x64、Windows x64、Debian/Ubuntu amd64 和 Linux tar.gz 安装包。
 - 视觉：英文、日文、西班牙文、葡萄牙文各有对应预览图和流程图；共享 GUI 的语言切换会重新渲染当前结果。
