@@ -2,44 +2,55 @@
 
 **Veja primeiro. Escolha o título. Sincronize somente quando for seguro.**
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Español](README.es.md)
+[English](README.md) · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [Español](README.es.md)
 
-ClaudeSync deixa claras as listas locais de sessões do Claude Code quando você usa duas contas no mesmo computador. Ele mostra o que pode ser adicionado, explica o que será ignorado e coloca os conflitos de título na própria tabela. A escrita só acontece depois que o Claude termina de executar.
+O ClaudeSync organiza as listas locais de sessões do Claude Code para **duas ou mais contas** no mesmo computador. Ele descobre as pastas locais, mostra o plano, permite escolher conflitos de título na mesma tela e grava somente depois que o Claude estiver fechado.
 
-![Prévia do ClaudeSync](docs/images/claudesync-preview.svg)
+![Prévia do ClaudeSync](docs/images/claudesync-preview.pt-BR.svg)
 
-> Não é uma migração para a nuvem: não faz login, não lê senhas, não envia conversas e não move Artifacts.
+> **É uma ferramenta de índices locais, não de migração na nuvem.** Não faz login, não lê senhas ou cookies, não envia conversas e não move Artifacts.
 
-## Instaladores
+## O que torna simples
 
-Baixe o pacote para macOS (Apple silicon ou Intel), Windows 64 bits ou Debian/Ubuntu em [GitHub Releases](https://github.com/PieAIStudio/ClaudeSync/releases/latest). A interface oferece chinês simplificado, inglês, japonês, espanhol e português. O pacote do macOS inclui Python; no Linux sem Tk, a interface local abre automaticamente no navegador.
+- **Descoberta automática.** As contas locais aparecem sozinhas. A configuração manual é apenas um caminho de recuperação.
+- **Uma tela.** Status, contas, quantidades, motivos ignorados e títulos ficam juntos.
+- **Uma escolha por conflito.** Escolha o título de qualquer conta ou **Ignorar**.
+- **Sem automação em segundo plano.** Não há gancho de saída, monitor, timer, login ou troca automática de conta.
+- **Gravação segura.** Claude em execução bloqueia a gravação; o índice é copiado antes e verificado depois.
 
-## Comece
+![Quatro passos: verificar, escolher, sincronizar e confirmar](docs/images/flow.pt-BR.svg)
 
-Você precisa do Python 3.9 ou mais recente.
+## Sistemas e pacotes
 
-```sh
-git clone https://github.com/PieAIStudio/ClaudeSync.git
-cd ClaudeSync
-```
+| Sistema | Arquivo |
+| --- | --- |
+| macOS Apple silicon | `ClaudeSync-macos-arm64.dmg` ou `.zip` |
+| macOS Intel | `ClaudeSync-macos-x64.dmg` ou `.zip` |
+| Windows 10/11 64 bits | `ClaudeSync-windows-x64-setup.exe` |
+| Debian/Ubuntu 64 bits | `ClaudeSync-linux-amd64.deb` |
+| Outro Linux 64 bits | `ClaudeSync-linux-amd64.tar.gz` |
 
-- macOS: clique duas vezes em `Sync.command`
-- Windows: clique duas vezes em `Sync.bat`
-- Linux: execute `./Sync.sh`
-- Qualquer sistema: `python sync_gui.py`
+Baixe na [versão mais recente do GitHub](https://github.com/PieAIStudio/ClaudeSync/releases/latest). A interface inclui 简体中文, English, 日本語, Español e Português. Se o Linux não tiver Tk, a mesma interface abre no navegador local.
 
-Na primeira execução, escolha a pasta raiz dos dois índices, as pastas da Conta A e da Conta B e a pasta `projects` que contém os JSONL locais.
+## Como usar
 
-1. Clique em **Check**; é somente leitura.
-2. Em cada linha vermelha escolha Conta A, Conta B ou **Skip**.
-3. Salve o trabalho no Claude e clique em **Sync safe items** ou **Close Claude and sync**.
-4. Abra o Claude e confira a lista. Login e troca de conta continuam manuais.
+1. **Abra o ClaudeSync.** Primeiro ele detecta as contas locais. Se alguma pasta faltar, abra as configurações alternativas e adicione-a.
+2. **Verifique.** Clique em **Verificar novamente**, leia as quantidades e veja a tabela.
+3. **Escolha.** Em cada linha que precisa de escolha, selecione uma conta ou **Ignorar**.
+4. **Sincronize.** Depois que o Claude terminar, clique em **Sincronizar itens seguros** ou **Fechar Claude e sincronizar**.
+5. Abra o Claude manualmente e confira a lista. Login e troca de conta continuam manuais.
 
-## Regras
+## Várias contas
 
-Títulos iguais não mudam. Um título manual pode ser copiado para o lado automático. Dois títulos manuais diferentes exigem sua escolha. Dois títulos automáticos diferentes não são adivinhados. Marcadores antigos como `（来自账号 A 的分支）` são removidos; novas ramificações usam o título original.
+Todas as contas configuradas são equivalentes. O ClaudeSync cria uma união local segura: o mesmo `cliSessionId` é adicionado uma vez a cada conta que precisa dele. Um marcador de exclusão em qualquer conta impede que a sessão volte. Itens arquivados, remotos, agendados ou sem transcrição aparecem com o motivo e são ignorados.
 
-O corpo JSONL, entradas existentes, exclusões, arquivos, Artifacts, conectores e credenciais não são alterados. O índice é salvo antes da escrita e verificado depois.
+## Títulos
+
+Títulos iguais não mudam. Um único título manual pode ser aplicado aos títulos automáticos. Vários títulos manuais diferentes aparecem em uma linha para você escolher qualquer conta. Títulos automáticos diferentes não são adivinhados. O título escolhido também é usado nas novas entradas.
+
+## Limites e recuperação
+
+O corpo JSONL, entradas existentes, exclusões, arquivos, projetos, Artifacts, conectores, sessões remotas, credenciais e cookies não são alterados. Antes da gravação é criada uma cópia privada e um manifest; depois tudo é verificado. Mantenha `config.json`, `reports/` e `backups/` privados, pois podem conter caminhos e nomes locais.
 
 ## Comandos
 
@@ -49,4 +60,11 @@ python sync_sessions.py --sync
 python sync_sessions.py --close-sync
 ```
 
-Veja [ARCHITECTURE.md](ARCHITECTURE.md) para manutenção e o [README em inglês](README.md) para todos os limites. Licença MIT.
+## Desenvolvimento
+
+```sh
+python -m unittest -v test_sessions test_platforms test_configuration
+python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
+```
+
+Veja [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) e a [licença MIT](LICENSE).

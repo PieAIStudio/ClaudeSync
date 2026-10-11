@@ -9,7 +9,9 @@ Keep the project small and readable. The safe boundary is:
 - `sync_gui.py` dispatches to the Tk GUI or the browser fallback; `sync_gui_tk.py` and
   `sync_web.py` own the two shared GUI implementations; `SyncGUI.swift` owns the
   optional Mac native GUI.
-- `claude_sync/configuration.py` owns first-run setup validation and atomic saving.
+- `claude_sync/configuration.py` owns automatic account discovery, fallback setup
+  validation, and atomic saving. The normal path must not make users enter
+  accounts one by one.
 
 Before a pull request:
 

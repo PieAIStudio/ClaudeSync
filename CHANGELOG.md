@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 — 2026-10-11
+
+- Added automatic discovery and refresh of multiple local Claude account scopes.
+- Added a deduplicated multi-account union plan and one-row title choices across all accounts.
+- Made a chosen title apply to newly created entries in the same sync.
+- Added localized multi-account setup, browser fallback, README screenshots, and flow diagrams.
+
 ## 1.1.2 — 2026-10-11
 
 - Fixed title-conflict choices in the shared Tk GUI on Windows and Linux.

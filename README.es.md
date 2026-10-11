@@ -2,44 +2,55 @@
 
 **Míralo primero. Elige el título. Sincroniza solo cuando sea seguro.**
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)
+[English](README.md) · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)
 
-ClaudeSync mantiene legibles las listas locales de sesiones de Claude Code cuando usas dos cuentas en el mismo ordenador. Muestra qué se puede añadir, explica qué se omite y permite elegir los conflictos de título en la misma tabla. Solo escribe cuando Claude ya está completamente cerrado.
+ClaudeSync mantiene claras las listas locales de sesiones de Claude Code para **dos o más cuentas** en un mismo ordenador. Descubre las carpetas locales, muestra un plan, permite elegir los conflictos de título en la misma pantalla y solo escribe cuando Claude está cerrado.
 
-![Vista de ClaudeSync](docs/images/claudesync-preview.svg)
+![Vista de ClaudeSync](docs/images/claudesync-preview.es.svg)
 
-> No es una migración a la nube: no inicia sesión, no lee contraseñas, no sube conversaciones y no mueve Artifacts.
+> **Es una herramienta de índices locales, no de migración en la nube.** No inicia sesión, no lee contraseñas ni cookies, no sube conversaciones y no mueve Artifacts.
 
-## Instaladores
+## Lo esencial
 
-Descarga el paquete para macOS (Apple silicon o Intel), Windows 64 bits o Debian/Ubuntu desde [GitHub Releases](https://github.com/PieAIStudio/ClaudeSync/releases/latest). La interfaz permite elegir chino simplificado, inglés, japonés, español o portugués. El paquete de macOS incluye Python; en Linux sin Tk se abre automáticamente la interfaz local en el navegador.
+- **Descubrimiento automático.** La aplicación encuentra las cuentas del directorio de sesiones. La configuración manual queda como último recurso.
+- **Una sola pantalla.** Estado, cuentas, cantidades, motivos omitidos y títulos aparecen juntos.
+- **Una elección por conflicto.** Elige el título de cualquier cuenta o **Omitir**.
+- **Sin automatización de fondo.** No hay ganchos de salida, vigilancia, temporizadores, inicio de sesión ni cambio automático de cuenta.
+- **Escrituras protegidas.** Un Claude activo bloquea las escrituras; se crea una copia de seguridad y se verifica después.
 
-## Empezar
+![Cuatro pasos: comprobar, elegir, sincronizar y verificar](docs/images/flow.es.svg)
 
-Necesitas Python 3.9 o posterior.
+## Sistemas y paquetes
 
-```sh
-git clone https://github.com/PieAIStudio/ClaudeSync.git
-cd ClaudeSync
-```
+| Sistema | Archivo |
+| --- | --- |
+| macOS Apple silicon | `ClaudeSync-macos-arm64.dmg` o `.zip` |
+| macOS Intel | `ClaudeSync-macos-x64.dmg` o `.zip` |
+| Windows 10/11 de 64 bits | `ClaudeSync-windows-x64-setup.exe` |
+| Debian/Ubuntu de 64 bits | `ClaudeSync-linux-amd64.deb` |
+| Otro Linux de 64 bits | `ClaudeSync-linux-amd64.tar.gz` |
 
-- macOS: doble clic en `Sync.command`
-- Windows: doble clic en `Sync.bat`
-- Linux: ejecuta `./Sync.sh`
-- Cualquier sistema: `python sync_gui.py`
+Descarga desde [la última versión de GitHub](https://github.com/PieAIStudio/ClaudeSync/releases/latest). La interfaz incluye 简体中文, English, 日本語, Español y Português. Si Linux no tiene Tk, se abre la misma interfaz en el navegador local.
 
-La primera vez, selecciona la carpeta raíz de los dos índices, las carpetas de Cuenta A y Cuenta B y la carpeta `projects` que contiene los JSONL locales.
+## Uso
 
-1. Pulsa **Check**; es solo lectura.
-2. En cada fila roja elige Cuenta A, Cuenta B o **Skip**.
-3. Guarda tu trabajo de Claude y pulsa **Sync safe items** o **Close Claude and sync**.
-4. Abre Claude y comprueba la lista. El inicio de sesión y el cambio de cuenta son manuales.
+1. **Abre ClaudeSync.** Primero detecta las cuentas locales. Si faltan carpetas, abre la configuración alternativa y añádelas allí.
+2. **Comprueba.** Pulsa **Comprobar de nuevo**, lee las cantidades y revisa la tabla.
+3. **Elige.** En cada fila con **Requiere elección**, elige una cuenta o **Omitir**.
+4. **Sincroniza.** Cuando Claude termine, pulsa **Sincronizar elementos seguros** o **Cerrar Claude y sincronizar**.
+5. Abre Claude manualmente y revisa la lista. El inicio de sesión y el cambio de cuenta siguen siendo manuales.
 
-## Reglas
+## Comportamiento de varias cuentas
 
-Los títulos iguales no cambian. Un título escrito a mano puede pasar al lado automático. Dos títulos escritos a mano distintos requieren tu elección. Dos títulos automáticos distintos no se adivinan. Los marcadores antiguos como `（来自账号 A 的分支）` se eliminan; las ramas nuevas usan el título original.
+Todas las cuentas configuradas son iguales. ClaudeSync crea una unión local segura: un `cliSessionId` se añade una sola vez a cada cuenta que lo necesita. Un marcador de borrado en cualquier cuenta evita que la sesión reaparezca. Las entradas archivadas, remotas, programadas o sin transcripción se muestran con su motivo y se omiten.
 
-No se modifica el cuerpo JSONL, las entradas existentes, los borrados, los archivos, Artifacts, conectores ni credenciales. Se crea una copia de seguridad antes de escribir y se verifica después.
+## Títulos
+
+Los títulos iguales no cambian. Un único título manual puede propagarse a los títulos automáticos. Varios títulos manuales distintos aparecen en una fila para elegir cualquiera de las cuentas. Los títulos automáticos distintos no se adivinan. El título elegido también se usa en las entradas nuevas.
+
+## Límites y recuperación
+
+No se modifica el cuerpo JSONL, las entradas existentes, los borrados, los archivos, los proyectos, Artifacts, conectores, sesiones remotas, credenciales ni cookies. Antes de escribir se crea una copia privada y un manifest; después se verifica. Mantén privados `config.json`, `reports/` y `backups/` porque pueden contener rutas y nombres locales.
 
 ## Comandos
 
@@ -49,4 +60,11 @@ python sync_sessions.py --sync
 python sync_sessions.py --close-sync
 ```
 
-Consulta [ARCHITECTURE.md](ARCHITECTURE.md) para mantener el proyecto y [README en inglés](README.md) para todos los límites. Licencia MIT.
+## Desarrollo
+
+```sh
+python -m unittest -v test_sessions test_platforms test_configuration
+python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
+```
+
+Consulta [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) y la [licencia MIT](LICENSE).

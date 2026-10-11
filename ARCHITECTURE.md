@@ -1,6 +1,6 @@
 # ClaudeSync 维护地图
 
-ClaudeSync 是一个本地、手动、可检查的会话索引工具。它不登录云端，不读取密码或 Cookie，也不复制聊天正文。用户先检查，再在标题冲突处选择，最后才允许写入。
+ClaudeSync 是一个本地、手动、可检查的多账号会话索引工具。它先自动发现账号目录，不登录云端，不读取密码或 Cookie，也不复制聊天正文。用户先检查，再在标题冲突处选择，最后才允许写入。
 
 ## 公开入口
 
@@ -8,10 +8,10 @@ ClaudeSync 是一个本地、手动、可检查的会话索引工具。它不登
 | --- | --- | --- |
 | `ClaudeSync.app` | macOS（发布安装包） | 自带运行时的 GUI，不需要另装 Python |
 | `Sync.app` | macOS（本地构建） | 原生 AppKit 窗口；保留当前 Mac 使用体验 |
-| `Sync.command` | macOS | 优先打开发布 GUI；源码目录则打开 `Sync.app`；带参数时运行 CLI |
+| `Sync.command` | macOS | 优先打开发布 GUI；源码目录运行共享多账号 GUI；带参数时运行 CLI |
 | `Sync.bat` | Windows | 打开共享 Tk GUI |
 | `Sync.sh` | Linux | 打开共享 Tk GUI |
-| `python sync_gui.py` | 三个平台 | 共享 GUI；首次启动提供目录设置 |
+| `python sync_gui.py` | 三个平台 | 共享 GUI；默认自动发现账号，补救时提供目录设置 |
 | `python sync_sessions.py --check` | 三个平台 | 只读检查与报告 |
 | `python sync_sessions.py --sync` | 三个平台 | 关闭应用后，按检查计划同步 |
 | `python sync_sessions.py --close-sync` | 三个平台 | 请求应用正常退出后同步；不强制杀进程 |
@@ -27,8 +27,8 @@ ClaudeSync 是一个本地、手动、可检查的会话索引工具。它不登
 | `claude_sync/platforms.py` | macOS/Windows/Linux 路径、进程检测、锁外的正常退出和重开 |
 | `claude_sync/storage.py` | 普通文件读取、快照、原子文件、跨平台排他锁 |
 | `sync_gui.py` | 跨平台 GUI；优先使用 Tk，没有 Tk 时切换到本机浏览器 |
-| `sync_gui_tk.py` / `sync_web.py` | 三个平台 | 首次设置、同页标题选择、报告和语言切换 |
-| `claude_sync/configuration.py` | 三个平台 | 共享首次设置校验和原子保存 |
+| `sync_gui_tk.py` / `sync_web.py` | 三个平台 | 自动发现、补救设置、同页标题选择、报告和语言切换 |
+| `claude_sync/configuration.py` | 三个平台 | 账号发现、补救设置校验和原子保存 |
 | `SyncGUI.swift` | 可选的 macOS 原生 GUI；不复制同步规则 |
 | `Sync.command` / `Sync.bat` / `Sync.sh` | 各平台薄启动器 |
 | `test_sessions.py` | 临时目录中的会话安全、标题和报告测试 |
@@ -58,8 +58,8 @@ Claude 本地索引和 projects 正文（只在 apply_plan 写入索引）
 
 ```text
 1. preflight        看 Claude/Code 是否仍在写入，检查旧自动同步
-2. build_plan       读取两个 scope、索引、归档/删除标记和正文首尾抽样
-3. human choice     GUI 将每个冲突会话显示一行，A / B / 跳过
+2. build_plan       读取所有 scope、索引、归档/删除标记和正文首尾抽样
+3. human choice     GUI 将每个冲突会话显示一行，任意账号 / 跳过
 4. apply_plan       再次检查 → 逐字节备份 → 原子新增/标题更新 → 再读验证
 5. save_report      保存中文文字报告和 JSON 报告
 ```
@@ -70,15 +70,15 @@ Claude 本地索引和 projects 正文（只在 apply_plan 写入索引）
 
 - 相同标题：不处理。
 - 手动标题对自动标题：安全地把手动标题复制到自动标题一侧。
-- 两边都是手动且不同：状态为 `conflict`，等用户选择。
-- 两边都是自动且不同：状态为 `auto_difference`，不猜测。
+- 多个账号都是手动且不同：状态为 `conflict`，等用户选择。
+- 多个账号都是自动且不同：状态为 `auto_difference`，不猜测。
 - 旧版本的“来自账号 X 的分支”标题：识别为工具标记，更新回原始标题。
 - 新分支入口：复制原始标题，不添加工具标记。
 
 GUI 的临时选择文件格式为：
 
 ```json
-{"version": 1, "choices": {"scope/session.json": "source|target|skip"}}
+{"version": 2, "groups": {"cliSessionId": "scope-or-skip"}, "choices": {}}
 ```
 
 它只是一次操作的输入，不是账号数据，也不应提交。

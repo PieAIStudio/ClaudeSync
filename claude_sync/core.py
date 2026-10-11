@@ -23,11 +23,12 @@ from .storage import (Snapshot, clean, digest, encode, exclusive_lock, plain_dir
                       publish_new, read_regular, replace_existing, write_owned)
 from .platforms import (Environment, app_version, automatic_sync_state,
                         default_data_directory, process_state, request_claude_quit, runtime_base)
+from .configuration import (MAX_ACCOUNTS, MIN_ACCOUNTS, discover_account_specs,
+                            discover_config, save_config)
 
-from .titles import (load_tool_state, save_tool_state, legacy_branch_title,
-                     title_origin, title_update_record, make_title_action)
+from .titles import load_tool_state, save_tool_state, title_candidate, make_title_group
 
-VERSION = "1.1.2"
+VERSION = "1.3.0"
 ZONE = timezone(timedelta(hours=8))
 UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 LOCAL = re.compile(r"local_([0-9a-f-]{36})\.json\Z")
@@ -69,7 +70,14 @@ def now():
 
 
 def config(env):
-    raw = read_regular(env.base / "config.json")
+    config_path = env.base / "config.json"
+    if not config_path.exists():
+        # First use is deliberately low-friction: discover local account
+        # scopes and save only ClaudeSync's own config. Claude data is never
+        # changed by this path.
+        data = discover_config(env.root, env.projects)
+        save_config(env.base, data)
+    raw = read_regular(config_path)
     data = json.loads(raw)
     for key, attribute in (("session_root", "session_root"), ("projects_root", "projects_root")):
         value = data.get(key)
@@ -78,34 +86,87 @@ def config(env):
                 raise ValueError("config.json 的 %s 必须是非空路径。" % key)
             setattr(env, attribute, Path(value).expanduser())
     accounts = data.get("accounts", [])
-    if len(accounts) != 2 or any(not isinstance(a, dict) for a in accounts):
-        raise ValueError("config.json 必须指定两个账号。")
+    if not MIN_ACCOUNTS <= len(accounts) <= MAX_ACCOUNTS or any(not isinstance(a, dict) for a in accounts):
+        raise ValueError("config.json 必须指定至少 2 个账号。")
+    scopes, labels = set(), set()
     for account in accounts:
         parts = str(account.get("scope", "")).split("/")
         if len(parts) != 2 or not all(UUID.fullmatch(p) for p in parts):
             raise ValueError("账号 scope 格式错误。")
         if not isinstance(account.get("label"), str) or not account["label"].strip():
             raise ValueError("账号 label 不能为空。")
-    if accounts[0]["scope"].split("/")[0] == accounts[1]["scope"].split("/")[0]:
-        raise ValueError("需要两个不同账号，不能只配置同一账号的两个组织。")
-    if accounts[0]["label"] == accounts[1]["label"]:
-        raise ValueError("两个账号的显示名称需要不同。")
+        scope = account["scope"].casefold()
+        label = account["label"].casefold()
+        if scope in scopes:
+            raise ValueError("账号 scope 不能重复。")
+        if label in labels:
+            raise ValueError("账号 label 不能重复。")
+        scopes.add(scope)
+        labels.add(label)
+    discovered = discover_account_specs(env.root)
+    known_scopes = set(scopes)
+    known_labels = set(labels)
+    changed = False
+    for spec in discovered:
+        scope = "/".join(Path(spec["path"]).relative_to(env.root).parts)
+        if scope.casefold() in known_scopes:
+            continue
+        if len(accounts) >= MAX_ACCOUNTS:
+            raise ValueError("自动发现的账号数量过多，请缩小索引根目录范围。")
+        number = len(accounts) + 1
+        label = "账号 %d" % number
+        while label.casefold() in known_labels:
+            number += 1
+            label = "账号 %d" % number
+        accounts.append({"label": label, "scope": scope})
+        known_scopes.add(scope.casefold())
+        known_labels.add(label.casefold())
+        changed = True
+    if changed:
+        save_config(env.base, data)
+        raw = read_regular(config_path)
     return data, raw
+
+
+def normalize_resolutions(resolutions):
+    """Normalize v1 per-path and v2 per-session title choices."""
+    if not resolutions:
+        return {"paths": {}, "groups": {}}
+    if isinstance(resolutions, dict) and ("paths" in resolutions or "groups" in resolutions):
+        paths = resolutions.get("paths", {})
+        groups = resolutions.get("groups", {})
+    else:
+        paths, groups = resolutions, {}
+    allowed = {"source", "target", "skip"}
+    if not isinstance(paths, dict):
+        paths = {}
+    if not isinstance(groups, dict):
+        groups = {}
+    return {
+        "paths": {str(key): str(value) for key, value in paths.items() if str(value) in allowed},
+        "groups": {str(key): str(value) for key, value in groups.items()
+                   if isinstance(value, str) and value.strip()},
+    }
 
 
 def load_title_resolutions(path):
     if not path:
-        return {}
+        return normalize_resolutions({})
     value = json.loads(read_regular(Path(path)))
-    if not isinstance(value, dict) or value.get("version") != 1 or not isinstance(value.get("choices"), dict):
+    if not isinstance(value, dict) or value.get("version") not in (1, 2):
         raise ValueError("标题选择文件格式无法识别。")
-    allowed = {"source", "target", "skip"}
-    choices = {str(k): str(v) for k, v in value["choices"].items() if str(v) in allowed}
-    return choices
+    if value.get("version") == 1:
+        choices = value.get("choices")
+        if not isinstance(choices, dict):
+            raise ValueError("标题选择文件格式无法识别。")
+        return normalize_resolutions(choices)
+    if not isinstance(value.get("groups", {}), dict) or not isinstance(value.get("choices", {}), dict):
+        raise ValueError("标题选择文件格式无法识别。")
+    return normalize_resolutions({"paths": value.get("choices", {}), "groups": value.get("groups", {})})
 
 
 def take_snapshot(env, accounts):
-    """Include all orgs' deletion markers and membership under both accounts."""
+    """Include all configured organizations' deletion markers and membership."""
     plain_directory(env.root)
     files, directories = {}, {}
     for account in accounts:
@@ -239,6 +300,7 @@ def build_plan(env, resolutions=None):
     cfg, cfg_raw = config(env)
     tool_state = load_tool_state(env)
     accounts = cfg["accounts"]
+    normalized_resolutions = normalize_resolutions(resolutions)
     snapshot = take_snapshot(env, accounts)
     records, archived, tombstones = {}, {}, {}
     others = []
@@ -266,8 +328,10 @@ def build_plan(env, resolutions=None):
                 validate_record(p.name, data)
                 records[scope][p.name] = data
             elif not p.name.startswith("deleted_") and p.name != "scheduled-tasks.json":
-                others.append({"account": account["label"], "filename": p.name,
+                label = next(a["label"] for a in accounts if a["scope"] == scope)
+                others.append({"account": label, "filename": p.name,
                                "reason": "非普通本地 Code 索引，不同步"})
+
     plain_directory(env.projects)
     text_index = defaultdict(list)
     for path in env.projects.glob("*/*.jsonl"):
@@ -291,87 +355,151 @@ def build_plan(env, resolutions=None):
                         texts[session_id] = inspect_text(paths[0])
                     except (OSError, ValueError) as exc:
                         texts[session_id] = {"error": str(exc), "path": str(paths[0])}
-    entries, plan, title_actions, title_plan = [], [], [], []
+
     def is_archived(scope, data):
         return bool(data.get("isArchived")) or data["sessionId"] in archived[scope]
-    for source, target in ((accounts[0], accounts[1]), (accounts[1], accounts[0])):
-        ss, ts = source["scope"], target["scope"]
-        target_heads = {d["cliSessionId"]: (target_name, d) for target_name, d in records[ts].items()
-                        if UUID.fullmatch(str(d.get("cliSessionId", ""))) and not any(d.get(k) for k in REMOTE)}
-        planned_heads = set()
-        for name, data in sorted(records[ss].items()):
-            title = data.get("title") or "未命名会话"
-            entry = {"title": title, "source": source["label"], "target": target["label"],
-                     "source_path": ss + "/" + name, "cliSessionId": data.get("cliSessionId"),
-                     "notes": [], "status": "present"}
-            entries.append(entry)
-            same_pair = target_heads.get(data.get("cliSessionId"))
-            same_name, same = same_pair if same_pair else (None, None)
-            name_match = records[ts].get(name)
-            all_ids = (history_ids(data) if not any(data.get(k) for k in REMOTE) else set()) | {data["sessionId"], data["sessionId"][6:]}
-            if data.get("scheduledTaskId"):
-                entry["status"] = "scheduled"
-            elif is_archived(ss, data):
-                entry["status"] = "archived"
-            elif any(data.get(k) for k in REMOTE):
-                entry["status"] = "remote"
-            elif all_ids & (tombstones[ss] | tombstones[ts]):
-                entry["status"] = "deleted"
-            elif (same and is_archived(ts, same)) or (name_match and is_archived(ts, name_match)):
-                entry["status"] = "target_archived"
-            elif same:
-                if same.get("title") != title:
-                    action = make_title_action(
-                        data, same, source["label"], target["label"],
-                        ss + "/" + name, ts + "/" + same_name, tool_state, resolutions)
-                    title_actions.append(action)
-                    if action["status"] in ("safe", "normalize", "selected_source"):
-                        title_plan.append(action)
+
+    def text_errors(data):
+        return [(item, texts[item]["error"]) for item in sorted(history_ids(data))
+                if "error" in texts.get(item, {})]
+
+    all_tombstones = set().union(*(values for values in tombstones.values()))
+    records_by_cli = defaultdict(list)
+    for account in accounts:
+        scope = account["scope"]
+        for name, data in sorted(records[scope].items()):
+            cli_id = str(data.get("cliSessionId", ""))
+            if UUID.fullmatch(cli_id):
+                records_by_cli[cli_id].append({
+                    "account": account, "name": name, "data": data,
+                    "path": scope + "/" + name,
+                })
+
+    def source_for_target(candidates, target_scope):
+        available = [item for item in candidates if item["account"]["scope"] != target_scope]
+        if not available:
+            return None
+        for item in available:
+            data = item["data"]
+            all_ids = (history_ids(data) if not any(data.get(k) for k in REMOTE) else set())
+            if (data.get("scheduledTaskId") or is_archived(item["account"]["scope"], data)
+                    or any(data.get(k) for k in REMOTE) or all_ids & all_tombstones
+                    or not isinstance(data.get("cwd"), str) or not Path(data["cwd"]).is_dir()
+                    or text_errors(data)):
+                continue
+            return item
+        return available[0]
+
+    title_candidates = defaultdict(dict)
+    for cli_id, candidates in records_by_cli.items():
+        for item in candidates:
+            scope = item["account"]["scope"]
+            candidate = title_candidate(item["data"], item["account"]["label"], scope, item["path"], tool_state)
+            title_candidates[cli_id].setdefault(scope, candidate)
+    title_groups = []
+    title_actions, title_plan = [], []
+    group_actions_by_path = {}
+    title_group_by_cli = {}
+    for cli_id, by_scope in sorted(title_candidates.items()):
+        if len(by_scope) < 2:
+            continue
+        group = make_title_group(cli_id, list(by_scope.values()), tool_state, normalized_resolutions)
+        title_group_by_cli[cli_id] = group
+        if group["status"] != "same" or group["actions"]:
+            title_groups.append({key: value for key, value in group.items() if key != "actions"})
+        for action in group["actions"]:
+            if action["status"] != "same":
+                title_actions.append(action)
+                group_actions_by_path[action["target_path"]] = action
+                if action["status"] in ("safe", "normalize", "selected_source"):
+                    title_plan.append(action)
+
+    entries, plan = [], []
+    planned_targets = {}
+    for cli_id, candidates in sorted(records_by_cli.items()):
+        for target in accounts:
+            target_scope = target["scope"]
+            target_matches = [item for item in candidates
+                              if item["account"]["scope"] == target_scope]
+            target_item = target_matches[0] if target_matches else None
+            source_item = source_for_target(candidates, target_scope)
+            if source_item is None:
+                continue
+            source = source_item["account"]
+            data = source_item["data"]
+            source_scope = source["scope"]
+            title_group = title_group_by_cli.get(cli_id, {})
+            title = title_group.get("selected_title") or data.get("title") or "未命名会话"
+            target_path_existing = target_scope + "/" + target_item["name"] if target_item else None
+            entry = {
+                "title": title,
+                "source": source["label"],
+                "target": target["label"],
+                "source_path": source_scope + "/" + source_item["name"],
+                "cliSessionId": cli_id,
+                "notes": [],
+                "status": "present" if target_item else "add",
+            }
+            if target_item:
+                if is_archived(target_scope, target_item["data"]):
+                    entry["status"] = "target_archived"
+                action = group_actions_by_path.get(target_path_existing)
+                if action:
                     entry["title_action"] = action["status"]
                     entry["title"] = action["source_title"]
                     entry["notes"].extend(action["notes"])
                     entry["notes"].append("当前：%s；目标：%s" %
                                          (action["source_title"], action["target_title"]))
-            elif data["cliSessionId"] in planned_heads:
-                entry["status"] = "planned"
-            elif not Path(data["cwd"]).is_dir():
-                entry["status"] = "missing_project"
-                entry["notes"].append(data["cwd"])
             else:
-                errors = [(i, texts[i]["error"]) for i in sorted(history_ids(data)) if "error" in texts[i]]
-                if errors:
-                    entry["status"] = "missing_text" if all(e == "缺少正文" for _, e in errors) else "bad_text"
-                    entry["notes"].extend(i + "：" + e for i, e in errors)
-                    continue
-                dest_name, copied_title, dest_id = name, None, None
-                if name_match:
-                    # Two heads are kept separately; never choose a winner from timestamps.
-                    dest_id = "local_" + str(uuid.uuid5(uuid.NAMESPACE_URL,
-                                "claude-session-sync:" + ts + ":" + data["cliSessionId"]))
-                    dest_name = dest_id + ".json"
-                    copied_title = None
-                    entry["status"] = "branch"
-                    entry["notes"].append("原入口指向不同正文；保留原入口，新增同名分支入口")
-                else:
-                    entry["status"] = "add"
-                target_path = ts + "/" + dest_name
-                generated_ids = {dest_name[:-5], dest_name[6:-5]}
-                if generated_ids & (tombstones[ss] | tombstones[ts]):
+                all_ids = (history_ids(data) if not any(data.get(k) for k in REMOTE) else set())
+                if data.get("scheduledTaskId"):
+                    entry["status"] = "scheduled"
+                elif is_archived(source_scope, data):
+                    entry["status"] = "archived"
+                elif any(data.get(k) for k in REMOTE):
+                    entry["status"] = "remote"
+                elif all_ids & all_tombstones:
                     entry["status"] = "deleted"
-                    continue
-                if dest_name[:-5] in archived[ts]:
-                    entry["status"] = "target_archived"
-                    continue
-                if target_path in snapshot.files:
-                    entry["status"] = "id_collision"
-                    continue
-                raw = portable_record(data, dest_id, copied_title)
-                entry["target_path"] = target_path
-                entry["copied_title"] = title
-                entry["dropped_fields"] = sorted(set(data) - PORTABLE)
-                plan.append({"entry": entry, "raw": raw})
-                planned_heads.add(data["cliSessionId"])
-            for session_id in sorted(all_ids - {data["sessionId"], data["sessionId"][6:]}):
+                elif not isinstance(data.get("cwd"), str) or not Path(data["cwd"]).is_dir():
+                    entry["status"] = "missing_project"
+                    entry["notes"].append(data.get("cwd", ""))
+                else:
+                    errors = text_errors(data)
+                    if errors:
+                        entry["status"] = "missing_text" if all(error == "缺少正文" for _, error in errors) else "bad_text"
+                        entry["notes"].extend(item + "：" + error for item, error in errors)
+                    else:
+                        name_match = records[target_scope].get(source_item["name"])
+                        destination_id = None
+                        destination_name = source_item["name"]
+                        if name_match:
+                            destination_id = "local_" + str(uuid.uuid5(
+                                uuid.NAMESPACE_URL,
+                                "claude-session-sync:" + target_scope + ":" + cli_id))
+                            destination_name = destination_id + ".json"
+                            entry["status"] = "branch"
+                            entry["notes"].append("原入口文件名已被另一正文使用；保留原入口，新增分支入口")
+                        target_path = target_scope + "/" + destination_name
+                        if (target_scope, cli_id) in planned_targets:
+                            entry["status"] = "planned"
+                            entry["target_path"] = planned_targets[(target_scope, cli_id)]
+                        else:
+                            generated_ids = {destination_name[:-5], destination_name[6:-5]}
+                            if generated_ids & all_tombstones:
+                                entry["status"] = "deleted"
+                            elif destination_name[:-5] in archived[target_scope]:
+                                entry["status"] = "target_archived"
+                            elif target_path in snapshot.files:
+                                entry["status"] = "id_collision"
+                            else:
+                                raw = portable_record(data, destination_id, title)
+                                entry["target_path"] = target_path
+                                entry["copied_title"] = title
+                                entry["dropped_fields"] = sorted(set(data) - PORTABLE)
+                                plan.append({"entry": entry, "raw": raw})
+                                planned_targets[(target_scope, cli_id)] = target_path
+            all_ids = (history_ids(data) if not any(data.get(k) for k in REMOTE) else set())
+            for session_id in sorted(all_ids - {data.get("sessionId"), str(data.get("sessionId", ""))[6:]}):
                 text = texts.get(session_id, {})
                 if "error" in text and entry["status"] == "present":
                     entry["notes"].append("已有入口的正文风险：" + session_id + " / " + text["error"])
@@ -384,16 +512,45 @@ def build_plan(env, resolutions=None):
                     entry["notes"].append(note)
             entry["cloud_links_omitted"] = any(data.get(k) for k in
                 ("publishedArtifacts", "bridgeSessionIds", "enabledMcpTools", "remoteMcpServersConfig"))
-    counts = {a["label"]: {"all_local": len(records[a["scope"]]),
-              "ordinary": sum(not d.get("scheduledTaskId") and not is_archived(a["scope"], d) and not any(d.get(k) for k in REMOTE)
-                              for d in records[a["scope"]].values()),
-              "will_add": sum(p["entry"]["target"] == a["label"] for p in plan),
-              "will_update_titles": sum(p["target"] == a["label"] for p in title_plan)} for a in accounts}
+            entries.append(entry)
+
+    # A remote record may intentionally omit cliSessionId/cwd. Keep one
+    # visible skip row for it even though it cannot participate in the union
+    # keyed by a local transcript head.
+    for account in accounts:
+        scope = account["scope"]
+        for name, data in sorted(records[scope].items()):
+            if UUID.fullmatch(str(data.get("cliSessionId", ""))):
+                continue
+            for target in accounts:
+                if target["scope"] == scope:
+                    continue
+                status = "remote" if any(data.get(k) for k in REMOTE) else "missing_text"
+                entries.append({
+                    "title": data.get("title") or "未命名会话",
+                    "source": account["label"], "target": target["label"],
+                    "source_path": scope + "/" + name,
+                    "cliSessionId": data.get("cliSessionId"), "notes": [],
+                    "status": status,
+                    "cloud_links_omitted": True,
+                })
+
+    counts = {}
+    for account in accounts:
+        scope = account["scope"]
+        counts[account["label"]] = {
+            "all_local": len(records[scope]),
+            "ordinary": sum(not d.get("scheduledTaskId") and not is_archived(scope, d)
+                            and not any(d.get(k) for k in REMOTE)
+                            for d in records[scope].values()),
+            "will_add": sum(item["entry"].get("target") == account["label"] for item in plan),
+            "will_update_titles": sum(item.get("target") == account["label"] for item in title_plan),
+        }
     return {"config": cfg, "config_raw": cfg_raw, "snapshot": snapshot,
             "records": records, "entries": entries, "plan": plan,
-            "title_actions": title_actions, "title_plan": title_plan, "texts": texts,
-            "counts": counts, "other_files": others, "tool_state": tool_state}
-
+            "title_actions": title_actions, "title_plan": title_plan,
+            "title_groups": title_groups, "texts": texts, "counts": counts,
+            "other_files": others, "tool_state": tool_state}
 
 def preflight(env):
     blockers, warnings = [], []
@@ -598,7 +755,7 @@ def render(scan, state, result=None, error=None):
                       "  不覆盖旧入口；标题只按安全规则更新，收藏/归档不改，不合并两条分支。",
                       "  不迁移普通 Chat、Cowork、云端/SSH 会话、Artifact、评论监控、连接器、定时任务或登录凭证。",
                       "  这些云端资源需要原账号访问，或在新账号重新发布/连接；正文中的旧引用仍可能报错。",
-                      "  删除/归档/定时任务等记录会保留差异，因此两个账号的总数未必相同。",
+                      "  删除/归档/定时任务等记录会保留差异，因此多个账号的总数未必相同。",
                       "  正文已检查存在、非空、首尾抽样和文件状态；未完整解析全文，不能保证应用显示每条旧消息。",
                       "  应用里的可见性、实际续聊及云端权限：仍需你打开后确认。"])
     lines.append("")
@@ -642,7 +799,7 @@ def save_report(env, scan, state, result=None, error=None, directory=None):
     if scan:
         for action in scan.get("title_actions", []):
             public_titles.append({k: v for k, v in action.items() if k not in ("raw", "before_raw")})
-    public_scan = ({k: scan[k] for k in ("entries", "counts", "texts", "other_files")} |
+    public_scan = ({k: scan[k] for k in ("entries", "counts", "texts", "other_files", "title_groups")} |
                    {"title_actions": public_titles}) if scan else None
     data = {"tool_version": VERSION, "time": now().isoformat(), "preflight": state,
             "scan": public_scan, "result": result, "error": error}
@@ -688,7 +845,7 @@ def close_claude_and_wait(env):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="检查、预览和手动补齐两个账号的本地 Claude Desktop Code 会话。默认先检查，再由你选择。")
+    parser = argparse.ArgumentParser(description="检查、预览和手动补齐多个账号的本地 Claude Desktop Code 会话。默认先检查，再由你选择。")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true", help="只检查并保存逐条报告，不写 Claude 数据")
     mode.add_argument("--sync", action="store_true", help="通过检查后同步并验证；不等待输入，不启动 Claude")

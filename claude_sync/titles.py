@@ -95,6 +95,144 @@ def title_update_record(target, source):
     return encode(copied)
 
 
+def title_candidate(data, label, scope, path, tool_state=None):
+    """Return the display and provenance facts used by a multi-account group."""
+    raw_title = data.get("title") or "未命名会话"
+    legacy = legacy_branch_title(data, tool_state)
+    return {
+        "label": label,
+        "scope": scope,
+        "path": path,
+        "data": data,
+        "title": legacy or raw_title,
+        "origin": title_origin(data, tool_state),
+        "legacy": legacy is not None,
+    }
+
+
+def _selected_scope(cli_session_id, candidates, resolutions):
+    """Resolve a group choice, including the old per-path v1 format."""
+    resolutions = resolutions or {}
+    groups = resolutions.get("groups", {}) if isinstance(resolutions, dict) else {}
+    paths = resolutions.get("paths", {}) if isinstance(resolutions, dict) else {}
+    selected = groups.get(cli_session_id)
+    if selected in (None, "skip"):
+        selected = None if selected != "skip" else "skip"
+    if selected not in (None, "skip"):
+        for candidate in candidates:
+            if selected in (candidate["scope"], candidate["label"]):
+                return candidate["scope"]
+        return None
+    if selected == "skip":
+        return "skip"
+    inferred = set()
+    if paths:
+        for candidate in candidates:
+            choice = paths.get(candidate["path"])
+            if choice == "target":
+                inferred.add(candidate["scope"])
+            elif choice == "source":
+                others = [other for other in candidates if other["scope"] != candidate["scope"]]
+                if len(others) == 1:
+                    inferred.add(others[0]["scope"])
+        if len(inferred) == 1:
+            return next(iter(inferred))
+    return None
+
+
+def make_title_group(cli_session_id, candidates, tool_state=None, resolutions=None):
+    """Build one title decision group and its per-account update actions.
+
+    A group is the unit shown in the GUI. It lets a user choose any account's
+    hand-written title once, then applies that decision to every other account
+    that needs the same title. The returned actions remain per target path so
+    backup, atomic replacement, and verification stay unchanged.
+    """
+    candidates = sorted(candidates, key=lambda item: item["scope"])
+    effective_titles = {candidate["title"] for candidate in candidates}
+    manual_titles = {candidate["title"] for candidate in candidates if candidate["origin"] == "manual"}
+    if len(effective_titles) <= 1:
+        chosen_scope = next((candidate["scope"] for candidate in candidates if not candidate["legacy"]), candidates[0]["scope"])
+        group_status = "normalize" if any(candidate["legacy"] for candidate in candidates) else "same"
+    elif len(manual_titles) == 1:
+        chosen_scope = next(candidate["scope"] for candidate in candidates if candidate["title"] in manual_titles)
+        group_status = "safe"
+    elif len(manual_titles) > 1:
+        chosen_scope = _selected_scope(cli_session_id, candidates, resolutions)
+        group_status = "conflict"
+    else:
+        chosen_scope = None
+        group_status = "auto_difference"
+    if group_status == "conflict" and chosen_scope == "skip":
+        chosen_scope = None
+    chosen = next((candidate for candidate in candidates if candidate["scope"] == chosen_scope), None)
+    actions = []
+    for candidate in candidates:
+        if group_status == "same" and not candidate["legacy"]:
+            continue
+        default_source = next((other for other in candidates if other["scope"] != candidate["scope"]), candidates[0])
+        source = chosen or default_source
+        target_title = candidate["title"]
+        source_title = source["title"]
+        action = {
+            "source": source["label"],
+            "target": candidate["label"],
+            "source_scope": source["scope"],
+            "target_scope": candidate["scope"],
+            "source_path": source["path"],
+            "target_path": candidate["path"],
+            "source_title": source_title,
+            "target_title": target_title,
+            "source_title_source": source["data"].get("titleSource") or "auto",
+            "target_title_source": candidate["data"].get("titleSource") or "auto",
+            "source_origin": source["origin"],
+            "target_origin": candidate["origin"],
+            "cliSessionId": cli_session_id,
+            "notes": [],
+        }
+        if group_status == "normalize":
+            if not candidate["legacy"] and target_title == source_title:
+                continue
+            action["status"] = "normalize"
+            action["notes"].append("去掉旧的同步分支标记，标题恢复为统一文本")
+            normalized = dict(source["data"])
+            normalized["title"] = source_title
+            normalized["titleSource"] = "user"
+            action["raw"] = title_update_record(candidate["data"], normalized)
+        elif group_status == "safe":
+            if target_title == source_title and not candidate["legacy"]:
+                action["status"] = "same"
+            else:
+                action["status"] = "safe"
+                action["notes"].append("唯一手动标题优先于自动标题；只更新需要统一的账号")
+                action["raw"] = title_update_record(candidate["data"], source["data"])
+        elif group_status == "auto_difference":
+            action["status"] = "auto_difference"
+            action["notes"].append("两边都是自动标题；多个账号时同样不根据活动时间猜测")
+        elif group_status == "conflict":
+            if chosen is None:
+                action["status"] = "conflict"
+                action["notes"].append("多个账号都有不同的手动标题，等待选择")
+            elif candidate["scope"] == chosen["scope"] and target_title == source_title and not candidate["legacy"]:
+                action["status"] = "selected_target"
+                action["notes"].append("已选择此账号标题；此账号不需要改写")
+            else:
+                action["status"] = "selected_source"
+                action["notes"].append("已选择此账号标题，更新其他需要统一的账号")
+                action["raw"] = title_update_record(candidate["data"], source["data"])
+        actions.append(action)
+    options = [{key: candidate[key] for key in ("label", "scope", "title", "origin", "legacy")}
+               for candidate in candidates]
+    return {
+        "cliSessionId": cli_session_id,
+        "status": "conflict" if group_status == "conflict" and chosen is None else group_status,
+        "choice": chosen_scope,
+        "selected_title": chosen["title"] if chosen else None,
+        "options": options,
+        "actions": actions,
+    }
+
+
 def make_title_action(source, target, source_scope, target_scope, source_path, target_path,
                       tool_state=None, resolutions=None):
     source_title = source.get("title") or "未命名会话"

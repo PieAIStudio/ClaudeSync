@@ -16,7 +16,7 @@ import tempfile
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from claude_sync.configuration import build_config, save_config
+from claude_sync.configuration import MAX_ACCOUNTS, build_config_for_accounts, discover_config, save_config
 from claude_sync.platforms import Environment, reopen_claude, runtime_base
 from claude_sync.i18n import LANGUAGES, load as load_language, save as save_language, text as tr
 from claude_sync.storage import encode
@@ -35,14 +35,28 @@ class ClaudeSyncGUI(tk.Tk):
         self.configure_styles()
         self.language = load_language(BASE)
         self.actions = []
+        self.title_groups = []
         self.choices = {}
+        self.account_rows = []
         self.process = None
         self.vars = {}
-        if setup or not (BASE / "config.json").exists():
+        if setup:
+            self.show_setup()
+        elif not (BASE / "config.json").exists() and not self.try_auto_configure():
             self.show_setup()
         else:
             self.show_main()
             self.after(120, self.check)
+
+    def try_auto_configure(self):
+        """Use visible local scopes as the default; setup is the fallback."""
+        try:
+            env = Environment(BASE)
+            data = discover_config(env.root, env.projects)
+            save_config(BASE, data)
+            return True
+        except (OSError, ValueError):
+            return False
 
     def t(self, key):
         return tr(self.language, key)
@@ -86,17 +100,21 @@ class ClaudeSyncGUI(tk.Tk):
         language_menu.pack(side="right")
         language_menu.bind("<<ComboboxSelected>>", self.change_language)
         ttk.Label(outer, text=self.t("setup"), style="Title.TLabel").pack(anchor="w")
-        ttk.Label(outer, text="告诉工具两个账号的本地索引目录。工具只读取这些目录和 ~/.claude/projects，不会读取密码、Cookie 或云端。", style="Muted.TLabel", wraplength=850).pack(anchor="w", pady=(8, 22))
+        ttk.Label(outer, text=self.t("setup_hint"), style="Muted.TLabel", wraplength=850).pack(anchor="w", pady=(8, 22))
         card = ttk.LabelFrame(outer, text="1 · 选择本机目录", style="Card.TLabelframe")
         card.pack(fill="x", anchor="n")
-        self.vars = {name: tk.StringVar() for name in ("session_root", "account_a", "account_b", "projects_root", "label_a", "label_b")}
-        self.vars["label_a"].set("账号 A")
-        self.vars["label_b"].set("账号 B")
+        self.vars = {name: tk.StringVar() for name in ("session_root", "projects_root")}
+        existing = {}
+        try:
+            existing = json.loads((BASE / "config.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+        session_root = existing.get("session_root", "") if isinstance(existing, dict) else ""
+        self.vars["session_root"].set(session_root)
+        self.vars["projects_root"].set(existing.get("projects_root", "") if isinstance(existing, dict) else "")
         fields = [
-            ("会话索引根目录", "session_root", "选择包含两个账号目录的 claude-code-sessions 文件夹"),
-            ("账号 A 目录", "account_a", "选择根目录下的 组织 UUID/账号 UUID 文件夹"),
-            ("账号 B 目录", "account_b", "选择另一个账号的同级文件夹"),
-            ("正文目录", "projects_root", "默认使用 ~/.claude/projects；如你改过 CLAUDE_CONFIG_DIR，再选择对应 projects 文件夹"),
+            (self.t("session_root"), "session_root", self.t("session_root_help")),
+            (self.t("projects_root"), "projects_root", self.t("projects_root_help")),
         ]
         for row, (label, key, help_text) in enumerate(fields):
             ttk.Label(card, text=label, width=16).grid(row=row, column=0, sticky="w", pady=7)
@@ -105,17 +123,57 @@ class ClaudeSyncGUI(tk.Tk):
             ttk.Label(card, text=help_text, style="Muted.TLabel").grid(row=row, column=3, sticky="w", padx=(12, 0), pady=7)
         card.columnconfigure(1, weight=1)
         ttk.Separator(outer).pack(fill="x", pady=20)
-        names = ttk.LabelFrame(outer, text="2 · 给两个账号起容易认的名字", style="Card.TLabelframe")
-        names.pack(fill="x", anchor="n")
-        ttk.Label(names, text="账号 A").grid(row=0, column=0, sticky="w", pady=7)
-        ttk.Entry(names, textvariable=self.vars["label_a"], width=28).grid(row=0, column=1, sticky="w", padx=8)
-        ttk.Label(names, text="账号 B").grid(row=1, column=0, sticky="w", pady=7)
-        ttk.Entry(names, textvariable=self.vars["label_b"], width=28).grid(row=1, column=1, sticky="w", padx=8)
-        ttk.Label(outer, text="保存后工具会先做只读检查。没有点击“同步安全项”或“关闭 Claude 并同步”，不会改会话文件。", style="Muted.TLabel", wraplength=850).pack(anchor="w", pady=(22, 10))
+        accounts_box = ttk.LabelFrame(outer, text=self.t("accounts_section"), style="Card.TLabelframe")
+        accounts_box.pack(fill="x", anchor="n")
+        self.account_rows = []
+        loaded_accounts = existing.get("accounts", []) if isinstance(existing, dict) else []
+        for account in loaded_accounts if isinstance(loaded_accounts, list) else []:
+            if isinstance(account, dict):
+                root = Path(session_root).expanduser() if session_root else Path()
+                self.account_rows.append({
+                    "label": tk.StringVar(value=str(account.get("label", ""))),
+                    "path": tk.StringVar(value=str(root / account["scope"]) if account.get("scope") else ""),
+                })
+        while len(self.account_rows) < 2:
+            index = len(self.account_rows)
+            self.account_rows.append({"label": tk.StringVar(value=self.t("account_prefix") + " " + str(index + 1)), "path": tk.StringVar()})
+        self.accounts_box = accounts_box
+        self.render_account_rows()
+        ttk.Button(outer, text=self.t("add_account"), command=self.add_account_row).pack(anchor="w", pady=(8, 0))
+        ttk.Label(outer, text=self.t("setup_saved_hint"), style="Muted.TLabel", wraplength=850).pack(anchor="w", pady=(22, 10))
         buttons = ttk.Frame(outer)
         buttons.pack(anchor="w")
         ttk.Button(buttons, text=self.t("save_setup"), style="Accent.TButton", command=self.save_setup).pack(side="left")
         ttk.Button(buttons, text=self.t("exit"), command=self.destroy).pack(side="left", padx=10)
+
+    def render_account_rows(self):
+        for child in self.accounts_box.winfo_children():
+            child.destroy()
+        for row, values in enumerate(self.account_rows):
+            ttk.Label(self.accounts_box, text=self.t("account_prefix") + " %d" % (row + 1), width=9).grid(row=row, column=0, sticky="w", pady=6)
+            ttk.Entry(self.accounts_box, textvariable=values["label"], width=18).grid(row=row, column=1, sticky="w", padx=(0, 8), pady=6)
+            ttk.Entry(self.accounts_box, textvariable=values["path"], width=72).grid(row=row, column=2, sticky="ew", pady=6)
+            ttk.Button(self.accounts_box, text=self.t("choose"), command=lambda item=values: self.choose_account(item)).grid(row=row, column=3, padx=8, pady=6)
+        self.accounts_box.columnconfigure(2, weight=1)
+
+    def add_account_row(self):
+        if len(self.account_rows) >= MAX_ACCOUNTS:
+            messagebox.showinfo("账号数量", "账号目录过多；请缩小索引根目录范围后再添加。")
+            return
+        index = len(self.account_rows)
+        self.account_rows.append({"label": tk.StringVar(value=self.t("account_prefix") + " " + str(index + 1)), "path": tk.StringVar()})
+        self.render_account_rows()
+
+    def remove_account_row(self, index):
+        if len(self.account_rows) <= 2:
+            return
+        self.account_rows.pop(index)
+        self.render_account_rows()
+
+    def choose_account(self, values):
+        chosen = filedialog.askdirectory(title=self.t("choose_account"))
+        if chosen:
+            values["path"].set(chosen)
 
     def choose(self, key):
         chosen = filedialog.askdirectory(title="选择 " + key)
@@ -124,10 +182,11 @@ class ClaudeSyncGUI(tk.Tk):
 
     def save_setup(self):
         try:
-            data = build_config(
-                self.vars["session_root"].get(), self.vars["account_a"].get(),
-                self.vars["account_b"].get(), self.vars["projects_root"].get(),
-                self.vars["label_a"].get(), self.vars["label_b"].get())
+            data = build_config_for_accounts(
+                self.vars["session_root"].get(),
+                [{"path": values["path"].get(), "label": values["label"].get()}
+                 for values in self.account_rows],
+                self.vars["projects_root"].get())
             save_config(BASE, data)
         except (OSError, ValueError) as exc:
             messagebox.showerror("设置未保存", str(exc))
@@ -148,7 +207,7 @@ class ClaudeSyncGUI(tk.Tk):
         ttk.Label(top, text=self.t("language")).pack(side="right", padx=(8, 4))
         ttk.Label(top, text=self.t("app"), style="Title.TLabel").pack(side="left")
         ttk.Label(top, text=self.t("subtitle"), style="Muted.TLabel").pack(side="left", padx=16, pady=7)
-        ttk.Button(top, text="修改目录设置", command=self.show_setup).pack(side="right")
+        ttk.Button(top, text=self.t("settings"), command=self.show_setup).pack(side="right")
 
         status = ttk.LabelFrame(outer, text=self.t("status"), style="Card.TLabelframe")
         status.pack(fill="x", pady=(16, 10))
@@ -163,13 +222,13 @@ class ClaudeSyncGUI(tk.Tk):
         metrics = ttk.Frame(outer)
         metrics.pack(fill="x", pady=(0, 10))
         self.metric_vars = {}
-        for key, label in (("add", "可新增会话"), ("title", "可更新标题"), ("conflict", "标题需选择"), ("skip", "本次跳过")):
+        for key, label in zip(("add", "title", "conflict", "skip"), self.t("metrics")):
             card = ttk.LabelFrame(metrics, text=label, style="Card.TLabelframe")
             card.pack(side="left", fill="x", expand=True, padx=(0, 8))
             var = tk.StringVar(value="—")
             self.metric_vars[key] = var
             ttk.Label(card, textvariable=var, style="Metric.TLabel").pack(anchor="w")
-        ttk.Label(outer, text="阅读顺序：先看状态，再看标题明细。标题冲突直接在表格右侧选择；只有两个同步按钮会写入本地索引。", style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
+        ttk.Label(outer, text=self.t("read_order"), style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
 
         title_box = ttk.LabelFrame(outer, text=self.t("title_detail"), style="Card.TLabelframe")
         title_box.pack(fill="both", expand=True, pady=(0, 10))
@@ -208,7 +267,7 @@ class ClaudeSyncGUI(tk.Tk):
             return
         self.set_busy(True)
         self.status_var.set(self.t("checking"))
-        self.detail_var.set("正在读取索引和正文；不会写入 Claude 数据。")
+        self.detail_var.set(self.t("checking_detail"))
         self.run_cli(["--check"], False)
 
     def confirm_sync(self, close_first):
@@ -216,16 +275,16 @@ class ClaudeSyncGUI(tk.Tk):
             messagebox.showinfo("没有检查结果", "请先点击“重新检查”。")
             return
         choices = self.make_resolutions()
-        summary = "本次会新增 %s 个入口，更新 %s 个安全标题，保留 %s 个标题冲突。" % tuple(self.metric_vars[k].get() for k in ("add", "title", "conflict"))
+        summary = self.t("sync_summary") % tuple(self.metric_vars[k].get() for k in ("add", "title", "conflict"))
         if close_first:
-            summary = "先请求 Claude 正常退出，等待它完全结束，再执行同步；完成后尝试重新打开。\n\n" + summary
-        if messagebox.askyesno("确认操作", summary + "\n\n不会复制聊天正文，不会登录或切换账号。"):
+            summary = self.t("close_summary") + "\n\n" + summary
+        if messagebox.askyesno(self.t("confirm_sync_title"), summary + "\n\n" + self.t("cloud_boundary")):
             self.set_busy(True)
             args = ["--close-sync" if close_first else "--sync"]
             if choices:
                 args += ["--title-resolutions", choices]
-            self.status_var.set("正在关闭 Claude…" if close_first else "正在同步…")
-            self.detail_var.set("正在做最后一次文件检查；请不要打开 Claude。")
+            self.status_var.set("正在关闭 Claude…" if close_first else self.t("syncing"))
+            self.detail_var.set(self.t("syncing_detail"))
             self.run_cli(args, close_first, choices)
         elif choices:
             try:
@@ -234,32 +293,14 @@ class ClaudeSyncGUI(tk.Tk):
                 pass
 
     def make_resolutions(self):
-        conflicts = [a for a in self.actions if a.get("status") == "conflict"]
+        conflicts = [group for group in self.title_groups if group.get("status") == "conflict"]
         if not conflicts:
             return None
-        grouped = {}
-        for action in conflicts:
-            grouped.setdefault(action.get("cliSessionId", "unknown"), []).append(action)
-        choices = {}
-        for session, actions in grouped.items():
-            selected = self.choices.get(session, "skip")
-            first = actions[0]
-            source = first.get("source", "")
-            target = first.get("target", "")
-            chosen = "source" if selected == source else "target" if selected == target else "skip"
-            for action in actions:
-                path = action.get("target_path")
-                if not path:
-                    continue
-                if chosen == "skip":
-                    choices[path] = "skip"
-                elif chosen == "source" and action.get("source") == selected:
-                    choices[path] = "source"
-                elif chosen == "target" and action.get("target") == selected:
-                    choices[path] = "target"
+        groups = {group.get("cliSessionId", "unknown"): self.choices.get(group.get("cliSessionId", "unknown"), "skip")
+                  for group in conflicts}
         fd, name = tempfile.mkstemp(prefix="claudesync-title-resolutions-", suffix=".json")
         with os.fdopen(fd, "wb") as stream:
-            stream.write(encode({"version": 1, "choices": choices}))
+            stream.write(encode({"version": 2, "groups": groups, "choices": {}}))
         return name
 
     def run_cli(self, args, close_first, resolution=None):
@@ -302,7 +343,7 @@ class ClaudeSyncGUI(tk.Tk):
             text = (BASE / "reports/latest.txt").read_text(encoding="utf-8")
         except (OSError, ValueError) as exc:
             self.set_busy(False)
-            self.status_var.set("检查未完成")
+            self.status_var.set(self.t("report_failed"))
             self.detail_var.set(str(exc))
             return
         self.set_report(text)
@@ -311,28 +352,29 @@ class ClaudeSyncGUI(tk.Tk):
         counts = scan.get("counts") or {}
         actions = scan.get("title_actions") or []
         self.actions = actions
+        self.title_groups = scan.get("title_groups") or []
         additions = sum(int(v.get("will_add", 0)) for v in counts.values())
         titles = sum(int(v.get("will_update_titles", 0)) for v in counts.values())
-        conflicts = len({a.get("cliSessionId") for a in actions if a.get("status") == "conflict"})
+        conflicts = len([group for group in self.title_groups if group.get("status") == "conflict"])
         entries = scan.get("entries") or []
         skipped = sum(e.get("status") not in {"add", "branch", "present", "planned"} for e in entries)
         for key, value in (("add", additions), ("title", titles), ("conflict", conflicts), ("skip", skipped)):
             self.metric_vars[key].set(str(value))
-        self.account_var.set("已检查账号：" + " / ".join(sorted(counts)) if counts else "")
+        self.account_var.set(self.t("account") + " / ".join(sorted(counts)) if counts else "")
         self.render_title_rows(actions)
         blockers = preflight.get("blockers") or []
         if verified and data.get("result", {}).get("verified"):
-            self.status_var.set("同步完成")
-            self.detail_var.set("本地索引已完成文件校验；请手动打开 Claude 检查列表。")
+            self.status_var.set(self.t("sync_complete"))
+            self.detail_var.set(self.t("sync_complete_detail"))
         elif blockers:
             self.status_var.set(self.t("need_close"))
-            self.detail_var.set(self.t("read_only") + " " + self.t("close_sync"))
+            self.detail_var.set(self.t("close_detail"))
         elif additions or titles:
             self.status_var.set(self.t("can_sync"))
             self.detail_var.set(self.t("conflict_hint"))
         else:
             self.status_var.set(self.t("no_work"))
-            self.detail_var.set("可继续查看报告中的跳过项和云端资源说明。")
+            self.detail_var.set(self.t("no_work_detail"))
         self.set_busy(False)
         self.close_button.configure(state="normal" if blockers else "disabled")
         self.sync_button.configure(state="normal" if not blockers and (additions or titles) else "disabled")
@@ -340,32 +382,54 @@ class ClaudeSyncGUI(tk.Tk):
     def render_title_rows(self, actions):
         for child in self.rows_frame.winfo_children():
             child.destroy()
-        headings = ["状态", "会话", "来源标题", "目标标题", "处理", "选择"]
-        widths = [14, 16, 28, 28, 22, 30]
+        groups = list(self.title_groups)
+        if not groups and actions:
+            fallback = {}
+            for action in actions:
+                key = action.get("cliSessionId", "unknown")
+                row = fallback.setdefault(key, {
+                    "cliSessionId": key,
+                    "status": action.get("status", ""),
+                    "options": [],
+                })
+                for label, title, scope in (
+                    (action.get("source", ""), action.get("source_title", ""), action.get("source_scope", "")),
+                    (action.get("target", ""), action.get("target_title", ""), action.get("target_scope", "")),
+                ):
+                    if label and not any(item.get("scope") == scope for item in row["options"]):
+                        row["options"].append({"label": label, "scope": scope, "title": title})
+            groups = list(fallback.values())
+        headings = self.t("table_headings")
+        widths = [14, 16, 70, 24, 40]
         for column, (heading, width) in enumerate(zip(headings, widths)):
-            ttk.Label(self.rows_frame, text=heading, font=("TkDefaultFont", 10, "bold"), width=width).grid(row=0, column=column, sticky="w", padx=5, pady=(4, 7))
-        seen_conflicts = set()
+            ttk.Label(self.rows_frame, text=heading, font=("TkDefaultFont", 10, "bold"),
+                      width=width).grid(row=0, column=column, sticky="w", padx=5, pady=(4, 7))
         visible_row = 1
-        for action in actions:
-            status = action.get("status", "")
-            session = action.get("cliSessionId", "")
-            if status == "conflict" and session in seen_conflicts:
-                continue
-            if status == "conflict":
-                seen_conflicts.add(session)
+        status_labels = self.t("title_status")
+        action_labels = self.t("title_action")
+        for group in groups:
+            status = group.get("status", "")
+            session = group.get("cliSessionId", "")
             row = visible_row
             visible_row += 1
-            labels = {"same": "标题一致", "safe": "可安全同步", "normalize": "可统一标题", "conflict": "需要选择", "auto_difference": "不猜测", "keep_target": "保留目标"}
-            action_text = {"same": "无变化", "safe": "将更新目标", "normalize": "去掉旧标记", "conflict": "两边都手动改过", "auto_difference": "两个都是自动标题", "keep_target": "保留目标标题"}
-            values = [labels.get(status, status), str(session)[:12] + "…", action.get("source_title", ""), action.get("target_title", ""), action_text.get(status, status)]
+            options = group.get("options") or []
+            titles = "；".join("%s：%s" % (item.get("label", ""), item.get("title", ""))
+                              for item in options)
+            values = [status_labels.get(status, status), str(session)[:12] + "…",
+                      titles, action_labels.get(status, status)]
             for column, value in enumerate(values):
-                ttk.Label(self.rows_frame, text=value, width=widths[column]).grid(row=row, column=column, sticky="w", padx=5, pady=3)
+                ttk.Label(self.rows_frame, text=value, width=widths[column]).grid(
+                    row=row, column=column, sticky="w", padx=5, pady=3)
             if status == "conflict":
-                variable = tk.StringVar(value=self.choices.get(session, "skip"))
+                variable = tk.StringVar(value=self.choices.get(session, group.get("choice") or "skip"))
                 self.choices[session] = variable.get()
-                for index, label in enumerate((action.get("source", "账号 A"), action.get("target", "账号 B"), "跳过")):
-                    ttk.Radiobutton(self.rows_frame, text=label, value=label, variable=variable,
-                                    command=lambda s=session, v=variable: self.choices.__setitem__(s, v.get())).grid(row=row, column=5, sticky="w", padx=(2 + index * 85, 0))
+                radio_options = [(item.get("scope", ""), item.get("label", "")) for item in options]
+                radio_options.append(("skip", self.t("skip")))
+                for index, (value, label) in enumerate(radio_options):
+                    ttk.Radiobutton(
+                        self.rows_frame, text=label, value=value, variable=variable,
+                        command=lambda s=session, v=variable: self.choices.__setitem__(s, v.get()),
+                    ).grid(row=row, column=4, sticky="w", padx=(2 + index * 88, 0))
 
     def set_busy(self, busy):
         state = "disabled" if busy else "normal"
@@ -377,7 +441,7 @@ class ClaudeSyncGUI(tk.Tk):
     def open_report(self):
         report = BASE / "reports/latest.txt"
         if not report.exists():
-            messagebox.showinfo("还没有报告", "请先检查。")
+            messagebox.showinfo(self.t("no_report"), self.t("check_first"))
             return
         if os.name == "nt":
             os.startfile(report)  # type: ignore[attr-defined]
@@ -389,7 +453,7 @@ class ClaudeSyncGUI(tk.Tk):
     def copy_report(self):
         self.clipboard_clear()
         self.clipboard_append(self.report_text.get("1.0", "end"))
-        self.status_var.set("摘要已复制")
+        self.status_var.set(self.t("summary_copied"))
 
 
 def main():

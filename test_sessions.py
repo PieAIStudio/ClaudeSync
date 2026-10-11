@@ -453,5 +453,106 @@ class ManualSyncTest(unittest.TestCase):
         self.assertEqual(len(list((self.base / "reports").glob("*/report.txt"))), 1)
 
 
+class MultiAccountSyncTest(unittest.TestCase):
+    """The union and title-choice behavior for three configured accounts."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.home = Path(self.tmp.name).resolve()
+        self.base = self.home / "tool"
+        self.base.mkdir()
+        self.env = sync.Environment(self.base, self.home, self.home / "Claude.app")
+        self.accounts = [{"label": "账号 %s" % letter,
+                          "scope": str(uuid.uuid4()) + "/" + str(uuid.uuid4())}
+                         for letter in ("A", "B", "C")]
+        (self.base / "config.json").write_bytes(sync.encode({"accounts": self.accounts}))
+        for account in self.accounts:
+            (self.env.root / account["scope"]).mkdir(parents=True)
+        self.project = self.home / "project"
+        self.project.mkdir()
+        (self.env.projects / "project").mkdir(parents=True)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def record(self, account=0, **values):
+        data = {"sessionId": "local_" + str(uuid.uuid4()), "cliSessionId": str(uuid.uuid4()),
+                "cwd": str(self.project), "title": "测试会话", "isArchived": False,
+                "createdAt": 123, "lastActivityAt": 456}
+        data.update(values)
+        path = self.env.root / self.accounts[account]["scope"] / (data["sessionId"] + ".json")
+        path.write_bytes(sync.encode(data))
+        transcript = self.env.projects / "project" / (data["cliSessionId"] + ".jsonl")
+        if not transcript.exists():
+            transcript.write_text('{"type":"user","message":{"content":"原始消息"}}\n', encoding="utf-8")
+        return path, data
+
+    def plan(self, resolutions=None):
+        return sync.build_plan(self.env, resolutions)
+
+    def apply(self, scan):
+        return sync.apply_plan(self.env, scan, guard=lambda: None)
+
+    def test_three_accounts_receive_a_deduplicated_union(self):
+        self.record(0, title="来自 A")
+        self.record(1, title="来自 B")
+        scan = self.plan()
+        self.assertEqual(len(scan["plan"]), 4)
+        self.assertEqual({label: value["will_add"] for label, value in scan["counts"].items()},
+                         {"账号 A": 1, "账号 B": 1, "账号 C": 2})
+        result = self.apply(scan)
+        self.assertTrue(result["verified"])
+        for account in self.accounts:
+            files = list((self.env.root / account["scope"]).glob("local_*.json"))
+            self.assertEqual(len(files), 2)
+        self.assertEqual(self.plan()["plan"], [])
+
+    def test_missing_config_is_auto_discovered_before_check(self):
+        (self.base / "config.json").unlink()
+        self.record(0, title="来自 A")
+        self.record(1, title="来自 B")
+        scan = self.plan()
+        self.assertTrue((self.base / "config.json").exists())
+        self.assertEqual(len(scan["config"]["accounts"]), 3)
+
+    def test_new_account_folder_is_discovered_on_a_later_check(self):
+        extra = self.env.root / str(uuid.uuid4()) / str(uuid.uuid4())
+        extra.mkdir(parents=True)
+        scan = self.plan()
+        self.assertEqual(len(scan["config"]["accounts"]), 4)
+        self.assertTrue(any(account["scope"] == "/".join(extra.relative_to(self.env.root).parts)
+                           for account in scan["config"]["accounts"]))
+
+    def test_three_account_title_conflict_can_choose_any_account(self):
+        _, first = self.record(0, title="A 的标题", titleSource="user")
+        self.record(1, cliSessionId=first["cliSessionId"], title="B 的标题", titleSource="user")
+        self.record(2, cliSessionId=first["cliSessionId"], title="C 的标题", titleSource="user")
+        initial = self.plan()
+        self.assertEqual(len(initial["title_groups"]), 1)
+        group = initial["title_groups"][0]
+        self.assertEqual({item["label"] for item in group["options"]}, {"账号 A", "账号 B", "账号 C"})
+        chosen = self.plan({"groups": {first["cliSessionId"]: self.accounts[2]["scope"]}})
+        self.assertEqual(len(chosen["title_plan"]), 2)
+        self.assertEqual({item["status"] for item in chosen["title_actions"]},
+                         {"selected_source", "selected_target"})
+        result = self.apply(chosen)
+        self.assertTrue(result["verified"])
+        for account in self.accounts:
+            path = next((self.env.root / account["scope"]).glob("local_*.json"))
+            self.assertEqual(json.loads(path.read_bytes())["title"], "C 的标题")
+
+    def test_selected_title_is_used_for_a_new_account_entry(self):
+        _, first = self.record(0, title="A 的标题", titleSource="user")
+        self.record(1, cliSessionId=first["cliSessionId"], title="B 的标题", titleSource="user")
+        chosen = self.plan({"groups": {first["cliSessionId"]: self.accounts[0]["scope"]}})
+        new_entry = next(item for item in chosen["plan"]
+                         if item["entry"]["target"] == "账号 C")
+        self.assertEqual(json.loads(new_entry["raw"])["title"], "A 的标题")
+        self.apply(chosen)
+        for account in self.accounts:
+            path = next((self.env.root / account["scope"]).glob("local_*.json"))
+            self.assertEqual(json.loads(path.read_bytes())["title"], "A 的标题")
+
+
 if __name__ == "__main__":
     unittest.main()
