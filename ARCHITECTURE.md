@@ -101,7 +101,7 @@ Linux 支持本地数据和 CLI/Desktop 进程检查；如果发行版没有 Des
 
 ```sh
 python -m unittest -v test_sessions test_platforms test_configuration
-python -m py_compile claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync/*.py
+python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
 ```
 
 macOS 原生窗口另需运行 `./build-macos-app.sh`。真实数据只做 `--check`，除非用户确认并且 Claude 已完全退出。

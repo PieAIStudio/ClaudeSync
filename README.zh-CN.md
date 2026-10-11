@@ -87,6 +87,6 @@ python sync_sessions.py --close-sync  # 请求正常退出后同步
 
 ```sh
 python -m unittest -v test_sessions test_platforms
-python -m py_compile sync_gui.py sync_sessions.py claude_sync/*.py
+python -m compileall -q sync_gui.py sync_sessions.py claude_sync
 ./build-macos-app.sh       # 可选：构建 Mac 原生窗口
 ```

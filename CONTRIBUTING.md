@@ -15,7 +15,7 @@ Before a pull request:
 
 ```sh
 python -m unittest -v test_sessions test_platforms test_configuration
-python -m py_compile claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync/*.py
+python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
 ```
 
 Tests use temporary directories only. Never run them against a real Claude data
