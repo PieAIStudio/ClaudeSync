@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Small cross-platform GUI for ClaudeSync.
 
-The Mac native AppKit window remains the default on this machine; this Tk GUI
-is the shared Windows/Linux entry and a portable fallback for macOS.
+This is the shared desktop entry for macOS, Windows, and Linux. Machines
+without Tk use the local browser fallback from ``sync_gui.py``.
 """
 from __future__ import annotations
 

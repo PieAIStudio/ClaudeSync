@@ -7,8 +7,8 @@ ClaudeSync 是一个本地、手动、可检查的多账号会话索引工具。
 | 入口 | 适用平台 | 作用 |
 | --- | --- | --- |
 | `ClaudeSync.app` | macOS（发布安装包） | 自带运行时的 GUI，不需要另装 Python |
-| `Sync.app` | macOS（本地构建） | 原生 AppKit 窗口；保留当前 Mac 使用体验 |
-| `Sync.command` | macOS | 优先打开发布 GUI；源码目录运行共享多账号 GUI；带参数时运行 CLI |
+| `Sync.app` | macOS（本地/发布入口） | 新版多账号 GUI；源码或自带运行时 |
+| `Sync.command` | macOS | 打开新版多账号 GUI；带参数时运行 CLI |
 | `Sync.bat` | Windows | 打开共享 Tk GUI |
 | `Sync.sh` | Linux | 打开共享 Tk GUI |
 | `python sync_gui.py` | 三个平台 | 共享 GUI；默认自动发现账号，补救时提供目录设置 |
@@ -29,14 +29,13 @@ ClaudeSync 是一个本地、手动、可检查的多账号会话索引工具。
 | `sync_gui.py` | 跨平台 GUI；优先使用 Tk，没有 Tk 时切换到本机浏览器 |
 | `sync_gui_tk.py` / `sync_web.py` | 三个平台 | 自动发现、补救设置、同页标题选择、报告和语言切换 |
 | `claude_sync/configuration.py` | 三个平台 | 账号发现、补救设置校验和原子保存 |
-| `SyncGUI.swift` | 可选的 macOS 原生 GUI；不复制同步规则 |
 | `Sync.command` / `Sync.bat` / `Sync.sh` | 各平台薄启动器 |
 | `test_sessions.py` | 临时目录中的会话安全、标题和报告测试 |
 | `test_platforms.py` | Windows 进程适配、路径注入、锁行为测试 |
 | `test_configuration.py` | 首次设置路径与原子配置测试 |
 | `config.example.json` | 不含个人数据的设置样例；真实 `config.json` 永不提交 |
 
-本地 `config.json`、`reports/`、`backups/`、`sync-state.json` 和 `Sync.app/` 被 `.gitignore` 排除。它们是机器状态或构建物，不是公共源码。
+本地 `config.json`、`reports/`、`backups/`、`sync-state.json`、`dist/` 和构建物被 `.gitignore` 排除。它们是机器状态或构建物，不是公共源码。
 
 ## 单向依赖
 
@@ -94,7 +93,7 @@ Linux 支持本地数据和 CLI/Desktop 进程检查；如果发行版没有 Des
 - 标题策略：`claude_sync/titles.py` + `test_sessions.py`。
 - 文件安全：`claude_sync/storage.py` 与 `apply_plan()`。
 - Windows/Linux 行为：`claude_sync/platforms.py` + `test_platforms.py`。
-- GUI 排版/选择：`sync_gui.py` 或 `SyncGUI.swift`；不要把同步规则复制进去。
+- GUI 排版/选择：`sync_gui.py`、`sync_gui_tk.py` 或 `sync_web.py`；不要把同步规则复制进去。
 - 命令或路径：同步更新启动器、README、样例配置和 CI。
 
 验证顺序：
@@ -104,7 +103,7 @@ python -m unittest -v test_sessions test_platforms test_configuration
 python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
 ```
 
-macOS 原生窗口另需运行 `./build-macos-app.sh`。真实数据只做 `--check`，除非用户确认并且 Claude 已完全退出。
+真实数据只做 `--check`，除非用户确认并且 Claude 已完全退出。
 
 ## 已知盲点
 

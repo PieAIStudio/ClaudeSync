@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.2 — 2026-10-11
+
+- Removed the obsolete native AppKit entry and build recipe.
+- Made the Sync.app entry use the shared multi-account GUI.
+
 ## 1.3.1 — 2026-10-11
 
 - Localized automatically generated account labels when switching the Tk GUI language.

@@ -9,8 +9,8 @@ case "$arch" in
 esac
 "$python_bin" -c 'import shutil, sys; [shutil.rmtree(path, ignore_errors=True) for path in sys.argv[1:] if __import__("os").path.isdir(path)]' "$base/dist/macos"
 # The release app is a self-contained PyInstaller bundle: users do not need a
-# separate Python installation. The source tree still keeps the native AppKit
-# build for local Mac development.
+# separate Python installation. The source tree uses the same shared GUI on Mac,
+# Windows, and Linux.
 CLAUDESYNC_PYTHON="$python_bin" "$base/packaging/build-portable.sh"
 out="$base/dist/macos/ClaudeSync"
 mkdir -p "$out"

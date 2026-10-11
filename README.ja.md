@@ -4,7 +4,7 @@
 
 [English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · [Português](README.pt-BR.md)
 
-ClaudeSync は、同じコンピューターで使う **2 つ以上の Claude アカウント** のローカル Claude Code セッション一覧を整理します。アカウントフォルダーを自動検出し、計画を表示し、タイトルの衝突を同じ画面で選択してから、Claude の終了後に書き込みます。**役割：**現在は無料共有・自用優先。**技術：**Python デスクトップ GUI/CLI とローカルブラウザー。**状態：**v1.3.1 公開済み。
+ClaudeSync は、同じコンピューターで使う **2 つ以上の Claude アカウント** のローカル Claude Code セッション一覧を整理します。アカウントフォルダーを自動検出し、計画を表示し、タイトルの衝突を同じ画面で選択してから、Claude の終了後に書き込みます。**役割：**現在は無料共有・自用優先。**技術：**Python デスクトップ GUI/CLI とローカルブラウザー。**状態：**v1.3.2 公開済み。
 
 ![ClaudeSync の画面](docs/images/claudesync-preview.ja.svg)
 

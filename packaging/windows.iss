@@ -1,4 +1,4 @@
-#define AppVersion "1.3.1"
+#define AppVersion "1.3.2"
 [Setup]
 AppId={{A8AFB7E0-2B08-4E20-8B45-110011001100}
 AppName=ClaudeSync
