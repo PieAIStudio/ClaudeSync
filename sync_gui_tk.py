@@ -12,12 +12,14 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from claude_sync.configuration import build_config, save_config
 from claude_sync.platforms import Environment, reopen_claude, runtime_base
 from claude_sync.i18n import LANGUAGES, load as load_language, save as save_language, text as tr
+from claude_sync.storage import encode
 
 BASE = runtime_base()
 PYTHON = sys.executable

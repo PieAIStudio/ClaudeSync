@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2 — 2026-10-11
+
+- Fixed title-conflict choices in the shared Tk GUI on Windows and Linux.
+- Added a smoke check for the conflict-resolution file path.
+
 ## 1.1.1 — 2026-10-11
 
 - Fixed cross-platform CI compilation on Windows PowerShell.
