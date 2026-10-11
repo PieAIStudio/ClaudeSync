@@ -20,4 +20,6 @@ jobs:
       - name: Run isolated tests
         run: python -m unittest -v test_sessions test_platforms test_configuration
       - name: Compile Python files
-        run: python -m py_compile claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync/*.py
+        # compileall expands the package directory inside Python, so the check
+        # behaves the same under Bash, PowerShell, and Windows cmd.exe.
+        run: python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
