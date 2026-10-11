@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 — 2026-10-11
+
+- Fixed cross-platform CI compilation on Windows PowerShell.
+- Kept the six-platform test matrix green for Python 3.9 and 3.12.
+
 ## 1.1.0 — 2026-10-11
 
 - Renamed the project directory to `ClaudeSync`.

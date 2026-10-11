@@ -27,7 +27,7 @@ from .platforms import (Environment, app_version, automatic_sync_state,
 from .titles import (load_tool_state, save_tool_state, legacy_branch_title,
                      title_origin, title_update_record, make_title_action)
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 ZONE = timezone(timedelta(hours=8))
 UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 LOCAL = re.compile(r"local_([0-9a-f-]{36})\.json\Z")
