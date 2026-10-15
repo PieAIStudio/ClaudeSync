@@ -17,7 +17,14 @@ vi.mock('./processes', () => ({
 import { applyOperation, availableBackups, checkWorkspace, deleteSelected, previewOperation, previewRestore } from './service';
 import { configureFolders, rememberIdentities } from './accounts';
 
-beforeEach(() => { environment.root = temporaryFixture(); environment.blocked = false; desktop.check.mockResolvedValue({ state: 'unavailable' } satisfies DesktopIdentityCheck); });
+beforeEach(() => {
+  environment.root = temporaryFixture(); environment.blocked = false;
+  desktop.check.mockResolvedValue({ state: 'unavailable' } satisfies DesktopIdentityCheck);
+  writeFileSync(join(environment.root, 'account-identities.json'), JSON.stringify({
+    [ID_A]: { email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1] },
+    [ID_B]: { email: 'other@example.com', organizationId: SCOPE_B.split('/')[1] },
+  }));
+});
 afterEach(() => { rmSync(environment.root, { recursive: true, force: true }); });
 
 it('uses a single-use preview token and provides a restore preview through the application service', async () => {
@@ -73,14 +80,13 @@ it('uses the verified organization for counts and management rather than letting
   editIndex(environment.root, SCOPE_A, CHAT_A, { isArchived: true });
   desktop.check.mockResolvedValue({ state: 'verified', identity: { accountId: ID_A, email: 'desktop@example.com', organizationId: SCOPE_A.split('/')[1] } } satisfies DesktopIdentityCheck);
   const view = await checkWorkspace();
-  expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ active: 1, archived: 1, scopes: [SCOPE_A] });
-  const restore = previewOperation({ kind: 'unarchive', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision);
+  expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ visible: 1, active: 1, archived: 1, oldCopies: 2, scopes: [SCOPE_A, oldScope] });
+  const restore = previewOperation({ kind: 'unarchive', group: 'archived', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision);
   expect(restore.changes).toHaveLength(1);
   desktop.check.mockResolvedValue({ state: 'unavailable' });
   expect((await checkWorkspace()).accounts.find((account) => account.id === ID_A)).toMatchObject({ active: 1, archived: 1, current: false });
-  const deleted = await deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision);
-  expect(deleted.workspace.sessions.find((session) => session.id === CHAT_A)?.presence.map((item) => item.accountId)).toEqual([ID_B]);
-  expect(readdirSync(join(environment.root, 'session-root', oldScope))).not.toContain(`local_${CHAT_A}.json`);
+  await expect(deleteSelected({ group: 'archived', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision)).rejects.toThrow('改用归档');
+  expect(readdirSync(join(environment.root, 'session-root', oldScope))).toContain(`local_${CHAT_A}.json`);
   expect(readFileSync(indexPath(environment.root, SCOPE_B, CHAT_A)).length).toBeGreaterThan(0);
 });
 
@@ -93,13 +99,14 @@ it('keeps a cleaned account empty after a cloud profile pins its organization an
   rmSync(indexPath(environment.root, SCOPE_A, CHAT_B));
   desktop.check.mockResolvedValue({ state: 'verified', identity: { accountId: ID_B, email: 'other@example.com', organizationId: SCOPE_B.split('/')[1] } } satisfies DesktopIdentityCheck);
   const view = await checkWorkspace();
-  expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ email: 'fixture@example.com', active: 0, archived: 0, total: 0, current: false, scopes: [SCOPE_A] });
+  expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ email: 'fixture@example.com', visible: 0, active: 0, archived: 0, total: 2, oldCopies: 2, current: false, scopes: [SCOPE_A, oldScope] });
   expect(view.accounts.find((account) => account.id === ID_B)?.current).toBe(true);
   expect(readdirSync(join(environment.root, 'session-root', oldScope))).toContain(`local_${CHAT_A}.json`);
   expect(JSON.parse(readFileSync(join(environment.root, 'account-identities.json'), 'utf8'))[ID_A]).toEqual({ email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1] });
 });
 
 it('keeps CLI history separate from the verified current Desktop account and saves only email bindings', async () => {
+  rmSync(join(environment.root, 'account-identities.json'));
   writeFileSync(join(environment.root, '.claude.json'), JSON.stringify({ oauthAccount: { accountUuid: ID_A, emailAddress: 'fixture@example.com', unrelatedToken: 'not-a-real-secret' } }));
   desktop.check.mockResolvedValue({ state: 'verified', identity: { accountId: ID_B, email: 'desktop@example.com' } } satisfies DesktopIdentityCheck);
   const view = await checkWorkspace();

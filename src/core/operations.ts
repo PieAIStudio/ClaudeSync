@@ -1,5 +1,6 @@
 import { accountIdForScope } from './account-identity';
 import { isManageable, sessionKey } from './catalog';
+import { entryGroup, verifiedTargets } from './visibility';
 import { buildWorkspacePlan } from './workspace';
 import type { Workspace } from './workspace';
 import { historyIds, isUuid, validateSessionRecord } from './record';
@@ -35,7 +36,10 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   const selectedIds = new Set(request.sessionIds);
   if (!selectedIds.size) throw new Error('请先勾选聊天。');
   const entries = workspace.entries.filter((entry) => accountIds.has(accountIdForScope(entry.account.scope)));
-  const selectedEntries = entries.filter((entry) => selectedIds.has(sessionKey(entry)));
+  const targetScopes = request.kind === 'sync' || request.kind === 'keep'
+    ? new Set(verifiedTargets(workspace.accounts.filter((account) => accountIds.has(accountIdForScope(account.scope))), workspace.verifiedOrganizations).map((account) => account.scope)) : undefined;
+  const selectedEntries = entries.filter((entry) => selectedIds.has(sessionKey(entry)) && (!request.group || entryGroup(workspace, entry) === request.group));
+  if (request.group === 'deleted') throw new Error('有删除标记的记录不能恢复或修改。');
   if ([...selectedIds].some((id) => !selectedEntries.some((entry) => sessionKey(entry) === id))) throw new Error('选中聊天不在所选账号内，请重新选择。');
   if (selectedEntries.some((entry) => !isManageable(entry))) throw new Error('远程、云端或定时任务请在 Claude 内处理。');
   if (request.kind === 'rename' && (selectedIds.size !== 1 || typeof request.title !== 'string'
@@ -90,6 +94,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
       if (!isUuid(data.cliSessionId) || !selectedIds.has(data.cliSessionId)) continue;
       const copy: SessionEntry = { path, raw, data, account: { scope, label: scope },
         archived: Boolean(data.isArchived || archives.get(scope)?.has(data.sessionId)), eligible: false };
+      if (request.group && entryGroup(workspace, copy) !== request.group) continue;
       if (!isManageable(copy)) throw new Error('所选聊天有无法安全处理的旧副本，请先在 Claude 中处理。');
       selectedEntries.push(copy);
     }
@@ -133,21 +138,22 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   const skipped: OperationPreview['skipped'] = [];
   const conflicts: OperationPreview['conflicts'] = [];
   if (request.kind === 'keep') {
-    const unsupported = entries.find((entry) => !entry.archived && !isManageable(entry));
+    const unsupported = entries.find((entry) => targetScopes?.has(entry.account.scope) && entryGroup(workspace, entry) === 'visible' && !isManageable(entry));
     if (unsupported) throw new Error(`“只保留所选”不能自动整理远程或定时任务：${unsupported.data.title || '未命名'}。请先在 Claude 中处理。`);
     for (const id of selectedIds) {
       if (!selectedEntries.some((entry) => sessionKey(entry) === id && !entry.syncIssue)) {
         throw new Error(`这条聊天暂时不能补到所有账号，尚未归档任何聊天：${selectedEntries.find((entry) => sessionKey(entry) === id)?.data.title || id}`);
       }
     }
-    for (const entry of selectedEntries) archive(entry, false);
+    for (const entry of selectedEntries) if (targetScopes?.has(entry.account.scope)) archive(entry, false);
   }
   if (request.kind === 'sync' || request.kind === 'keep') {
     const simulated: Workspace = {
       ...workspace, archivedByAccount: archives,
       entries: workspace.entries.map((entry) => {
-        const data = editedEntries.get(entry.path) ?? entry.data;
-        const archived = Boolean(data.isArchived || archives.get(entry.account.scope)?.has(data.sessionId));
+        const importing = request.kind === 'keep' && selectedEntries.includes(entry) && !targetScopes?.has(entry.account.scope);
+        const data = importing ? { ...entry.data, isArchived: false } : editedEntries.get(entry.path) ?? entry.data;
+        const archived = !importing && Boolean(data.isArchived || archives.get(entry.account.scope)?.has(data.sessionId) || archives.get(entry.account.scope)?.has(data.sessionId.slice(6)));
         return { ...entry, data, archived, eligible: !entry.syncIssue && !archived };
       }),
     };
@@ -172,14 +178,14 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     }
     for (const item of plan.skipped ?? []) skipped.push({ id: '', title: item.title, reason: item.reason });
     if (request.kind === 'keep') {
-      for (const account of workspace.accounts.filter((account) => accountIds.has(accountIdForScope(account.scope)))) {
+      for (const account of workspace.accounts.filter((account) => targetScopes?.has(account.scope))) {
         for (const id of selectedIds) {
           const present = simulated.entries.some((entry) => entry.account.scope === account.scope && sessionKey(entry) === id && !entry.archived);
           const added = plan.additions.some((addition) => addition.target.scope === account.scope && addition.data.cliSessionId === id);
           if (!present && !added) throw new Error('有账号无法得到全部选中聊天，尚未执行。请先解决删除标记或缺失正文问题。');
         }
       }
-      for (const entry of entries.filter((entry) => !selectedIds.has(sessionKey(entry)))) archive(entry, true);
+      for (const entry of entries.filter((entry) => targetScopes?.has(entry.account.scope) && entryGroup(workspace, entry) === 'visible' && !selectedIds.has(sessionKey(entry)))) archive(entry, true);
     }
   }
 

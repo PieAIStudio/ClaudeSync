@@ -12,6 +12,7 @@ import type { TranscriptCheck, WorkspaceSnapshot } from './storage';
 import { historyIds, REMOTE_KEYS, validateSessionRecord } from './record';
 import { buildPlan } from './planner';
 import type { Account, SessionEntry, SessionRecord, SyncPlan } from './types';
+import type { VerifiedOrganizations } from './visibility';
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u;
 const ARCHIVE_INDEX = 'archived-sessions.idx';
@@ -30,6 +31,7 @@ interface TranscriptFailure {
 }
 
 export interface Workspace {
+  verifiedOrganizations?: VerifiedOrganizations;
   configPath: string;
   configRaw: Buffer;
   baseDirectory: string;
@@ -139,7 +141,7 @@ export function entryEligibility(
   ignoreArchive = false,
 ): string | undefined {
   if (data.scheduledTaskId) return '定时任务记录不复制';
-  if (!ignoreArchive && (data.isArchived || archived.get(account.scope)?.has(data.sessionId))) return '来源会话已归档';
+  if (!ignoreArchive && (data.isArchived || (archived.get(account.scope)?.has(data.sessionId) || archived.get(account.scope)?.has(data.sessionId.slice(6))))) return '来源会话已归档';
   if (REMOTE_KEYS.some((key) => Boolean(data[key]))) return '远程或云端会话不复制';
   const ids = historyIds(data);
   if ([...ids, data.sessionId, data.sessionId.slice(6)].some((id) => tombstones.has(id))) return '会话或历史分支有删除标记';
@@ -194,7 +196,7 @@ export function loadWorkspace(configPath: string): Workspace {
       if (parent !== account.scope || !name.startsWith('local_') || !name.endsWith('.json')) continue;
       const data = validateSessionRecord(name, parseJson<unknown>(raw, path));
       const syncIssue = entryEligibility(account, data, archivedByAccount, tombstones, transcriptIndex, transcripts, true);
-      const archived = Boolean(data.isArchived || archivedByAccount.get(account.scope)?.has(data.sessionId));
+      const archived = Boolean(data.isArchived || (archivedByAccount.get(account.scope)?.has(data.sessionId) || archivedByAccount.get(account.scope)?.has(data.sessionId.slice(6))));
       const reason = syncIssue ?? (archived ? '来源会话已归档' : undefined);
       entries.push({ account, path, data, raw, archived, syncIssue, eligible: !reason, ...(reason ? { reason } : {}) });
     }
@@ -226,6 +228,7 @@ export function buildWorkspacePlan(
   const entries = workspace.entries.filter((entry) => !excluded.has(entry.account.scope));
   return buildPlan(accounts, entries, {
     tombstones: workspace.tombstones,
+    verifiedOrganizations: workspace.verifiedOrganizations,
     archivedByAccount: workspace.archivedByAccount,
     titleSelections,
     selectedSessionIds,

@@ -10,6 +10,7 @@ import {
 import type { TranscriptCheck, WorkspaceSnapshot } from './storage';
 import type { Workspace } from './workspace';
 import { collectTranscriptIndex } from './workspace';
+import { verifiedTargets } from './visibility';
 import type { ApplyResult, BackupView, ChangeKind, OperationKind } from '../shared/contracts';
 
 export interface FileChange {
@@ -48,6 +49,7 @@ export function workspaceRevision(workspace: Workspace): string {
   return sha256(JSON.stringify({
     config: sha256(workspace.configRaw),
     scopes: workspace.accounts.map((account) => account.scope).sort(),
+    verifiedOrganizations: Object.entries(workspace.verifiedOrganizations ?? {}).sort(([a], [b]) => a.localeCompare(b)),
     files: [...workspace.snapshot.files].sort(([a], [b]) => a.localeCompare(b)).map(([path, raw]) => [path, sha256(raw)]),
     directories: [...workspace.snapshot.directories].sort(([a], [b]) => a.localeCompare(b)),
     transcripts: [...workspace.transcripts].sort(([a], [b]) => a.localeCompare(b)),
@@ -93,6 +95,11 @@ function createBackup(workspace: Workspace, plan: FilePlan): { path: string; man
 }
 
 export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () => void): ApplyResult {
+  if (plan.kind === 'sync' || plan.kind === 'keep') {
+    const affected = new Set(plan.changes.map((change) => change.path.split('/')[0]));
+    const targets = new Set(verifiedTargets(workspace.accounts.filter((account) => affected.has(account.scope.split('/')[0])), workspace.verifiedOrganizations).map((account) => account.scope));
+    if (plan.changes.some((change) => !targets.has(change.path.split('/').slice(0, 2).join('/')))) throw new Error('同步计划包含未核实或旧组织目录，已停止。');
+  }
   if (plan.changes.length === 0) return { filesChanged: 0, verified: true };
   const paths = new Set<string>();
   for (const change of plan.changes) {

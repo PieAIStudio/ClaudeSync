@@ -1,8 +1,10 @@
 import type { Account, PlannedAddition, SessionEntry, SyncPlan } from './types';
 import { buildTitleActions, titleOrigin } from './title-policy';
 import { deterministicBranchIndexId, historyIds, isUuid, portableRecord } from './record';
+import { verifiedTargets, type VerifiedOrganizations } from './visibility';
 
 export interface PlanOptions {
+  verifiedOrganizations?: VerifiedOrganizations;
   tombstones?: Set<string>;
   archivedByAccount?: Map<string, Set<string>>;
   titleSelections?: Record<string, string>;
@@ -10,8 +12,10 @@ export interface PlanOptions {
 }
 
 export function buildPlan(accounts: Account[], entries: SessionEntry[], options: PlanOptions = {}): SyncPlan {
+  accounts = verifiedTargets(accounts, options.verifiedOrganizations);
+  const targetScopes = new Set(accounts.map((account) => account.scope));
   const selected = options.selectedSessionIds ? new Set(options.selectedSessionIds) : undefined;
-  const titleActions = buildTitleActions(entries.filter((entry) => entry.eligible && (!selected || selected.has(entry.data.cliSessionId ?? ''))), options.titleSelections);
+  const titleActions = buildTitleActions(entries.filter((entry) => targetScopes.has(entry.account.scope) && entry.eligible && (!selected || selected.has(entry.data.cliSessionId ?? ''))), options.titleSelections);
   const additions: PlannedAddition[] = [];
   const skipped: NonNullable<SyncPlan['skipped']> = [];
   const existingByAccount = new Map<string, Set<string>>();

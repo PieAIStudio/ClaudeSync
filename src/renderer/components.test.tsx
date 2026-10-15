@@ -5,7 +5,7 @@ import { I18nProvider } from './i18n';
 import { AccountSidebar, DeleteConfirmation, OperationReview, SessionRows } from './components';
 import type { AccountView, SessionView } from '../shared/contracts';
 
-const accounts: AccountView[] = [{ id: 'a', email: 'fixture@example.com', scopes: ['a/org'], active: 10, archived: 2, total: 12, eligible: 10, copies: 20, current: true }];
+const accounts: AccountView[] = [{ id: 'a', email: 'fixture@example.com', scopes: ['a/org'], active: 10, archived: 2, total: 12, eligible: 10, copies: 20, current: true, visible: 10, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 }];
 const sessions: SessionView[] = [{ id: 'chat', title: 'Chosen session', project: '/fixture/project', manageable: true, starred: false,
   presence: [{ accountId: 'a', active: true, archived: false, eligible: true, copies: 2, titles: ['Chosen session'], reasons: [] }] }];
 const noop = () => undefined;

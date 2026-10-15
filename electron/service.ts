@@ -6,6 +6,7 @@ import type { FilePlan } from '../src/core/transaction';
 import type { Workspace } from '../src/core/workspace';
 import { isRecord } from '../src/core/storage';
 import type { OperationKind, OperationRequest, WorkspaceView } from '../src/shared/contracts';
+import { SESSION_GROUPS, type SessionGroup } from '../src/shared/contracts';
 import { ensureConfiguredWorkspace, includeDesktopAccount, managedWorkspace, rememberIdentities } from './accounts';
 import { checkDesktopIdentity } from './desktop-identity';
 import { assertClaudeStopped, processBlockers } from './processes';
@@ -18,16 +19,21 @@ function freshWorkspace(revision: unknown): Workspace {
   return workspace;
 }
 
+function assertOrganizationCurrent(workspace: Workspace): void {
+  if (workspaceRevision(managedWorkspace(workspace)) !== workspaceRevision(workspace)) throw new Error('账号的当前组织已改变，请重新检查和预览。');
+}
+
 function normalizeRequest(value: unknown): OperationRequest {
   const kinds: readonly OperationKind[] = ['sync', 'keep', 'archive', 'unarchive', 'delete', 'rename', 'star', 'unstar'];
   if (!isRecord(value) || !kinds.includes(value.kind as OperationKind) || !Array.isArray(value.sessionIds)
     || !Array.isArray(value.accountIds) || value.sessionIds.some((id) => typeof id !== 'string')
     || value.accountIds.some((id) => typeof id !== 'string') || value.sessionIds.length > 5000) throw new Error('操作参数无效。');
+  if (value.group !== undefined && !SESSION_GROUPS.includes(value.group as SessionGroup)) throw new Error('聊天分组参数无效。');
   const choices: Record<string, string> = {};
   if (isRecord(value.titleSelections)) {
     for (const [id, scope] of Object.entries(value.titleSelections)) if (typeof scope === 'string') choices[id] = scope;
   }
-  return { kind: value.kind as OperationRequest['kind'], sessionIds: [...new Set(value.sessionIds as string[])],
+  return { group: (value.group ?? 'visible') as SessionGroup, kind: value.kind as OperationRequest['kind'], sessionIds: [...new Set(value.sessionIds as string[])],
     accountIds: [...new Set(value.accountIds as string[])], title: typeof value.title === 'string' ? value.title : undefined, titleSelections: choices };
 }
 
@@ -59,11 +65,11 @@ export function previewOperation(value: unknown, revision: unknown) {
 
 export async function deleteSelected(value: unknown, revision: unknown) {
   if (!isRecord(value)) throw new Error('删除参数无效。');
-  const request = normalizeRequest({ sessionIds: value.sessionIds, accountIds: value.accountIds, kind: 'delete' });
+  const request = normalizeRequest({ group: value.group, sessionIds: value.sessionIds, accountIds: value.accountIds, kind: 'delete' });
   const workspace = freshWorkspace(revision);
   assertClaudeStopped();
   const plan = buildOperationPlan(workspace, request);
-  const result = commitFilePlan(workspace, plan, assertClaudeStopped);
+  const result = commitFilePlan(workspace, plan, () => { assertClaudeStopped(); assertOrganizationCurrent(workspace); });
   return { result, workspace: await checkWorkspace() };
 }
 
@@ -72,7 +78,7 @@ export async function applyOperation(token: unknown) {
   const entry = pending.get(token);
   pending.delete(token);
   if (!entry || Date.now() - entry.at > 15 * 60 * 1000) throw new Error('操作预览已过期，请重新预览。');
-  const result = commitFilePlan(entry.workspace, entry.plan, assertClaudeStopped);
+  const result = commitFilePlan(entry.workspace, entry.plan, () => { assertClaudeStopped(); assertOrganizationCurrent(entry.workspace); });
   return { result, workspace: await checkWorkspace() };
 }
 

@@ -8,6 +8,22 @@ export interface AppInfo {
   suggestedProjectsRoot: string;
 }
 
+export const SESSION_GROUPS = ['visible', 'archived', 'scheduled', 'oldOrganization', 'deleted', 'unverified'] as const;
+export type SessionGroup = (typeof SESSION_GROUPS)[number];
+
+export interface SessionCopyView {
+  scope: string;
+  group: SessionGroup;
+  title: string;
+  project: string;
+  updatedAt?: string;
+  archived: boolean;
+  eligible: boolean;
+  manageable: boolean;
+  starred: boolean;
+  reasons: string[];
+}
+
 export interface AccountView {
   id: string;
   email?: string;
@@ -18,6 +34,12 @@ export interface AccountView {
   eligible: number;
   copies: number;
   current: boolean;
+  visible: number | null;
+  organizationVerified: boolean;
+  scheduled: number;
+  oldCopies: number;
+  deletedMarkers: number;
+  unverified: number;
 }
 
 export interface SessionPresence {
@@ -28,6 +50,7 @@ export interface SessionPresence {
   copies: number;
   titles: string[];
   reasons: string[];
+  records?: SessionCopyView[];
 }
 
 export interface SessionView {
@@ -52,6 +75,7 @@ export interface WorkspaceView {
 }
 
 export interface OperationRequest {
+  group?: SessionGroup;
   kind: Exclude<OperationKind, 'restore'>;
   sessionIds: string[];
   accountIds: string[];
@@ -60,6 +84,7 @@ export interface OperationRequest {
 }
 
 export interface DeleteRequest {
+  group?: SessionGroup;
   sessionIds: string[];
   accountIds: string[];
 }

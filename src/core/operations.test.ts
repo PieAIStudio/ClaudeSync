@@ -4,7 +4,8 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { buildCatalog } from './catalog';
 import { buildOperationPlan } from './operations';
 import { buildRestorePlan, commitFilePlan, listBackups, workspaceRevision } from './transaction';
-import { buildWorkspacePlan, loadWorkspace } from './workspace';
+import { buildWorkspacePlan } from './workspace';
+import { loadFixtureWorkspace as loadWorkspace } from '../../tests/fixture';
 import { addScope, CHAT_A, CHAT_B, editIndex, ID_A, ID_B, indexPath, SCOPE_A, SCOPE_B, temporaryFixture } from '../../tests/fixture';
 import type { OperationRequest } from '../shared/contracts';
 
@@ -83,7 +84,7 @@ it('archives all copies in included accounts, updates both native archive format
   expect(load().entries.filter((entry) => entry.data.cliSessionId === CHAT_A).every((entry) => entry.eligible && !entry.archived)).toBe(true);
 });
 
-it('keeps exactly the selected active set in every included folder and leaves excluded accounts byte-identical', () => {
+it('keeps the selected active set only in verified organizations and leaves old and excluded copies alone', () => {
   const extra = `${ID_A}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`;
   const scopeC = '33333333-3333-4333-8333-333333333333/dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   addScope(root, extra, SCOPE_A); addScope(root, scopeC, SCOPE_A);
@@ -92,7 +93,8 @@ it('keeps exactly the selected active set in every included folder and leaves ex
   const { result } = operation('keep', [CHAT_B]);
   expect(result.verified).toBe(true);
   const after = load();
-  for (const scope of [SCOPE_A, extra, SCOPE_B]) expect(after.entries.filter((entry) => entry.account.scope === scope && !entry.archived).map((entry) => entry.data.cliSessionId)).toEqual([CHAT_B]);
+  for (const scope of [SCOPE_A, SCOPE_B]) expect(after.entries.filter((entry) => entry.account.scope === scope && !entry.archived).map((entry) => entry.data.cliSessionId)).toEqual([CHAT_B]);
+  expect(after.entries.filter((entry) => entry.account.scope === extra && !entry.archived).map((entry) => entry.data.cliSessionId)).toEqual([CHAT_A]);
   for (const [name, raw] of beforeC) expect(readFileSync(join(root, 'session-root', scopeC, name))).toEqual(raw);
 });
 

@@ -70,13 +70,12 @@ export function rememberIdentities(accounts: Account[], desktop?: AccountIdentit
 
 export function managedWorkspace(workspace: ReturnType<typeof loadWorkspace>): ReturnType<typeof loadWorkspace> {
   const identities = readIdentities();
-  const accounts = workspace.accounts.filter((account) => {
-    const identity = identities[accountIdForScope(account.scope)];
-    return typeof identity !== 'object' || account.scope === `${accountIdForScope(account.scope)}/${identity.organizationId}`;
-  });
-  const scopes = new Set(accounts.map((account) => account.scope));
-  // Retain the complete snapshot for stale checks and shared-history protection.
-  return { ...workspace, accounts, entries: workspace.entries.filter((entry) => scopes.has(entry.account.scope)) };
+  // Keep the full inventory. Organization verification selects visibility and
+  // write targets, not which old copies the user is allowed to inspect.
+  const verifiedOrganizations = Object.fromEntries(Object.entries(identities)
+    .filter((entry): entry is [string, { email: string; organizationId: string }] => typeof entry[1] === 'object')
+    .map(([id, identity]) => [id, identity.organizationId]));
+  return { ...workspace, verifiedOrganizations };
 }
 
 function accountsForConfiguration(sessionRoot: string, discovered: Account[]): Account[] {

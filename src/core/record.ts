@@ -46,6 +46,7 @@ export function validateSessionRecord(filename: string, value: unknown): Session
   for (const key of ['title', 'model'] as const) {
     if (key in record && typeof record[key] !== 'string') throw new Error(`会话文本字段格式改变：${filename} / ${key}`);
   }
+  if (record.scheduledTaskId != null && typeof record.scheduledTaskId !== 'string') throw new Error(`定时任务字段格式改变：${filename}`);
   const prior = 'priorCliSessionIds' in record ? record.priorCliSessionIds : [];
   if (!Array.isArray(prior) || prior.some((id) => !isUuid(id))) throw new Error(`历史正文 ID 格式改变：${filename}`);
   const edges = 'rewindEdges' in record ? record.rewindEdges : [];

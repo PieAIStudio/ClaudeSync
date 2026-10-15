@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
-import { buildWorkspacePlan, loadWorkspace } from './workspace';
+import { buildWorkspacePlan } from './workspace';
+import { loadFixtureWorkspace as loadWorkspace, withFixtureOrganizations } from '../../tests/fixture';
 import { deterministicBranchIndexId } from './record';
 
 import { SCOPE_A, temporaryFixture } from '../../tests/fixture';
@@ -114,7 +115,7 @@ it('excludes an unchecked account as both a session source and a destination', (
       scope: '33333333-3333-4333-8333-333333333333/cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     });
 
-    const plan = buildWorkspacePlan(workspace, {}, [uncheckedScope]);
+    const plan = buildWorkspacePlan(withFixtureOrganizations(workspace), {}, [uncheckedScope]);
 
     expect(plan.additions.length).toBeGreaterThan(0);
     expect(plan.additions.every((addition) => addition.source.account.scope !== uncheckedScope)).toBe(true);
@@ -135,7 +136,7 @@ it('keeps deletion markers from unchecked accounts active as a safety guard', ()
       label: 'Account C',
       scope: '33333333-3333-4333-8333-333333333333/cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     });
-    expect(buildWorkspacePlan(initialWorkspace, {}, [uncheckedScope]).additions.some(
+    expect(buildWorkspacePlan(withFixtureOrganizations(initialWorkspace), {}, [uncheckedScope]).additions.some(
       (addition) => addition.source.data.cliSessionId === 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     )).toBe(true);
     const marker = join(root, 'session-root', uncheckedScope, 'deleted_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
@@ -146,7 +147,7 @@ it('keeps deletion markers from unchecked accounts active as a safety guard', ()
       scope: '33333333-3333-4333-8333-333333333333/cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     });
 
-    const plan = buildWorkspacePlan(workspace, {}, [uncheckedScope]);
+    const plan = buildWorkspacePlan(withFixtureOrganizations(workspace), {}, [uncheckedScope]);
 
     expect(plan.additions.some((addition) => addition.source.data.cliSessionId === 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')).toBe(false);
     expect(plan.additions.some((addition) => addition.source.data.cliSessionId === 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).toBe(true);

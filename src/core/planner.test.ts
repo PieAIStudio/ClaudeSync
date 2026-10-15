@@ -28,7 +28,7 @@ function fixtureEntries(): SessionEntry[] {
 }
 
 it('matches the frozen v1 plan and exact JSON payload on the shared fixture', () => {
-  const plan = buildPlan(config.accounts, fixtureEntries());
+  const plan = buildPlan(config.accounts, fixtureEntries(), { verifiedOrganizations: Object.fromEntries(config.accounts.map((account) => account.scope.split('/'))) });
   const oracle = JSON.parse(readFileSync(join(fixtureRoot, 'expected-sync-plan.json'), 'utf8')) as unknown;
   const actual = {
     additions: plan.additions.map((item) => ({
