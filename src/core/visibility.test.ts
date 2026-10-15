@@ -83,6 +83,26 @@ it('can import an explicitly selected old copy but only into verified current or
   expect(readFileSync(indexPath(root, OLD_SCOPE, syntheticId(100)))).toEqual(before);
 });
 
+it('does not borrow an unselected old source when an archived group row is chosen for sync', () => {
+  editIndex(root, SCOPE_A, CHAT_B, { isArchived: true });
+  const workspace = load();
+  const plan = buildOperationPlan(workspace, { kind: 'sync', group: 'archived', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] });
+  expect(plan.changes).toHaveLength(0);
+  expect(plan.preview.skipped.some((item) => item.id === CHAT_B)).toBe(true);
+  expect(load().snapshot.files).toEqual(workspace.snapshot.files);
+});
+
+it('can keep an explicit old source when a current counterpart is archived, without writing the old scope', () => {
+  editIndex(root, SCOPE_A, CHAT_B, { isArchived: true });
+  const workspace = load();
+  const before = readFileSync(indexPath(root, OLD_SCOPE, CHAT_B));
+  const plan = buildOperationPlan(workspace, { kind: 'keep', group: 'oldOrganization', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] });
+  expect(plan.changes.some((change) => change.path.startsWith(`${OLD_SCOPE}/`))).toBe(false);
+  commitFilePlan(workspace, plan, () => undefined);
+  expect(readFileSync(indexPath(root, OLD_SCOPE, CHAT_B))).toEqual(before);
+  expect(buildCatalog(load()).accounts.every((account) => account.visible === 1)).toBe(true);
+});
+
 it('keeps exactly four normal chats without archiving scheduled runs or writing old organizations', () => {
   const workspace = load();
   const plan = buildOperationPlan(workspace, { kind: 'keep', group: 'visible', sessionIds: ORDINARY_IDS, accountIds: [ID_A, ID_B] });

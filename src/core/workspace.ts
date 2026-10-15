@@ -222,6 +222,7 @@ export function buildWorkspacePlan(
   titleSelections: Record<string, string> = {},
   excludedAccountScopes: readonly string[] = [],
   selectedSessionIds?: readonly string[],
+  sourcePaths?: readonly string[],
 ): SyncPlan {
   const excluded = new Set(excludedAccountScopes);
   const accounts = workspace.accounts.filter((account) => !excluded.has(account.scope));
@@ -232,5 +233,6 @@ export function buildWorkspacePlan(
     archivedByAccount: workspace.archivedByAccount,
     titleSelections,
     selectedSessionIds,
+    sourcePaths,
   });
 }

@@ -9,13 +9,16 @@ export interface PlanOptions {
   archivedByAccount?: Map<string, Set<string>>;
   titleSelections?: Record<string, string>;
   selectedSessionIds?: readonly string[];
+  sourcePaths?: readonly string[];
 }
 
 export function buildPlan(accounts: Account[], entries: SessionEntry[], options: PlanOptions = {}): SyncPlan {
   accounts = verifiedTargets(accounts, options.verifiedOrganizations);
   const targetScopes = new Set(accounts.map((account) => account.scope));
   const selected = options.selectedSessionIds ? new Set(options.selectedSessionIds) : undefined;
-  const titleActions = buildTitleActions(entries.filter((entry) => targetScopes.has(entry.account.scope) && entry.eligible && (!selected || selected.has(entry.data.cliSessionId ?? ''))), options.titleSelections);
+  const sources = options.sourcePaths ? new Set(options.sourcePaths) : undefined;
+  const sourceIds = new Set(entries.filter((entry) => entry.eligible && (!sources || sources.has(entry.path))).map((entry) => entry.data.cliSessionId));
+  const titleActions = buildTitleActions(entries.filter((entry) => targetScopes.has(entry.account.scope) && entry.eligible && sourceIds.has(entry.data.cliSessionId) && (!selected || selected.has(entry.data.cliSessionId ?? ''))), options.titleSelections);
   const additions: PlannedAddition[] = [];
   const skipped: NonNullable<SyncPlan['skipped']> = [];
   const existingByAccount = new Map<string, Set<string>>();
@@ -26,6 +29,7 @@ export function buildPlan(accounts: Account[], entries: SessionEntry[], options:
   }
 
   for (const source of entries) {
+    if (sources && !sources.has(source.path)) continue;
     if (selected && !selected.has(source.data.cliSessionId ?? '')) continue;
     if (!source.eligible || !isUuid(source.data.cliSessionId)) continue;
     for (const target of accounts) {
@@ -33,7 +37,7 @@ export function buildPlan(accounts: Account[], entries: SessionEntry[], options:
       const existing = existingByAccount.get(target.scope);
       if (!existing || existing.has(source.data.cliSessionId)) continue;
       const ids = historyIds(source.data);
-      const peers = entries.filter((entry) => entry.eligible && entry.data.cliSessionId === source.data.cliSessionId);
+      const peers = entries.filter((entry) => entry.eligible && entry.data.cliSessionId === source.data.cliSessionId && (!sources || sources.has(entry.path)));
       const chosen = peers.find((entry) => entry.account.scope === options.titleSelections?.[source.data.cliSessionId!]);
       const manual = peers.filter((entry) => titleOrigin(entry.data) === 'manual');
       const preferred = chosen ?? (new Set(manual.map((entry) => entry.data.title)).size === 1 ? manual[0] : undefined);

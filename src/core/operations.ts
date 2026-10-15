@@ -145,7 +145,9 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
         throw new Error(`这条聊天暂时不能补到所有账号，尚未归档任何聊天：${selectedEntries.find((entry) => sessionKey(entry) === id)?.data.title || id}`);
       }
     }
-    for (const entry of selectedEntries) if (targetScopes?.has(entry.account.scope)) archive(entry, false);
+    for (const entry of entries) {
+      if (selectedIds.has(sessionKey(entry)) && targetScopes?.has(entry.account.scope) && isManageable(entry)) archive(entry, false);
+    }
   }
   if (request.kind === 'sync' || request.kind === 'keep') {
     const simulated: Workspace = {
@@ -158,7 +160,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
       }),
     };
     const excluded = workspace.accounts.filter((account) => !accountIds.has(accountIdForScope(account.scope))).map((account) => account.scope);
-    const plan = buildWorkspacePlan(simulated, request.titleSelections, excluded, [...selectedIds]);
+    const plan = buildWorkspacePlan(simulated, request.titleSelections, excluded, [...selectedIds], selectedEntries.map((entry) => entry.path));
     for (const addition of plan.additions) put(addition.targetPath, encodeJson(addition.data), addition.source, 'add');
     for (const action of plan.titleActions) {
       if (action.data) edit(action.target, action.data, 'title');
@@ -180,7 +182,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     if (request.kind === 'keep') {
       for (const account of workspace.accounts.filter((account) => targetScopes?.has(account.scope))) {
         for (const id of selectedIds) {
-          const present = simulated.entries.some((entry) => entry.account.scope === account.scope && sessionKey(entry) === id && !entry.archived);
+          const present = simulated.entries.some((entry) => entry.account.scope === account.scope && sessionKey(entry) === id && entryGroup(simulated, entry) === 'visible');
           const added = plan.additions.some((addition) => addition.target.scope === account.scope && addition.data.cliSessionId === id);
           if (!present && !added) throw new Error('有账号无法得到全部选中聊天，尚未执行。请先解决删除标记或缺失正文问题。');
         }

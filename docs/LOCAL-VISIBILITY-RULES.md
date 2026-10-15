@@ -32,7 +32,7 @@ This is a reproduced mechanism capable of producing the reported old-organizatio
 
 The full index inventory and old copies remain in stale-input and shared-history protection. Organization bindings are included in the displayed revision and checked again during application. An organization change invalidates an old selection or preview.
 
-Explicit archive, rename, star and deletion actions are scoped to the selected group. A current-group selection does not silently edit an old copy. Shared entry IDs can therefore prevent deletion of just one copy; the app explains the conflict and leaves archive available. Selecting an old copy as a sync source may create a copy in a verified current target, but never writes back into the old organization. Scheduled runs and deletion-marked entries are not editable through these grouped controls.
+Explicit archive, rename, star and deletion actions are scoped to the selected group. A current-group selection does not silently edit an old copy. Sync source paths are also pinned to the selected group: an ineligible archived selection cannot silently borrow a same-ID old copy. Keep-only may unarchive an existing selected-ID counterpart in a verified current target, but never unarchives the old source in place. Shared entry IDs can therefore prevent deletion of just one copy; the app explains the conflict and leaves archive available. Selecting an old copy as a sync source may create a copy in a verified current target, but never writes back into the old organization. Scheduled runs and deletion-marked entries are not editable through these grouped controls.
 
 ## Synthetic acceptance
 
