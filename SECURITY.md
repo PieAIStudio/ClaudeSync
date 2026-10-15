@@ -1,11 +1,15 @@
 # Security and privacy
 
-ClaudeSync is a local, offline utility. It does not send session data to a
-server, read passwords, or call a cloud login API.
+ClaudeSync manages local Desktop Code records and the current verified account’s cloud Code history. There are no analytics, ads, inference requests, custom backend or payment SDKs. Local management works offline; first-party profile/cloud calls are optional maintenance exceptions.
 
-Do not open a public issue with `config.json`, `reports/`, `backups/`,
-`sync-state.json`, or Claude session files attached. Those files can contain
-account identifiers, project paths, titles, or private conversation metadata.
+On macOS, identity uses an existing unexpired exact `user:profile` credential, one GET to Anthropic’s fixed profile origin, and account/organization checks. Keychain’s Claude Safe Storage decrypts the observed Desktop cache. Cloud management separately selects an existing current-account/current-organization credential with `user:sessions:claude_code`; profile verification never falls back to that broader token. No token refresh, OAuth creation, device enrollment, cookies or secret persistence. Credentials remain in main-process memory, never in IPC, logs or backups; mutable decryption buffers are cleared. Switching/logout/cache changes discard pending results. Only verified UUID/email/organization bindings are remembered locally. CLI history never establishes the Desktop current login.
 
-For a suspected code vulnerability, open a private report with the repository
-maintainer before publishing exploit details.
+The verified organization determines the current local list and write scope. Old configured copies cannot override current archive status. Unknown accounts are not guessed or deleted. Automatic discovery changes only ClaudeSync configuration and preserves participation preferences.
+
+Electron uses isolated sandboxed preload, typed IPC whitelist, main-frame checks, CSP and restricted external navigation. Renderers cannot pass arbitrary file paths, bytes, credentials or API origins to mutation handlers.
+
+Local writes require stopped Claude/Code processes, unchanged configuration, transcript fingerprints/inventory and complete index snapshots, an exclusive lock and final verification. Non-delete changes retain review, private byte backups and guarded recovery. Direct deletion has a short state-aware confirmation; no preview plan, deletion backup, journal, trash copy or recovery token. It removes selected records and same-login configured old copies, archive hints and exclusive main JSONL bodies, using native deletion markers. All login folders under the configured session root are checked for claims; shared content, projects, worktrees and auxiliary CLI files are retained. Unconfigured sibling claims can block removal. Interrupted deletion reports partial completion without promising undo. Existing backups from other operations are not silently purged.
+
+Cloud writes consume the listed selection once, reverify account/organization, reread selected state, validate login/expiry before each fixed-origin DELETE, stop on failure and independently read back results. Uncertain outcomes are not retried. Only observed idle bridge records without task/template links are deletable; other records remain visible with a reason. No task-trigger/settings endpoint is called, and cloud actions do not edit Claude’s local database. The adapter is version-sensitive. Live reads were verified; real user deletions were not executed for acceptance.
+
+Private settings, snapshots, backups and real-session screenshots must not be published in issues. Report vulnerabilities privately to the repository maintainer.

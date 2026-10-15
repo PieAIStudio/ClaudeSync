@@ -1,0 +1,59 @@
+{
+  "name": "claudesync",
+  "version": "2.0.0-alpha.0",
+  "private": true,
+  "author": "PieAI",
+  "description": "Claude Code session organizer for local accounts and current-account cloud history",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "build": "electron-vite build",
+    "package:mac:dir": "pnpm build && electron-builder --mac --arm64 --dir"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "dependencies": {
+    "@pieai/swimmer-i18n-kit": "0.2.0",
+    "@pieai/swimmer-ui-kit": "3.2.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "electron": "40.10.3",
+    "electron-vite": "5.0.0",
+    "electron-builder": "26.15.2",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "6.0.3",
+    "vite": "8.2.2",
+    "vitest": "4.1.10"
+  },
+  "build": {
+    "appId": "com.pieai.claudesync",
+    "productName": "ClaudeSync",
+    "directories": {
+      "output": "dist/electron"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "out/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "identity": null,
+      "target": {
+        "target": "dir",
+        "arch": [
+          "arm64"
+        ]
+      }
+    }
+  }
+}

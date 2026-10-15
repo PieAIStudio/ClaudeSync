@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="250" viewBox="0 0 1200 250" role="img" aria-labelledby="title desc">
-<title id="title">ClaudeSync four-step workflow</title><desc id="desc">Check, choose, sync, verify.</desc>
-<rect width="1200" height="250" rx="18" fill="#172033"/>
-<g font-family="Arial, sans-serif" text-anchor="middle"><g fill="#fff"><circle cx="145" cy="110" r="48" fill="#0a5cad"/><text x="145" y="122" font-size="34" font-weight="700">1</text><text x="145" y="190" font-size="22" font-weight="700">检查</text><text x="145" y="218" font-size="14" fill="#c8d2e3">先看，不写文件</text>
-<circle cx="445" cy="110" r="48" fill="#0a5cad"/><text x="445" y="122" font-size="34" font-weight="700">2</text><text x="445" y="190" font-size="22" font-weight="700">选择</text><text x="445" y="218" font-size="14" fill="#c8d2e3">冲突逐条选</text>
-<circle cx="745" cy="110" r="48" fill="#0a5cad"/><text x="745" y="122" font-size="34" font-weight="700">3</text><text x="745" y="190" font-size="22" font-weight="700">同步</text><text x="745" y="218" font-size="14" fill="#c8d2e3">Claude 关闭后写入</text>
-<circle cx="1045" cy="110" r="48" fill="#0a5cad"/><text x="1045" y="122" font-size="34" font-weight="700">4</text><text x="1045" y="190" font-size="22" font-weight="700">确认</text><text x="1045" y="218" font-size="14" fill="#c8d2e3">打开应用检查列表</text></g>
-<g stroke="#71809a" stroke-width="3" fill="none"><path d="M195 110h195"/><path d="M495 110h195"/><path d="M795 110h195"/></g><g fill="#71809a"><path d="m380 100 20 10-20 10z"/><path d="m680 100 20 10-20 10z"/><path d="m980 100 20 10-20 10z"/></g></g></svg>

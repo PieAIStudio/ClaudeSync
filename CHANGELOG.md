@@ -1,5 +1,28 @@
 # Changelog
 
+## v2 local compatibility fix (unreleased, 2026-10-14)
+
+- Recognize Claude Desktop's native `backlog/tasks.json` task directory so account and chat checks can finish.
+- Preserve task bytes, exclude tasks from chat counts and operations, and detect task changes before writing; unknown structures and symlinks remain blocked.
+- Verify macOS Claude Desktop's current email independently from CLI login; add only the verified current account's previously omitted local folders with a configuration backup.
+- Keep local lists available on identity failures, reject login changes during verification and retain only verified UUID/email/organization bindings; no credential refresh or persistence.
+- Use the profile-verified organization for local counts and management, so old active copies cannot override current archives.
+- Remember verified organization bindings from both local and cloud checks, refresh when returning to local, and keep cleaned accounts empty after switching away instead of showing old copies again.
+- Replace ambiguous entry removal with state-aware selected-chat deletion: short confirmation, scoped account/count, no deletion preview/backup/undo, exclusive main transcript removal and shared-history checks.
+- Add a separate current-account cloud Code list and multi-select deletion adapter for observed idle Remote Control records, with account/state checks and readback; no task-settings calls, credential refresh or automatic deletion retry.
+
+## v2 local preview (unreleased, 2026-10-12)
+
+- TypeScript/React/Electron is now the only current source runtime, with Swimmer brand kits.
+- Deduplicated account/session lists, search, filters, multi-selection, selected sync, keep-only, archive/unarchive, rename and stars.
+- Previewed removal, native deletion markers, private byte backups and guarded recovery.
+- Split scanning, catalog, planning, transactions, platform services and typed IPC; retired obsolete Python/Tk/Web entries and packagers.
+- Fixed packaged sandboxed preload loading by bundling it as CommonJS; verified live account/session IPC in the local app.
+- Kept review buttons visible in long previews and placed readable operation errors beside the actions.
+- Verified account filtering, selection, review/cancel and compact desktop layout on macOS; real session files remained unchanged.
+- Public v1 release history below remains unchanged. No public release was performed.
+
+
 ## 1.3.3 — 2026-10-11
 
 - Made Sync.command prefer the current packaged Sync.app before the Python fallback.

@@ -1,114 +1,66 @@
 # ClaudeSync
 
-**See it first. Choose the title. Sync only when it is safe.**
-
 [中文](README.zh-CN.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Português](README.pt-BR.md)
 
-ClaudeSync keeps local Claude Code session lists aligned across **two or more accounts** on one computer. It discovers local account folders automatically, shows a readable plan, lets you choose a title once for each conflict, and writes only after Claude has stopped. **Role:** currently free to share, self-use first. **Technology:** Python desktop GUI/CLI with local browser fallback. **Status:** public release v1.3.3.
+ClaudeSync shows and organizes local Claude Code sessions across accounts and the current login’s cloud Code history on one computer. **Role:** free, self-use first. **Stack:** TypeScript + React + Electron, SwimmerUIKit and SwimmerI18nKit. **Status:** v2 local preview, not publicly released; public v1 installers remain on [GitHub Releases](https://github.com/PieAIStudio/ClaudeSync/releases).
 
-![ClaudeSync interface preview](docs/images/claudesync-preview.en.svg)
+## Use
 
-> **A local index tool, not a cloud migration tool.** ClaudeSync does not log in, read passwords, upload conversations, or move cloud Artifacts.
+1. Open `ClaudeSync.app`, or run the source launcher for your platform. Refresh.
+2. Check the accounts to include. Click an account to see its sessions, or view the deduplicated union.
+3. Search, filter and select sessions. Sync, archive and other local changes have a review. **Delete selected sessions** opens a short confirmation with the account, count and state-specific advice; deletion has no preview plan, backup or undo.
+4. Save work and fully quit Claude and Claude Code before changing local files. Viewing one account restricts deletion to that account. Use **Cloud sessions** for the current Desktop login’s cloud history; cloud deletion does not require quitting Claude.
 
-## Why it is simple
+To keep the same ten sessions in each account, select those ten and choose **Keep only selected in each account**. Selected sessions are added where missing and unarchived; the rest are archived. Missing transcripts or blocked destinations stop the operation before any other sessions are archived. **Select 10 recent syncable sessions** changes the selection only.
 
-- **Automatic first step.** The app scans the configured Claude session root and finds account folders. You only open the advanced setup when discovery is incomplete.
-- **One screen.** Accounts, counts, skipped reasons, and title choices stay together.
-- **One decision per conflict.** Choose any account's hand-written title or Skip. The choice is applied to every account that needs the same title.
-- **No background automation.** No exit hook, watcher, timer, login hook, or automatic account switching.
-- **Safe writes.** A running Claude process blocks writes. ClaudeSync backs up indexes before writing and verifies them afterward.
-- **The same core everywhere.** macOS, Windows, and Linux use the same sync rules and local browser fallback.
+Active remote or scheduled records also block exact keep-only. Handle those tasks in Claude first, then organize the local sessions.
 
-![Four steps: check, choose, sync, verify](docs/images/flow.en.svg)
+## Actions
 
-## What it supports
+- Sync selected sessions; review differing titles before choosing a shared title.
+- Archive or unarchive; rename one session across included accounts; star or unstar.
+- Delete selected local sessions, their configured old copies in the same login, and exclusive main JSONL transcripts; retain content claimed by other sessions/accounts and leave project/worktree files alone. No deletion backup or recovery.
+- Select and delete verified, idle Remote Control cloud Code records, including archived Wakeup history, through the same session DELETE endpoint used by the installed Desktop.
+- Preview/restore backups from other local operations. Later edits block restoration.
 
-| System | GUI | Local session sync | Close and reopen Claude |
-| --- | --- | --- | --- |
-| macOS | Self-contained GUI app | Yes | Graceful request only |
-| Windows | Tk GUI | Yes | Graceful window-close request only |
-| Linux | Tk GUI or local browser fallback | Yes, when the local Claude layout exists | Reopen may need a manual launch |
+Search includes alternate titles, projects and IDs. Filters include active, archived, syncable, blocked and starred sessions. Hidden selections still participate; the interface warns about them.
 
-Claude's official session documentation says transcripts normally live under `~/.claude/projects` and that `CLAUDE_CONFIG_DIR` can change the location. ClaudeSync lets you confirm the folders instead of guessing. See [Claude Code sessions](https://code.claude.com/docs/en/sessions) and [Claude Desktop](https://code.claude.com/docs/en/desktop).
+Removal stops if another session or an unconfigured sibling folder still claims the entry ID; archive it instead.
 
-## Download an installer
+## Counts and identity
 
-Open the [latest GitHub Release](https://github.com/PieAIStudio/ClaudeSync/releases/latest):
+Counts represent distinct sessions, deduplicated by `cliSessionId`. Accounts with a verified organization use the organization UUID confirmed by the profile response; old organization copies cannot override current archive state. Both local and cloud profile checks remember the verified organization locally with the email. Older email-only bindings need one fresh check while that account is logged in to confirm its organization. Accounts without a verified organization retain their saved local scope view; those counts are not proof of the current Desktop list. Each session lists its accounts, titles, copies and reasons it cannot be synced.
 
-| Platform | Download |
-| --- | --- |
-| macOS Apple silicon | `ClaudeSync-macos-arm64.dmg` or `.zip` |
-| macOS Intel | `ClaudeSync-macos-x64.dmg` or `.zip` |
-| Windows 10/11 64-bit | `ClaudeSync-windows-x64-setup.exe` |
-| Debian/Ubuntu 64-bit | `ClaudeSync-linux-amd64.deb` |
-| Other Linux 64-bit | `ClaudeSync-linux-amd64.tar.gz` |
+On macOS, refresh confirms the **Claude Desktop** account and email with one read-only request to Anthropic's profile service using Desktop's existing profile-only credential. It reads Claude Safe Storage through Keychain, keeps credentials in memory, and never refreshes or stores them. The verified current account's local folders are added to ClaudeSync's configuration with a configuration backup. Account participation choices are retained. CLI login metadata can identify a historical account but never establishes Desktop's current login. Emails are remembered only on this computer; unidentified accounts keep stable short IDs. No guessing or manual email entry.
 
-The GUI includes 简体中文, English, 日本語, Español, and Português. If Tk is unavailable on Linux, the package opens the same interface in a local browser. The macOS release includes its Python runtime.
+Local session scanning and management still work offline. If verification fails or the account changes during a check, no old account is marked current. Automatic Desktop identity verification on Windows/Linux remains unsupported. This optional first-party identity request is a maintenance exception to the default offline-only small-tool stack; there is no backend, inference request, telemetry or payment SDK.
 
-## Use it in three steps
+The **Local sessions** and **Cloud sessions** views have separate counts and selections. A session can exist in both; do not add their totals. Reading local archive flags does not require quitting Claude. Cloud reads use the current verified account/organization and an existing unexpired Code sessions credential; only metadata needed for the list reaches the renderer. The first 100 returned records are displayed; a warning explains when that limit is reached.
 
-### 1. Open ClaudeSync
+## Safety and boundaries
 
-Install the package for your system and launch it. On first use ClaudeSync scans the local session root. Newly found account folders appear automatically.
+Local deletion permanently removes selected local records and their same-login configured copies, updates archive hints and native deletion markers, and unlinks exclusive main JSONL transcripts. Every login folder under the configured session root is checked for shared history before transcript removal, including accounts omitted from settings. Shared content, project/worktree files and auxiliary CLI files stay untouched. Removing an entry whose own ID is still claimed by another chat or unconfigured sibling stops before writing. Deletion creates no backup, journal, trash copy or restore token. An interrupted deletion reports partial completion and cannot be undone by ClaudeSync. Older backups from other operations are not purged.
 
-If the scan is incomplete, open **Account fallback settings** and add or remove a folder. This is an exception path; normal use does not require entering accounts one by one.
+Other local changes still use review tokens, original-byte backups, atomic writes and guarded recovery. All local writes require stopped Claude/Code processes, unchanged settings, transcript fingerprints, file inventory and index snapshots, an exclusive lock and final verification.
 
-### 2. Check and choose
+Cloud deletion affects only the selected session IDs in the verified current account/organization. A fresh read checks their state, each request rechecks local login/expiry, deletion stops on the first failure, and readback reports confirmed completion. Unknown outcomes are not retried. Running records, linked/template records and unknown cloud formats cannot be deleted here. The app does not call task-trigger/settings endpoints, enroll devices, refresh OAuth, or modify Claude’s local database for cloud actions. These internal endpoints/formats are version-sensitive. Live reads were verified; real user cloud deletion has not been performed for acceptance.
 
-1. Click **Check again**. This is read-only.
-2. Read the counts and the report.
-3. When a row says **Needs choice**, select an account title or **Skip** in that row.
-
-### 3. Sync after Claude stops
-
-Finish current Claude work. Click **Sync safe items**, or click **Close Claude and sync** to request a graceful close. Then open Claude yourself and check the Code list. Login and account switching remain manual.
-
-## Multi-account behavior
-
-Every configured account is a peer. ClaudeSync builds a safe local union: a session can be added to every other account, while the same `cliSessionId` is added only once per target account. If several accounts already contain the session, the existing entries stay in place.
-
-A deletion marker anywhere in the configured set blocks that session from being resurrected. Archived, scheduled, remote, missing-project, and missing-transcript records remain visible with a reason and are not copied.
-
-## Title behavior
-
-- Same title → no change.
-- One hand-written title and automatic titles → the hand-written title is offered as the safe choice.
-- Several different hand-written titles → one row lists every account title; choose one account or Skip.
-- Different automatic titles → ClaudeSync does not guess from activity time.
-- Old ClaudeSync branch markers → the original title is restored without adding a new marker.
-- A chosen title is also used for newly created entries in that sync.
-
-## Boundaries and recovery
-
-ClaudeSync may add missing local index entries, deterministic branch entries, and explicitly chosen title updates. It does not rewrite JSONL conversation bodies, existing entries, deletion or archive records, project paths, cloud Artifacts, comment monitors, connectors, remote sessions, credentials, or cookies.
-
-Before a write it creates a private, timestamped index backup and manifest. If the operation stops, run **Check again**; already-created entries are detected and existing files are not overwritten. Reports may contain local paths, titles, and account identifiers, so keep `config.json`, `reports/`, and `backups/` private.
-
-## Command line
-
-```sh
-python sync_sessions.py --check       # read-only plan
-python sync_sessions.py --sync        # apply after Claude is closed
-python sync_sessions.py --close-sync  # request a graceful close, then apply
-```
-
-Exit code `0` means the command completed; read the report for the actual result. Exit code `1` means a structure, file, or verification error. Exit code `2` means Claude is running, an old automatic process is present, or another ClaudeSync operation holds the lock. Exit code `130` means cancelled.
-
-## Project map
-
-- `claude_sync/core.py` — discovery, multi-account plan, safety checks, writes, verification, and CLI.
-- `claude_sync/configuration.py` — automatic discovery, fallback setup validation, and atomic config writes.
-- `claude_sync/titles.py` — title provenance, grouped choices, and legacy-marker cleanup.
-- `claude_sync/platforms.py` — OS paths, process checks, and graceful close.
-- `sync_gui_tk.py` / `sync_web.py` — shared GUI and local browser fallback.
-- `docs/multi-account-roadmap.md` — maintainer plan and invariants.
-- `ARCHITECTURE.md` — the plain-language maintenance map.
+Settings, identity/organization cache and backups from non-delete operations live in the OS ClaudeSync application-data directory. Credentials stay in main-process memory and never enter IPC, logs or backups. Core local management works offline; optional first-party profile/cloud requests are a documented maintenance exception to the small-tool default. There is no backend, inference request, telemetry or payment SDK. Never attach private state, reports or real-session screenshots to public issues.
 
 ## Development
 
+Use Node 24 and the locked pnpm version. For a fresh checkout, run `pnpm install --frozen-lockfile`.
+
 ```sh
-python -m unittest -v test_sessions test_platforms test_configuration
-python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
+pnpm dev
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm package:mac:dir
 ```
 
-Tests use temporary directories and never use real Claude data. See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and the [MIT License](LICENSE).
+The default development entry is Electron. Tests use temporary synthetic data only. Development builds accept `CLAUDESYNC_DATA_DIR` for an isolated application-data directory; packaged builds ignore it.
+
+The local package is an unsigned Apple silicon `.app`. Windows, Intel Mac, Linux, signing and notarization still need acceptance. Five interface languages are included. No ads, tracking, payments or automatic background sync. Hosted CI is manual only; pushes do not publish or deploy.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the [execution plan](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md). Obsolete Python/Tk/Web code and packagers have been retired from current source; v1 remains in Git history and public releases. Existing local edits were privately snapshotted before cleanup.

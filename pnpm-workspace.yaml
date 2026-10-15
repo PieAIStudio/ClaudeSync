@@ -1,0 +1,6 @@
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@pieai/swimmer-ui-kit@3.2.1'

@@ -1,0 +1,130 @@
+export type OperationKind = 'sync' | 'keep' | 'archive' | 'unarchive' | 'delete' | 'rename' | 'star' | 'unstar' | 'restore';
+export type ChangeKind = 'add' | 'title' | 'archive' | 'unarchive' | 'delete' | 'star' | 'unstar' | 'restore';
+
+export interface AppInfo {
+  version: string;
+  configured: boolean;
+  suggestedSessionRoot: string;
+  suggestedProjectsRoot: string;
+}
+
+export interface AccountView {
+  id: string;
+  email?: string;
+  scopes: string[];
+  active: number;
+  archived: number;
+  total: number;
+  eligible: number;
+  copies: number;
+  current: boolean;
+}
+
+export interface SessionPresence {
+  accountId: string;
+  active: boolean;
+  archived: boolean;
+  eligible: boolean;
+  copies: number;
+  titles: string[];
+  reasons: string[];
+}
+
+export interface SessionView {
+  id: string;
+  title: string;
+  project: string;
+  updatedAt?: string;
+  starred: boolean;
+  manageable: boolean;
+  presence: SessionPresence[];
+}
+
+export type DesktopIdentityState = 'verified' | 'unavailable' | 'changed' | 'unsupported';
+
+export interface WorkspaceView {
+  checkedAt: string;
+  revision: string;
+  accounts: AccountView[];
+  sessions: SessionView[];
+  blockers: string[];
+  identityState: DesktopIdentityState;
+}
+
+export interface OperationRequest {
+  kind: Exclude<OperationKind, 'restore'>;
+  sessionIds: string[];
+  accountIds: string[];
+  title?: string;
+  titleSelections?: Record<string, string>;
+}
+
+export interface DeleteRequest {
+  sessionIds: string[];
+  accountIds: string[];
+}
+
+export interface CloudSessionView {
+  id: string; title: string; status: 'active' | 'archived' | 'paused' | 'failed' | 'unknown';
+  updatedAt?: string; deletable: boolean; blockedReason?: 'running' | 'unsupported';
+}
+export interface CloudWorkspaceView {
+  revision: string; checkedAt: string; accountId: string; organizationId: string; email: string;
+  sessions: CloudSessionView[]; limitReached: boolean;
+}
+export interface CloudDeleteResult {
+  deleted: number; requested: number; issue?: string; workspace?: CloudWorkspaceView;
+}
+
+export interface ChangeView {
+  sessionId: string;
+  title: string;
+  accountId: string;
+  action: ChangeKind;
+  copies: number;
+}
+
+export interface TitleConflictView {
+  id: string;
+  options: Array<{ scope: string; accountId: string; title: string }>;
+}
+
+export interface OperationPreview {
+  token: string;
+  kind: OperationKind;
+  changes: ChangeView[];
+  selected: Array<{ id: string; title: string }>;
+  accountIds: string[];
+  conflicts: TitleConflictView[];
+  skipped: Array<{ id: string; title: string; reason: string }>;
+  fileCount: number;
+}
+
+export interface BackupView {
+  id: string;
+  createdAt: string;
+  operation: OperationKind;
+  state: 'verified' | 'interrupted' | 'prepared';
+  fileCount: number;
+}
+
+export interface ApplyResult {
+  backup?: string;
+  filesChanged: number;
+  verified: boolean;
+}
+
+export interface ClaudeSyncApi {
+  getInfo(): Promise<AppInfo>;
+  chooseDirectory(): Promise<string | null>;
+  configure(sessionRoot: string, projectsRoot: string): Promise<void>;
+  check(): Promise<WorkspaceView>;
+  preview(request: OperationRequest, revision: string): Promise<OperationPreview>;
+  apply(token: string): Promise<{ result: ApplyResult; workspace: WorkspaceView }>;
+  deleteSelected(request: DeleteRequest, revision: string): Promise<{ result: ApplyResult; workspace: WorkspaceView }>;
+  cloudSessions(): Promise<CloudWorkspaceView>;
+  deleteCloudSessions(sessionIds: string[], revision: string): Promise<CloudDeleteResult>;
+  backups(): Promise<BackupView[]>;
+  previewRestore(id: string, revision: string): Promise<OperationPreview>;
+  openBackups(): Promise<void>;
+}

@@ -1,6 +1,7 @@
 # Local account configuration and tool-owned state
 config.json
 sync-state.json
+account-identities.json
 .sync.lock
 migration-receipt.json
 verification-receipt.json
@@ -9,7 +10,8 @@ backups/
 legacy/
 
 # Local builds and OS files
-Sync.app/
+/Sync.app
+/ClaudeSync.app
 .DS_Store
 __pycache__/
 *.py[cod]
@@ -23,6 +25,19 @@ build/
 *.egg-info/
 *.spec
 
+# TypeScript migration line
+node_modules/
+coverage/
+pnpm-debug.log*
+out/
+
 # Temporary title-resolution files
 claudesync-title-resolutions-*.json
 preferences.json
+
+# Local smoke and renderer screenshots
+.scratch/
+
+# Private inspection evidence and counts-only local acceptance
+/docs/evidence/
+/.devspace-reports/

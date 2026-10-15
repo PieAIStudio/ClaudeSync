@@ -1,70 +1,38 @@
-# ClaudeSync (Português)
+# ClaudeSync
 
-**Veja primeiro. Escolha o título. Sincronize somente quando for seguro.**
+[中文](README.zh-CN.md) · [English](README.md) · [日本語](README.ja.md) · [Español](README.es.md)
 
-[English](README.md) · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [Español](README.es.md)
+ClaudeSync mostra e organiza listas locais de sessões do Claude Code entre contas no mesmo computador. Gratuito, com uso próprio como prioridade. TypeScript + React + Electron, SwimmerUIKit e SwimmerI18nKit. A v2 é uma versão local de teste ainda não publicada; a v1 permanece no [GitHub Releases](https://github.com/PieAIStudio/ClaudeSync/releases).
 
-O ClaudeSync organiza as listas locais de sessões do Claude Code para **duas ou mais contas** no mesmo computador. Ele descobre as pastas locais, mostra o plano, permite escolher conflitos de título na mesma tela e grava somente depois que o Claude estiver fechado. **Papel:** atualmente gratuito e primeiro para uso próprio. **Tecnologia:** GUI/CLI desktop em Python com navegador local de fallback. **Status:** versão pública v1.3.3.
+## Uso
 
-![Prévia do ClaudeSync](docs/images/claudesync-preview.pt-BR.svg)
+1. Abra `ClaudeSync.app` ou o iniciador do código-fonte. Atualize.
+2. Marque as contas que deseja incluir. Clique na conta para ver as sessões, ou use a lista combinada sem duplicatas.
 
-> **É uma ferramenta de índices locais, não de migração na nuvem.** Não faz login, não lê senhas ou cookies, não envia conversas e não move Artifacts.
+Para manter as mesmas dez sessões em todas as contas, escolha essas dez e **Manter só as escolhidas**. Elas são adicionadas onde faltam e desarquivadas; o restante é arquivado. Se faltar uma conversa ou houver destino bloqueado, a operação para antes de arquivar outras sessões. **Escolher 10 recentes sincronizáveis** altera somente a seleção.
 
-## O que torna simples
+Tarefas remotas ou agendadas ativas também bloqueiam essa operação. Gerencie primeiro essas tarefas no Claude e depois organize as sessões locais.
 
-- **Descoberta automática.** As contas locais aparecem sozinhas. A configuração manual é apenas um caminho de recuperação.
-- **Uma tela.** Status, contas, quantidades, motivos ignorados e títulos ficam juntos.
-- **Uma escolha por conflito.** Escolha o título de qualquer conta ou **Ignorar**.
-- **Sem automação em segundo plano.** Não há gancho de saída, monitor, timer, login ou troca automática de conta.
-- **Gravação segura.** Claude em execução bloqueia a gravação; o índice é copiado antes e verificado depois.
+## Exclusão e contagem
 
-![Quatro passos: verificar, escolher, sincronizar e confirmar](docs/images/flow.pt-BR.svg)
+**Excluir sessões escolhidas** exclui conversas, não contas. Abre uma confirmação breve com orientação pelo estado: arquive uma sessão ativa ou cancele para preservar uma já arquivada. Não há backup de exclusão ou desfazer. A exclusão local remove cópias antigas configuradas da mesma conta e o JSONL principal quando nenhuma outra sessão o utiliza. Conteúdo compartilhado, projetos, worktrees e arquivos auxiliares da CLI ficam intactos. Outras operações mantêm revisão, backup e recuperação protegida.
 
-## Sistemas e pacotes
-
-| Sistema | Arquivo |
-| --- | --- |
-| macOS Apple silicon | `ClaudeSync-macos-arm64.dmg` ou `.zip` |
-| macOS Intel | `ClaudeSync-macos-x64.dmg` ou `.zip` |
-| Windows 10/11 64 bits | `ClaudeSync-windows-x64-setup.exe` |
-| Debian/Ubuntu 64 bits | `ClaudeSync-linux-amd64.deb` |
-| Outro Linux 64 bits | `ClaudeSync-linux-amd64.tar.gz` |
-
-Baixe na [versão mais recente do GitHub](https://github.com/PieAIStudio/ClaudeSync/releases/latest). A interface inclui 简体中文, English, 日本語, Español e Português. Se o Linux não tiver Tk, a mesma interface abre no navegador local.
-
-## Como usar
-
-1. **Abra o ClaudeSync.** Primeiro ele detecta as contas locais. Se alguma pasta faltar, abra as configurações alternativas e adicione-a.
-2. **Verifique.** Clique em **Verificar novamente**, leia as quantidades e veja a tabela.
-3. **Escolha.** Em cada linha que precisa de escolha, selecione uma conta ou **Ignorar**.
-4. **Sincronize.** Depois que o Claude terminar, clique em **Sincronizar itens seguros** ou **Fechar Claude e sincronizar**.
-5. Abra o Claude manualmente e confira a lista. Login e troca de conta continuam manuais.
-
-## Várias contas
-
-Todas as contas configuradas são equivalentes. O ClaudeSync cria uma união local segura: o mesmo `cliSessionId` é adicionado uma vez a cada conta que precisa dele. Um marcador de exclusão em qualquer conta impede que a sessão volte. Itens arquivados, remotos, agendados ou sem transcrição aparecem com o motivo e são ignorados.
-
-## Títulos
-
-Títulos iguais não mudam. Um único título manual pode ser aplicado aos títulos automáticos. Vários títulos manuais diferentes aparecem em uma linha para você escolher qualquer conta. Títulos automáticos diferentes não são adivinhados. O título escolhido também é usado nas novas entradas.
-
-## Limites e recuperação
-
-O corpo JSONL, entradas existentes, exclusões, arquivos, projetos, Artifacts, conectores, sessões remotas, credenciais e cookies não são alterados. Antes da gravação é criada uma cópia privada e um manifest; depois tudo é verificado. Mantenha `config.json`, `reports/` e `backups/` privados, pois podem conter caminhos e nomes locais.
-
-## Comandos
-
-```sh
-python sync_sessions.py --check
-python sync_sessions.py --sync
-python sync_sessions.py --close-sync
-```
+Contas verificadas usam a organização confirmada pelo perfil; cópias antigas não alteram o estado atual de arquivo. E-mail e organização ficam só neste computador. As verificações local e da nuvem lembram a organização. Registros antigos que só têm e-mail precisam de uma nova verificação com essa conta conectada para confirmar sua organização. Local e nuvem têm números e seleções separados. A nuvem mostra histórico Code da conta atual, incluindo Wakeup, até 100 registros. Usa autorização existente não expirada. Exclui apenas registros Remote Control verificados e ociosos; registros em execução, vinculados ou desconhecidos ficam bloqueados. Verifica antes de escrever, para na primeira falha e confirma por leitura. Não renova OAuth, registra dispositivos, muda horários ou tenta novamente automaticamente. Feche Claude para alterações locais; não para a nuvem. Credenciais só na memória principal. Leituras reais verificadas; nenhuma conversa real foi excluída na aceitação.
 
 ## Desenvolvimento
 
+Use Node 24 e a versão fixa do pnpm. Em um checkout novo: `pnpm install --frozen-lockfile`.
+
 ```sh
-python -m unittest -v test_sessions test_platforms test_configuration
-python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
+pnpm dev
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm package:mac:dir
 ```
 
-Veja [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) e a [licença MIT](LICENSE).
+Os testes usam dados sintéticos temporários. O desenvolvimento permite isolamento com `CLAUDESYNC_DATA_DIR`; os pacotes finais ignoram esse ajuste.
+
+O pacote local é uma `.app` Apple silicon sem assinatura. Windows, Intel Mac, Linux, assinatura e notarização precisam de validação separada. Cinco idiomas, sem anúncios, rastreamento, pagamentos ou sincronização automática. CI só manual; enviar código não publica. O antigo Python/Tk/Web foi retirado do código atual, preservando histórico Git e versões anteriores.
+
+[Arquitetura](ARCHITECTURE.md) · [Contribuir](CONTRIBUTING.md) · [Segurança](SECURITY.md) · [Plano](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)

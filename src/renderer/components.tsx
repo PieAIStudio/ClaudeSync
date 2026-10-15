@@ -1,0 +1,142 @@
+import { useEffect, useRef, type ReactNode } from 'react';
+import { GameBadge, GameButton, GamePanel } from '@pieai/swimmer-ui-kit';
+import { useTranslation } from './i18n';
+import type { TranslationKey } from './i18n';
+import type { AccountView, DesktopIdentityState, OperationPreview, SessionView } from '../shared/contracts';
+import type { DeleteState } from './deletion-selection';
+
+export function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
+  return <GamePanel className={className}><h2 className="panel-heading">{title}</h2>{children}</GamePanel>;
+}
+
+export function Modal({ title, children, onClose, busy = false }: { title: string; children: ReactNode; onClose(): void; busy?: boolean }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => { const element = dialog.current; element?.showModal(); return () => element?.close(); }, []);
+  return <dialog className="review-dialog" ref={dialog} aria-label={title} onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
+    <Panel title={title}>{children}</Panel>
+  </dialog>;
+}
+
+export function accountName(account: AccountView | undefined, t: ReturnType<typeof useTranslation>): string {
+  return account?.email ?? t.t('unknown', { id: account?.id.slice(0, 8) ?? '?' });
+}
+
+export function DeleteConfirmation({ count, accountNames, state, source = 'local', busy, blocked = false, onClose, onDelete }: {
+  count: number; accountNames: string[]; state: DeleteState; source?: 'local' | 'cloud';
+  busy: boolean; blocked?: boolean; onClose(): void; onDelete(): void;
+}) {
+  const t = useTranslation();
+  return <Modal title={t.t('deleteConfirmTitle', { count })} onClose={onClose} busy={busy}>
+    <p className="panel-intro">{t.t(source === 'local' ? 'deleteLocalScope' : 'deleteCloudScope')}</p>
+    <div className="review-targets"><strong>{t.t('targets')}</strong>{accountNames.map((name) => <span key={name}>{name}</span>)}</div>
+    <p className="operation-warning">{t.t('deleteNoRecovery')}</p>
+    <p className="panel-intro">{t.t(state === 'archived' ? 'deleteArchivedAdvice' : state === 'mixed' ? 'deleteMixedAdvice' : 'deleteActiveAdvice')}</p>
+    {blocked && <p className="operation-warning">{t.t('waiting')}</p>}
+    <div className="dialog-actions"><GameButton variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</GameButton>
+      <GameButton variant="danger" disabled={busy || blocked || count === 0} onClick={onDelete}>{t.t(busy ? 'deleting' : 'confirmDelete')}</GameButton>
+    </div>
+  </Modal>;
+}
+
+export function reasonText(reason: string, t: ReturnType<typeof useTranslation>): string {
+  if (reason.includes('删除标记') || reason.includes('曾被删除')) return t.t('deletedReason');
+  if (reason.includes('归档')) return t.t('archivedReason');
+  if (reason.includes('工作目录')) return t.t('missingProject');
+  if (reason.includes('缺少会话正文')) return t.t('missingTranscript');
+  if (reason.includes('远程') || reason.includes('定时')) return t.t('unsupported');
+  return reason;
+}
+
+export function AccountSidebar({ accounts, included, currentFilter, onInclude, onFilter, busy, identityState }: {
+  accounts: AccountView[]; included: Set<string>; currentFilter: string; onInclude(id: string, value: boolean): void; onFilter(id: string): void; busy: boolean; identityState?: DesktopIdentityState;
+}) {
+  const t = useTranslation();
+  return <aside className="account-sidebar">
+    <div className="sidebar-heading"><h2>{t.t('accounts')}</h2><span>{accounts.length}</span></div>
+    <GameButton variant="ghost" className={`all-accounts ${currentFilter === 'all' ? 'is-active' : ''}`} onClick={() => onFilter('all')}>{t.t('allAccounts')}</GameButton>
+    <ul className="account-list">{accounts.map((account) => <li key={account.id} className={`${currentFilter === account.id ? 'is-active' : ''} ${included.has(account.id) ? '' : 'is-excluded'}`}>
+      <input type="checkbox" aria-label={`${t.t('includeAccount')} ${accountName(account, t)}`} checked={included.has(account.id)} disabled={busy}
+        onChange={(event) => onInclude(account.id, event.target.checked)} />
+      <button className="account-open" onClick={() => onFilter(account.id)}>
+        <strong>{accountName(account, t)}</strong>
+        <small>{t.t('accountCounts', { active: account.active, archived: account.archived })}</small>
+        {account.current && <GameBadge tone="neutral">{t.t('current')}</GameBadge>}
+      </button>
+    </li>)}</ul>
+    <details className="sidebar-tip"><summary>{t.t('numbersTip')}</summary><p>{t.t('numbersBody')}</p></details>
+    {identityState && identityState !== 'verified' && <p className="identity-tip" role="status">{t.t(identityState === 'changed' ? 'identityChanged' : identityState === 'unsupported' ? 'identityUnsupported' : 'identityUnavailable')}</p>}
+    <p className="identity-tip">{t.t('identityTip')}</p>
+  </aside>;
+}
+
+export function SessionRows({ sessions, accounts, selected, filterId, included, onToggle, busy }: {
+  sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean;
+}) {
+  const t = useTranslation();
+  if (!sessions.length) return <p className="empty-state">{t.t('noSessions')}</p>;
+  return <ul className="session-list">{sessions.map((session) => {
+    const presence = session.presence.filter((item) => filterId === 'all' ? included.has(item.accountId) : item.accountId === filterId);
+    const active = presence.some((item) => item.active);
+    const eligible = presence.some((item) => item.eligible);
+    const reasons = [...new Set(presence.flatMap((item) => item.reasons))];
+    return <li key={session.id} className={`session-row ${selected.has(session.id) ? 'is-selected' : ''}`}>
+      <input id={`session-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !session.manageable || !session.presence.some((item) => included.has(item.accountId))}
+        onChange={(event) => onToggle(session.id, event.target.checked)} />
+      <div className="session-copy">
+        <label className="session-title" htmlFor={`session-${session.id}`}>
+          {session.starred && <span className="star-mark" aria-label={t.t('starred')}>★</span>}{session.title || t.t('untitled')}
+        </label>
+        <div className="session-meta"><span title={session.project}>{session.project.split(/[\\/]/u).filter(Boolean).at(-1) || '—'}</span>
+          <span>{t.t('inAccounts', { count: session.presence.length })}</span>
+          {session.updatedAt && <time dateTime={session.updatedAt}>{t.date(session.updatedAt, { dateStyle: 'medium' })}</time>}
+        </div>
+        {reasons.length > 0 && <p className="session-reason">{reasonText(reasons[0]!, t)}</p>}
+        <details className="session-details"><summary>{t.t('details')}</summary><div>
+          <p>{t.t('project')}：{session.project || '—'}</p><p>ID：{session.id}</p>
+          {!session.manageable && <p>{t.t('unsupported')}</p>}
+          {session.presence.map((item) => <div className="presence-detail" key={item.accountId}>
+            <strong>{accountName(accounts.find((account) => account.id === item.accountId), t)}</strong>
+            <span>{t.t(item.active ? 'active' : 'archived')} · {t.t('copies', { count: item.copies })}</span>
+            <p>{t.t('titleVariants')}：{item.titles.filter(Boolean).join(' / ') || t.t('untitled')}</p>
+            {item.reasons.map((reason) => <p key={reason}>{reasonText(reason, t)}</p>)}
+          </div>)}
+        </div></details>
+      </div>
+      <GameBadge tone={!active ? 'neutral' : eligible ? 'success' : 'warning'}>{t.t(!active ? 'archived' : eligible ? 'syncable' : 'blocked')}</GameBadge>
+    </li>;
+  })}</ul>;
+}
+
+export function OperationReview({ preview, accounts, choices, busy, blocked, onClose, onApply, onChooseTitle }: {
+  preview: OperationPreview; accounts: AccountView[]; choices?: Record<string, string>; busy: boolean; blocked: boolean; onClose(): void; onApply(): void; onChooseTitle(id: string, scope: string): void;
+}) {
+  const t = useTranslation();
+  const actionKeys: Record<string, TranslationKey> = { add: 'add', title: 'title', archive: 'archive', unarchive: 'unarchive', delete: 'delete', star: 'star', unstar: 'unstar', restore: 'restore' };
+  return <Modal title={t.t('previewTitle')} onClose={onClose} busy={busy}>
+    <p className="panel-intro">{t.t('previewBody')}</p>
+    <h3 className="operation-name">{t.t(preview.kind)}</h3>
+    <div className="review-targets"><strong>{t.t('targets')}</strong>{preview.accountIds.map((id) => <span key={id}>{accountName(accounts.find((account) => account.id === id), t)}</span>)}</div>
+    {preview.selected.length > 0 && <details className="review-selection" open={preview.kind === 'keep'}><summary>{t.t('selectedCount', { count: preview.selected.length })}</summary>
+      <ul>{preview.selected.map((session) => <li key={session.id}><strong>{session.title || t.t('untitled')}</strong><small>{session.id.slice(0, 8)}</small></li>)}</ul>
+    </details>}
+    {preview.kind === 'keep' && <p className="operation-warning">{t.t('keepWarning')}</p>}
+    {preview.conflicts.length > 0 && <section className="title-conflicts"><h3>{t.t('conflicts')}</h3>{preview.conflicts.map((conflict) => <label key={conflict.id}>
+      <span>{t.t('chooseTitle')}</span><select value={choices?.[conflict.id] === 'skip' ? '' : choices?.[conflict.id] ?? ''} onChange={(event) => onChooseTitle(conflict.id, event.target.value)} disabled={busy}>
+        <option value="">{t.t('leaveTitle')}</option>{conflict.options.map((option) => <option key={option.scope} value={option.scope}>
+          {accountName(accounts.find((account) => account.id === option.accountId), t)}：{option.title || t.t('untitled')}
+        </option>)}
+      </select>
+    </label>)}</section>}
+    {preview.fileCount === 0 ? <p>{t.t('noChanges')}</p> : <div className="review-changes">
+      <h3>{t.t('planned')}</h3><ul>{preview.changes.map((item, index) => <li key={`${item.accountId}-${item.sessionId}-${item.action}-${index}`}>
+        <span><strong>{item.title || t.t('untitled')}</strong><small>{accountName(accounts.find((account) => account.id === item.accountId), t)}</small></span>
+        <GameBadge tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</GameBadge>
+      </li>)}</ul>
+    </div>}
+    {preview.skipped.length > 0 && <details className="review-skipped"><summary>{t.t('skipped')} ({preview.skipped.length})</summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>：{reasonText(item.reason, t)}</p>)}</details>}
+    {blocked && <p className="operation-warning">{t.t('waiting')}</p>}
+    <div className="dialog-actions"><GameButton variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</GameButton>
+      <GameButton variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</GameButton>
+    </div>
+  </Modal>;
+}

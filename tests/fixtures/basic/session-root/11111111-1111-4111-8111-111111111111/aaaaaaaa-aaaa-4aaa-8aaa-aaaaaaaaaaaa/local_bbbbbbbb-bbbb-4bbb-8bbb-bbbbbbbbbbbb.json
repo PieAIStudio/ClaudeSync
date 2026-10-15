@@ -1,0 +1,10 @@
+{
+  "sessionId": "local_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "cliSessionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "cwd": "__FIXTURE_ROOT__/project",
+  "title": "Only Account A",
+  "titleSource": "user",
+  "isArchived": false,
+  "createdAt": 101,
+  "lastActivityAt": 201
+}

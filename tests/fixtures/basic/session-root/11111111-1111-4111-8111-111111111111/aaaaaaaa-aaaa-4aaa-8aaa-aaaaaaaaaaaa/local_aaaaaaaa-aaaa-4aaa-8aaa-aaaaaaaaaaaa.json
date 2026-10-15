@@ -1,0 +1,10 @@
+{
+  "sessionId": "local_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "cliSessionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "cwd": "__FIXTURE_ROOT__/project",
+  "title": "Shared manual title",
+  "titleSource": "user",
+  "isArchived": false,
+  "createdAt": 100,
+  "lastActivityAt": 200
+}

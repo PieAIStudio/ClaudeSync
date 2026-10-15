@@ -1,110 +1,73 @@
-# ClaudeSync 维护地图
+# ClaudeSync maintenance map
 
-ClaudeSync 是一个本地、手动、可检查的多账号会话索引工具。它先自动发现账号目录，不登录云端，不读取密码或 Cookie，也不复制聊天正文。用户先检查，再在标题冲突处选择，最后才允许写入。
+ClaudeSync v2 has one TypeScript core and one React/Electron interface. The renderer cannot access files or Node directly. It calls the typed API through a sandboxed preload. The app never switches logins or runs background synchronization. Optional cloud actions use the current verified Desktop login; local and cloud views remain separate.
 
-## 公开入口
+The preload is bundled as CommonJS `out/preload/index.cjs`, even though the main process uses ES modules. Sandboxed preloads cannot load ESM imports; keep the build format and window preload path consistent. Packaging acceptance must verify real IPC data in the installed window, not just a rendered page or a successful build. See [Electron's preload restrictions](https://www.electronjs.org/docs/latest/tutorial/esm#sandboxed-preload-scripts-cant-use-esm-imports).
 
-| 入口 | 适用平台 | 作用 |
-| --- | --- | --- |
-| `ClaudeSync.app` | macOS（发布安装包） | 自带运行时的 GUI，不需要另装 Python |
-| `Sync.app` | macOS（本地/发布入口） | 新版多账号 GUI；源码或自带运行时 |
-| `Sync.command` | macOS | 打开新版多账号 GUI；带参数时运行 CLI |
-| `Sync.bat` | Windows | 打开共享 Tk GUI |
-| `Sync.sh` | Linux | 打开共享 Tk GUI |
-| `python sync_gui.py` | 三个平台 | 共享 GUI；默认自动发现账号，补救时提供目录设置 |
-| `python sync_sessions.py --check` | 三个平台 | 只读检查与报告 |
-| `python sync_sessions.py --sync` | 三个平台 | 关闭应用后，按检查计划同步 |
-| `python sync_sessions.py --close-sync` | 三个平台 | 请求应用正常退出后同步；不强制杀进程 |
+## Responsibilities
 
-`sync_sessions.py` 是兼容入口；真正的实现位于 `claude_sync/`。
-
-## 文件职责
-
-| 文件 | 唯一职责 |
+| Surface | Owner |
 | --- | --- |
-| `claude_sync/core.py` | 配置校验、只读扫描、计划、原子应用、验证、报告和 CLI |
-| `claude_sync/titles.py` | 标题来源判断、旧标记清理、标题冲突策略 |
-| `claude_sync/platforms.py` | macOS/Windows/Linux 路径、进程检测、锁外的正常退出和重开 |
-| `claude_sync/storage.py` | 普通文件读取、快照、原子文件、跨平台排他锁 |
-| `sync_gui.py` | 跨平台 GUI；优先使用 Tk，没有 Tk 时切换到本机浏览器 |
-| `sync_gui_tk.py` / `sync_web.py` | 三个平台 | 自动发现、补救设置、同页标题选择、报告和语言切换 |
-| `claude_sync/configuration.py` | 三个平台 | 账号发现、补救设置校验和原子保存 |
-| `Sync.command` / `Sync.bat` / `Sync.sh` | 各平台薄启动器 |
-| `test_sessions.py` | 临时目录中的会话安全、标题和报告测试 |
-| `test_platforms.py` | Windows 进程适配、路径注入、锁行为测试 |
-| `test_configuration.py` | 首次设置路径与原子配置测试 |
-| `config.example.json` | 不含个人数据的设置样例；真实 `config.json` 永不提交 |
+| Domain records and portable copies | `src/core/types.ts`, `record.ts` |
+| Read-only configuration, indexes, archive hints, deletion markers, transcripts | `src/core/workspace.ts` |
+| Distinct sessions and login-account counts | `src/core/catalog.ts`, `account-identity.ts` |
+| Sync additions and title policy | `src/core/planner.ts`, `title-policy.ts` |
+| Selected-session management and keep-only planning | `src/core/operations.ts` |
+| Snapshot validation, backup journal, commit and recovery | `src/core/transaction.ts` |
+| Plain files, path boundaries, atomic write/delete, snapshots, exclusive lock | `src/core/storage.ts` |
+| Typed IPC payloads | `src/shared/contracts.ts` |
+| OS folders, discovery and verified local email cache | `electron/accounts.ts` |
+| Read-only macOS Desktop login verification, Keychain decryption and profile request | `electron/desktop-identity.ts` |
+| Claude/CLI and legacy automatic-sync process guards | `electron/processes.ts` |
+| Local views, non-delete preview tokens and direct deletion service | `electron/service.ts` |
+| Current-account cloud list, selection guard, delete and readback | `electron/cloud-sessions.ts` |
+| Window lifecycle, sender checks, CSP, navigation and IPC whitelist | `electron/main.ts`, `preload.ts` |
+| UI state, account/sidebar/session views and operation review | `src/renderer/` |
+| Product copy in five languages | `src/i18n.ts` |
 
-本地 `config.json`、`reports/`、`backups/`、`sync-state.json`、`dist/` 和构建物被 `.gitignore` 排除。它们是机器状态或构建物，不是公共源码。
+## Identity and counting
 
-## 单向依赖
+The observed Desktop folder layout is `accountUuid/organizationUuid`. Login accounts group by the first UUID. Desktop and CLI logins are independent: `.claude.json/oauthAccount` can remember a historical UUID/email but never determines the Desktop current-login badge. CLI data only fills previously unknown email bindings; it does not replace a newer verified cached email.
 
-```text
-GUI / launcher
-      ↓
-    core.py  ─────────────→  titles.py
-      ↓                         ↓
- platforms.py  ←──────────  storage.py
-      ↓
-Claude 本地索引和 projects 正文（只在 apply_plan 写入索引）
-```
+On macOS, `checkDesktopIdentity()` reads Desktop's `lastKnownAccountUuid` and encrypted `oauth:tokenCacheV2`. The existing Claude Safe Storage Keychain item decrypts the observed Chromium `v10` cache format (PBKDF2-SHA1, `saltysalt`, 1003 iterations; AES-128-CBC). Select only a current-account, fixed-origin, unexpired **exact `user:profile`** token. Send one GET to `https://api.anthropic.com/api/oauth/profile`, forbid redirects and set a timeout. Require `account.uuid` and `organization.uuid` to match the chosen cache entry; read `account.email`; check the UUID and encrypted cache before and after the request to reject switching/logout races. No token refresh, OAuth flow, retry or credential persistence. Network, Keychain and format failures return a nonsecret status while local scanning continues. Windows/Linux decryption is not implemented.
 
-平台模块不读取账号数据；存储模块不知道 Claude 规则；标题模块不执行文件写入。这样修改一个平台不会把同步判断复制到多个入口。
+Refresh is asynchronous over the existing typed IPC. It discovers and adds only the verified current Desktop UUID's folders to the existing configuration, backs up original configuration bytes, validates the new workspace and rolls back tool settings if validation fails. Other omitted accounts remain omitted. Existing account participation preferences remain in renderer storage. All raw credentials remain in the main process; only a status and verified email/organization association reach the view/cache. This optional first-party profile lookup is documented as a maintenance exception to the otherwise offline core.
 
-打包入口位于 `packaging/`：PyInstaller 生成 GUI/CLI，Windows 使用 Inno Setup，Linux 生成 `.deb` 和 `.tar.gz`，macOS 生成按架构区分的 `.dmg` 和 `.zip`。发布只由 GitHub Actions 读取 tag 触发，源码目录不会把本机配置打进安装包。
+Session rows group by `cliSessionId`. The locally remembered verified organization selects the authoritative scope for each known login. Local and cloud profile checks both persist this binding, including accounts with no configured local records. Legacy email-only bindings need a fresh profile verification while logged in to pin their organization. Old configured scopes stay in the immutable snapshot and deletion-claim checks, but do not contribute rows or override native archive state. Accounts without a verified organization keep the saved local-scope view; their counts are not proof of Desktop’s currently selected organization. `workspaceRevision` includes the managed scopes, complete index snapshot and transcript inventory/fingerprints so an organization change invalidates old selections. Returning from cloud to local refreshes the local view; each source displays its own check time.
 
-## 一次同步的流程
+## Local write contract
 
-```text
-1. preflight        看 Claude/Code 是否仍在写入，检查旧自动同步
-2. build_plan       读取所有 scope、索引、归档/删除标记和正文首尾抽样
-3. human choice     GUI 将每个冲突会话显示一行，任意账号 / 跳过
-4. apply_plan       再次检查 → 逐字节备份 → 原子新增/标题更新 → 再读验证
-5. save_report      保存中文文字报告和 JSON 报告
-```
+Non-delete operations retain 15-minute single-use preview tokens, original-byte backups, atomic writes and guarded recovery. Direct deletion takes selected IDs/account IDs and the displayed revision through its own IPC handler. The renderer’s short confirmation freezes the count, account names and active/archived/mixed advice; it does not generate a file preview. Viewing one account restricts deletion to that account; switching account views clears selection.
 
-核心只新增缺失入口；不覆盖已有入口，不拼接或复制 JSONL。标题更新以检查时的目标字节为前置条件；文件变化就停止。任何异常都留下 manifest 和备份路径。
+All local writes validate stopped writers, configuration, complete index snapshots and transcript fingerprints; use the tool lock and verify the result. Deletion additionally snapshots all login folders under the configured root, including omitted accounts, and checks transcript inventory and exclusive removal candidates before each step. It creates no backup, manifest, trash copy or restore token. Interrupted deletion reports the completed file-change count and stops. Recovery remains available for other operations; older backups are not automatically removed.
 
-## 标题规则
+## Management semantics
 
-- 相同标题：不处理。
-- 手动标题对自动标题：安全地把手动标题复制到自动标题一侧。
-- 多个账号都是手动且不同：状态为 `conflict`，等用户选择。
-- 多个账号都是自动且不同：状态为 `auto_difference`，不猜测。
-- 旧版本的“来自账号 X 的分支”标题：识别为工具标记，更新回原始标题。
-- 新分支入口：复制原始标题，不添加工具标记。
+- Sync filters additions and title changes by the selected CLI IDs. New copies reset permission-specific fields.
+- Archive/unarchive update both `isArchived` and the native `archived-sessions.idx` hint, preserving unrelated IDs and extra fields.
+- Keep-only first validates full coverage in every included folder. Selected sessions are unarchived/added, and every other manageable local session is archived. Unsupported active records block an exact keep-only plan.
+- Rename changes title metadata and retains previous titles; unrelated record settings remain intact. Star changes only its flag.
+- Delete removes selected local records plus configured old copies of the same CLI ID in the same selected login, updates archive hints and creates native deletion markers. Exclusive main JSONL bodies are unlinked without copying their bytes. Shared bodies and project/worktree/auxiliary CLI files are retained. Same-login unconfigured sibling claims still block removal of an entry stem; distinct shared history IDs do not receive markers.
+- Existing deletion markers anywhere in configured account identities continue to block normal resurrection, including unchecked accounts. New deletion operations have no restoration path; older non-delete backups retain their guarded recovery contract.
 
-GUI 的临时选择文件格式为：
+Local management is record/transcript editing, not native worktree cleanup. Internal Desktop formats are version-sensitive: unknown structures stop writes. Transcripts use bounded first/last-line validation and fingerprints, not full conversation parsing.
 
-```json
-{"version": 2, "groups": {"cliSessionId": "scope-or-skip"}, "choices": {}}
-```
+Claude Desktop also stores task suggestions in `accountUuid/organizationUuid/backlog/tasks.json`. Accept an empty plain `backlog` directory or this regular file (up to Desktop's 32 MiB read limit), keeping its raw bytes and directory membership in the workspace snapshot. It contributes neither chat rows nor chat counts, and operation plans never edit it. Task changes invalidate previews and transaction checks. Unknown backlog members, nested directories and symlinks still stop scanning; do not bypass the error by deleting the user's backlog.
 
-它只是一次操作的输入，不是账号数据，也不应提交。
+## Cloud adapter
 
-## 平台边界
+`cloud-sessions.ts` uses the installed Desktop’s observed first-party `/v1/code/sessions` list/DELETE routes, with fixed origin, current organization header, no redirects and timeouts. The identity read still uses profile-only scope; a separate main-process credential selector accepts the existing sessions scope for the verified account/organization. No credential reaches the renderer. GET returns only whitelisted metadata; up to 100 loaded records are shown with an explicit limit warning. Cloud counts/selections remain separate from local ones.
 
-默认路径由 `platforms.py` 计算，也可在 `config.json` 中用 `session_root` 和 `projects_root` 明确指定。Claude Code 官方文档说明正文默认位于 `~/.claude/projects`，并可由 `CLAUDE_CONFIG_DIR` 改变；因此不把一台机器的绝对路径写进源码。Desktop 的安装目录和退出方式由平台适配器负责。
+A list revision is a bounded, expiring, opaque selection handle, not a credential. Deletion consumes it once, verifies identity again, compares selected metadata with a fresh read, checks login/cache/expiry on every request and stops at the first failure. Only observed idle `bridge` records without relations or trigger/schedule tags are deletable. Requests never target schedule settings, register a device or refresh OAuth. Independent list readback reports confirmed outcomes, including partial/uncertain results, without automatic DELETE retries. A read failure clears stale cloud selection. React StrictMode reuses the initial read promise so its effect replay does not discard the loaded list or make a duplicate request.
 
-Linux 支持本地数据和 CLI/Desktop 进程检查；如果发行版没有 Desktop 启动器，关闭后重开需要用户手动打开。工具不会声称能恢复云端 Artifact、评论监控、连接器或登录状态。
+Cloud deletion does not mutate the local Desktop database. Real cloud reads were verified; real user DELETE requests were not executed for acceptance. Internal formats and routes remain version-sensitive.
 
-## 后续修改从哪里开始
+## Verification and delivery
 
-- 标题策略：`claude_sync/titles.py` + `test_sessions.py`。
-- 文件安全：`claude_sync/storage.py` 与 `apply_plan()`。
-- Windows/Linux 行为：`claude_sync/platforms.py` + `test_platforms.py`。
-- GUI 排版/选择：`sync_gui.py`、`sync_gui_tk.py` 或 `sync_web.py`；不要把同步规则复制进去。
-- 命令或路径：同步更新启动器、README、样例配置和 CI。
+`pnpm typecheck`, `pnpm test`, `pnpm build`; then open the packaged local app and inspect it. Synthetic fixture tests cover selected sync, ten-session alignment across three accounts, duplicate scopes, archive hints, exclusions, tombstones/shared lineage, atomic recovery, stale inputs, symlinks and process classification. The frozen v1 fixture oracle preserves the migration baseline without retaining a second runtime.
 
-验证顺序：
+No user configuration, reports, backups or real session screenshots belong in source control. Historical phase evidence stays in `docs/evidence`. The old Python runtime, Tk/web views, packagers and obsolete UI images were removed after a private source snapshot; they remain recoverable through Git history. Only one local `.app` is the default entry.
 
-```sh
-python -m unittest -v test_sessions test_platforms test_configuration
-python -m compileall -q claudesync.py sync_gui.py sync_gui_tk.py sync_web.py sync_sessions.py claude_sync
-```
+Packaging currently covers a local unsigned Apple silicon app. Other platform packages and signed releases remain separate acceptance work; hosted CI is manual and never triggered by ordinary pushes.
 
-真实数据只做 `--check`，除非用户确认并且 Claude 已完全退出。
-
-## 已知盲点
-
-正文只做首尾抽样，不全文解析 JSONL；应用界面、云端权限和账号登录状态仍需用户打开 Claude 后确认。Claude 的内部索引格式可能随版本变化，遇到未知结构应停止写入并先更新适配器与测试。
+Use a separate `CLAUDESYNC_DATA_DIR` for development when a packaged app is installed. A leftover development process held the shared Chromium Local Storage lock during acceptance: preferences survived reloads but disappeared on restart in the packaged app. Closing that process restored persistence. Check the running processes and data-directory owner before diagnosing preference code or clearing user state.
