@@ -2,8 +2,13 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { GameBadge, GameButton, GamePanel } from '@pieai/swimmer-ui-kit';
 import { useTranslation } from './i18n';
 import type { TranslationKey } from './i18n';
-import type { AccountView, DesktopIdentityState, OperationPreview, SessionView } from '../shared/contracts';
+import type { AccountView, DesktopIdentityState, OperationPreview, SessionGroup, SessionView } from '../shared/contracts';
 import type { DeleteState } from './deletion-selection';
+
+export const groupLabels: Record<SessionGroup, TranslationKey> = {
+  visible: 'visibleGroup', archived: 'archived', scheduled: 'scheduledGroup',
+  oldOrganization: 'oldOrganizationGroup', deleted: 'deletedGroup', unverified: 'unverifiedGroup',
+};
 
 export function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return <GamePanel className={className}><h2 className="panel-heading">{title}</h2>{children}</GamePanel>;
@@ -21,13 +26,14 @@ export function accountName(account: AccountView | undefined, t: ReturnType<type
   return account?.email ?? t.t('unknown', { id: account?.id.slice(0, 8) ?? '?' });
 }
 
-export function DeleteConfirmation({ count, accountNames, state, source = 'local', busy, blocked = false, onClose, onDelete }: {
-  count: number; accountNames: string[]; state: DeleteState; source?: 'local' | 'cloud';
+export function DeleteConfirmation({ count, accountNames, state, group, source = 'local', busy, blocked = false, onClose, onDelete }: {
+  count: number; accountNames: string[]; state: DeleteState; group?: SessionGroup; source?: 'local' | 'cloud';
   busy: boolean; blocked?: boolean; onClose(): void; onDelete(): void;
 }) {
   const t = useTranslation();
   return <Modal title={t.t('deleteConfirmTitle', { count })} onClose={onClose} busy={busy}>
     <p className="panel-intro">{t.t(source === 'local' ? 'deleteLocalScope' : 'deleteCloudScope')}</p>
+    {group && <p>{t.t('groupScope', { group: t.t(groupLabels[group]) })}</p>}
     <div className="review-targets"><strong>{t.t('targets')}</strong>{accountNames.map((name) => <span key={name}>{name}</span>)}</div>
     <p className="operation-warning">{t.t('deleteNoRecovery')}</p>
     <p className="panel-intro">{t.t(state === 'archived' ? 'deleteArchivedAdvice' : state === 'mixed' ? 'deleteMixedAdvice' : 'deleteActiveAdvice')}</p>
@@ -59,7 +65,8 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
         onChange={(event) => onInclude(account.id, event.target.checked)} />
       <button className="account-open" onClick={() => onFilter(account.id)}>
         <strong>{accountName(account, t)}</strong>
-        <small>{t.t('accountCounts', { active: account.active, archived: account.archived })}</small>
+        <span className="account-main-count">{account.visible === null || !account.organizationVerified ? t.t('unverifiedCount') : t.t('desktopCount', { count: account.visible })}</span>
+        <small>{t.t('supplementCounts', { archived: account.archived, scheduled: account.scheduled, old: account.oldCopies, deleted: account.deletedMarkers })}</small>
         {account.current && <GameBadge tone="neutral">{t.t('current')}</GameBadge>}
       </button>
     </li>)}</ul>
@@ -69,8 +76,8 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
   </aside>;
 }
 
-export function SessionRows({ sessions, accounts, selected, filterId, included, onToggle, busy }: {
-  sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean;
+export function SessionRows({ sessions, accounts, selected, filterId, included, onToggle, busy, idPrefix = 'session' }: {
+  sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string;
 }) {
   const t = useTranslation();
   if (!sessions.length) return <p className="empty-state">{t.t('noSessions')}</p>;
@@ -80,10 +87,10 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
     const eligible = presence.some((item) => item.eligible);
     const reasons = [...new Set(presence.flatMap((item) => item.reasons))];
     return <li key={session.id} className={`session-row ${selected.has(session.id) ? 'is-selected' : ''}`}>
-      <input id={`session-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !session.manageable || !session.presence.some((item) => included.has(item.accountId))}
+      <input id={`${idPrefix}-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !session.manageable || !session.presence.some((item) => included.has(item.accountId))}
         onChange={(event) => onToggle(session.id, event.target.checked)} />
       <div className="session-copy">
-        <label className="session-title" htmlFor={`session-${session.id}`}>
+        <label className="session-title" htmlFor={`${idPrefix}-${session.id}`}>
           {session.starred && <span className="star-mark" aria-label={t.t('starred')}>★</span>}{session.title || t.t('untitled')}
         </label>
         <div className="session-meta"><span title={session.project}>{session.project.split(/[\\/]/u).filter(Boolean).at(-1) || '—'}</span>
@@ -107,6 +114,18 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
   })}</ul>;
 }
 
+export function CollapsedSessionGroup({ group, sessions, accounts, selected, filterId, included, onToggle, onCollapse, busy, markerCount = 0 }: {
+  group: Exclude<SessionGroup, 'visible'>; sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>;
+  filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; onCollapse(): void; busy: boolean; markerCount?: number;
+}) {
+  const t = useTranslation();
+  return <details className="supplementary-group" data-group={group} onToggle={(event) => { if (!event.currentTarget.open) onCollapse(); }}>
+    <summary>{t.t(groupLabels[group])} <span>{group === 'deleted' ? markerCount : sessions.length}</span></summary>
+    <p className="group-help">{t.t(group === 'scheduled' ? 'scheduledGroupBody' : group === 'deleted' ? 'deletedGroupBody' : 'groupExcludedBody')}</p>
+    <SessionRows sessions={sessions} accounts={accounts} selected={selected} filterId={filterId} included={included} onToggle={onToggle} busy={busy} idPrefix={`group-${group}`} />
+  </details>;
+}
+
 export function OperationReview({ preview, accounts, choices, busy, blocked, onClose, onApply, onChooseTitle }: {
   preview: OperationPreview; accounts: AccountView[]; choices?: Record<string, string>; busy: boolean; blocked: boolean; onClose(): void; onApply(): void; onChooseTitle(id: string, scope: string): void;
 }) {
@@ -115,6 +134,7 @@ export function OperationReview({ preview, accounts, choices, busy, blocked, onC
   return <Modal title={t.t('previewTitle')} onClose={onClose} busy={busy}>
     <p className="panel-intro">{t.t('previewBody')}</p>
     <h3 className="operation-name">{t.t(preview.kind)}</h3>
+    {preview.group && <p>{t.t('groupScope', { group: t.t(groupLabels[preview.group]) })}</p>}
     <div className="review-targets"><strong>{t.t('targets')}</strong>{preview.accountIds.map((id) => <span key={id}>{accountName(accounts.find((account) => account.id === id), t)}</span>)}</div>
     {preview.selected.length > 0 && <details className="review-selection" open={preview.kind === 'keep'}><summary>{t.t('selectedCount', { count: preview.selected.length })}</summary>
       <ul>{preview.selected.map((session) => <li key={session.id}><strong>{session.title || t.t('untitled')}</strong><small>{session.id.slice(0, 8)}</small></li>)}</ul>

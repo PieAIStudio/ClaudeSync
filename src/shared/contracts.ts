@@ -115,6 +115,7 @@ export interface TitleConflictView {
 }
 
 export interface OperationPreview {
+  group?: SessionGroup;
   token: string;
   kind: OperationKind;
   changes: ChangeView[];

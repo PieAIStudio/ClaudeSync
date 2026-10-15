@@ -202,6 +202,6 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   return {
     kind: request.kind, changes: result,
     ...(deletionSnapshot ? { deletionSnapshot, transcriptRemovals } : {}),
-    preview: { kind: request.kind, accountIds: [...accountIds], selected, changes: changeViews(result), conflicts, skipped, fileCount: result.length },
+    preview: { group: request.group, kind: request.kind, accountIds: [...accountIds], selected, changes: changeViews(result), conflicts, skipped, fileCount: result.length },
   };
 }

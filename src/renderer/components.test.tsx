@@ -32,8 +32,8 @@ it('renders readable account counts, named session checkboxes and the exact reta
     createElement(OperationReview, { accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop,
       preview: { kind: 'keep', token: 'fixture', accountIds: ['a'], selected: [{ id: 'chat', title: 'Chosen session' }], changes: [], conflicts: [], skipped: [], fileCount: 0 } }),
   ) }));
-  expect(html).toContain('10 条本机聊天');
-  expect(html).toContain('2 条本机归档');
+  expect(html).toContain('10 条普通聊天');
+  expect(html).toContain('归档 2');
   expect(html).toContain('for="session-chat"');
   expect(html).toContain('已选 1 条聊天');
   expect(html).toContain('fixture@example.com');

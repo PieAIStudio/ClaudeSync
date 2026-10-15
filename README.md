@@ -13,13 +13,13 @@ ClaudeSync shows and organizes local Claude Code sessions across accounts and th
 
 To keep the same ten sessions in each account, select those ten and choose **Keep only selected in each account**. Selected sessions are added where missing and unarchived; the rest are archived. Missing transcripts or blocked destinations stop the operation before any other sessions are archived. **Select 10 recent syncable sessions** changes the selection only.
 
-Active remote or scheduled records also block exact keep-only. Handle those tasks in Claude first, then organize the local sessions.
+Keep-only organizes ordinary chats in verified current organizations; scheduled-run and old-organization groups are left alone. Unsupported remote records in the ordinary list still block exact keep-only. Handle linked tasks in Claude.
 
 ## Actions
 
 - Sync selected sessions; review differing titles before choosing a shared title.
 - Archive or unarchive; rename one session across included accounts; star or unstar.
-- Delete selected local sessions, their configured old copies in the same login, and exclusive main JSONL transcripts; retain content claimed by other sessions/accounts and leave project/worktree files alone. No deletion backup or recovery.
+- Delete selected local sessions within the selected group and exclusive main JSONL transcripts; do not silently delete hidden old copies. Shared entry IDs can block partial-copy deletion; use archive instead. Other claimed content and project/worktree files stay untouched. No deletion backup or recovery.
 - Select and delete verified, idle Remote Control cloud Code records, including archived Wakeup history, through the same session DELETE endpoint used by the installed Desktop.
 - Preview/restore backups from other local operations. Later edits block restoration.
 
@@ -29,7 +29,7 @@ Removal stops if another session or an unconfigured sibling folder still claims 
 
 ## Counts and identity
 
-Counts represent distinct sessions, deduplicated by `cliSessionId`. Accounts with a verified organization use the organization UUID confirmed by the profile response; old organization copies cannot override current archive state. Both local and cloud profile checks remember the verified organization locally with the email. Older email-only bindings need one fresh check while that account is logged in to confirm its organization. Accounts without a verified organization retain their saved local scope view; those counts are not proof of the current Desktop list. Each session lists its accounts, titles, copies and reasons it cannot be synced.
+The main account number is the distinct ordinary-session count in its verified current organization: exclude archived records, scheduled task runs and deletion-marked records. Without a usable verified organization, the number says **Unverified**, never an estimated count. Archive, scheduled runs, old-organization copies, deletion markers and unverified records remain separately inspectable in initially collapsed groups. Each group deduplicates by `cliSessionId`; one identity may have copies in several groups, so do not add group counts into a distinct-session total. Sync and keep-only require a verified current destination for every included account. See [local visibility rules and evidence limits](docs/LOCAL-VISIBILITY-RULES.md).
 
 On macOS, refresh confirms the **Claude Desktop** account and email with one read-only request to Anthropic's profile service using Desktop's existing profile-only credential. It reads Claude Safe Storage through Keychain, keeps credentials in memory, and never refreshes or stores them. The verified current account's local folders are added to ClaudeSync's configuration with a configuration backup. Account participation choices are retained. CLI login metadata can identify a historical account but never establishes Desktop's current login. Emails are remembered only on this computer; unidentified accounts keep stable short IDs. No guessing or manual email entry.
 
@@ -39,7 +39,7 @@ The **Local sessions** and **Cloud sessions** views have separate counts and sel
 
 ## Safety and boundaries
 
-Local deletion permanently removes selected local records and their same-login configured copies, updates archive hints and native deletion markers, and unlinks exclusive main JSONL transcripts. Every login folder under the configured session root is checked for shared history before transcript removal, including accounts omitted from settings. Shared content, project/worktree files and auxiliary CLI files stay untouched. Removing an entry whose own ID is still claimed by another chat or unconfigured sibling stops before writing. Deletion creates no backup, journal, trash copy or restore token. An interrupted deletion reports partial completion and cannot be undone by ClaudeSync. Older backups from other operations are not purged.
+Local deletion permanently removes selected local records within the confirmed group, updates archive hints and native deletion markers, and unlinks exclusive main JSONL transcripts. Every login folder under the configured session root is checked for shared history before transcript removal, including accounts omitted from settings. Shared content, project/worktree files and auxiliary CLI files stay untouched. Removing an entry whose own ID is still claimed by another chat or unconfigured sibling stops before writing. Deletion creates no backup, journal, trash copy or restore token. An interrupted deletion reports partial completion and cannot be undone by ClaudeSync. Older backups from other operations are not purged.
 
 Other local changes still use review tokens, original-byte backups, atomic writes and guarded recovery. All local writes require stopped Claude/Code processes, unchanged settings, transcript fingerprints, file inventory and index snapshots, an exclusive lock and final verification.
 

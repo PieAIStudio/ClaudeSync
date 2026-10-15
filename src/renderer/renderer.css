@@ -40,6 +40,12 @@ select { min-height: 38px; border: 1px solid var(--game-ui-paper-line-light, #d3
 .account-open { border: 0; background: none; padding: 0; text-align: left; color: inherit; display: grid; gap: 7px; min-width: 0; width: 100%; }
 .account-open strong { font-size: 13px; font-weight: 750; line-height: 1.5; overflow-wrap: anywhere; }
 .account-open small { font-size: 11px; color: var(--game-ui-paper-muted-light, #625b56); }
+.account-main-count { font-size: 19px; font-weight: 800; }
+.supplementary-group { border-top: 1px solid var(--game-ui-paper-line-light, #d3c9ba); padding: 13px 0; }
+.supplementary-group > summary { display: list-item; font-size: 13px; font-weight: 700; }
+.supplementary-group > summary span { margin-left: 8px; font-variant-numeric: tabular-nums; }
+.supplementary-group .session-list { min-height: 0; max-height: 35vh; }
+.group-help { font-size: 12px; line-height: 1.7; color: var(--game-ui-paper-muted-light, #625b56); }
 .account-open .game-ui-badge { justify-self: start; }
 .sidebar-tip { margin: 12px 8px; font-size: 11px; line-height: 1.7; }
 .sidebar-tip summary { font-weight: 750; color: #287ab4; }

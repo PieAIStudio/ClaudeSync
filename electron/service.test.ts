@@ -27,6 +27,27 @@ beforeEach(() => {
 });
 afterEach(() => { rmSync(environment.root, { recursive: true, force: true }); });
 
+it('rejects an organization change after preview without any backup or session write', async () => {
+  const view = await checkWorkspace();
+  const preview = previewOperation({ kind: 'sync', group: 'visible', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision);
+  const before = readFileSync(indexPath(environment.root, SCOPE_A, CHAT_B));
+  rememberIdentities([], { accountId: ID_B, email: 'other@example.com', organizationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' });
+  await expect(applyOperation(preview.token)).rejects.toThrow('当前组织已改变');
+  expect(readFileSync(indexPath(environment.root, SCOPE_A, CHAT_B))).toEqual(before);
+  expect(availableBackups()).toHaveLength(0);
+  expect(() => previewOperation({ kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision)).toThrow('已经变化');
+});
+
+it('reports an email-only account as unverified and explains the blocked destination', async () => {
+  writeFileSync(join(environment.root, 'account-identities.json'), JSON.stringify({
+    [ID_A]: { email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1] }, [ID_B]: 'other@example.com',
+  }));
+  const view = await checkWorkspace();
+  expect(view.accounts.find((account) => account.id === ID_B)).toMatchObject({ visible: null, organizationVerified: false });
+  expect(() => previewOperation({ kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision)).toThrow('尚未核实');
+  expect(() => previewOperation({ kind: 'archive', group: 'invalid', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision)).toThrow('分组参数');
+});
+
 it('uses a single-use preview token and provides a restore preview through the application service', async () => {
   const initial = await checkWorkspace();
   const preview = previewOperation({ kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] }, initial.revision);
