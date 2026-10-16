@@ -59,5 +59,5 @@ it('shows Unverified as the main value rather than an authoritative zero', () =>
     accounts: [account], included, currentFilter: ID_A, onInclude: noop, onFilter: noop, busy: false,
   }) }));
   expect(html).toContain('未核实');
-  expect(html).not.toContain('0 条普通聊天');
+  expect(html).not.toContain('0 条普通会话');
 });

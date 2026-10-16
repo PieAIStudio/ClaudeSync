@@ -1,6 +1,6 @@
 {
   "name": "claudesync",
-  "version": "2.0.0-alpha.0",
+  "version": "2.0.0-alpha.1",
   "private": true,
   "author": "PieAI",
   "description": "Claude Code session organizer for local accounts and current-account cloud history",

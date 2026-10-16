@@ -11,11 +11,11 @@ const sessions: SessionView[] = [{ id: 'chat', title: 'Chosen session', project:
 const noop = () => undefined;
 
 it.each([
-  ['active', '再使用“归档”'], ['archived', '想保留归档内容'], ['mixed', '既有普通聊天'],
+  ['active', '再使用“归档”'], ['archived', '想保留归档内容'], ['mixed', '既有普通会话'],
 ] as const)('explains %s deletion with the right alternative, explicit account and no preview or backup promise', (state, advice) => {
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(DeleteConfirmation,
     { count: 3, accountNames: ['fixture@example.com'], state, busy: false, onClose: noop, onDelete: noop }) }));
-  expect(html).toContain('确定要删除这 3 条聊天吗');
+  expect(html).toContain('确定要删除这 3 条 Code 会话吗');
   expect(html).toContain('fixture@example.com');
   expect(html).toContain(advice);
   expect(html).toContain('不留删除备份');
@@ -32,10 +32,10 @@ it('renders readable account counts, named session checkboxes and the exact reta
     createElement(OperationReview, { accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop,
       preview: { kind: 'keep', token: 'fixture', accountIds: ['a'], selected: [{ id: 'chat', title: 'Chosen session' }], changes: [], conflicts: [], skipped: [], fileCount: 0 } }),
   ) }));
-  expect(html).toContain('10 条普通聊天');
+  expect(html).toContain('10 条普通会话');
   expect(html).toContain('归档 2');
   expect(html).toContain('for="session-chat"');
-  expect(html).toContain('已选 1 条聊天');
+  expect(html).toContain('已选 1 条 Code 会话');
   expect(html).toContain('fixture@example.com');
   expect(html).not.toContain('43 条可检查');
 });

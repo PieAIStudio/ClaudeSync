@@ -89,6 +89,28 @@ export interface DeleteRequest {
   accountIds: string[];
 }
 
+export interface OldCopyItemView {
+  sessionId: string;
+  title: string;
+  accountId: string;
+  oldScope: string;
+  currentHasCopy: boolean;
+  action: 'trashDuplicate' | 'restoreArchived' | 'trashAfterRestore';
+}
+export interface OldCleanupPreview {
+  token: string;
+  items: OldCopyItemView[];
+  accountIds: string[];
+  trashCount: number;
+  archivedToImport: number;
+}
+export interface OldCleanupResult {
+  trashed: number;
+  importedArchived: number;
+  mainUnchanged: boolean;
+  oldCopiesRemaining: number;
+}
+
 export interface CloudSessionView {
   id: string; title: string; status: 'active' | 'archived' | 'paused' | 'failed' | 'unknown';
   updatedAt?: string; deletable: boolean; blockedReason?: 'running' | 'unsupported';
@@ -148,6 +170,8 @@ export interface ClaudeSyncApi {
   preview(request: OperationRequest, revision: string): Promise<OperationPreview>;
   apply(token: string): Promise<{ result: ApplyResult; workspace: WorkspaceView }>;
   deleteSelected(request: DeleteRequest, revision: string): Promise<{ result: ApplyResult; workspace: WorkspaceView }>;
+  previewOldCopies(accountIds: string[], revision: string): Promise<OldCleanupPreview>;
+  cleanupOldCopies(token: string): Promise<{ result: OldCleanupResult; workspace: WorkspaceView }>;
   cloudSessions(): Promise<CloudWorkspaceView>;
   deleteCloudSessions(sessionIds: string[], revision: string): Promise<CloudDeleteResult>;
   backups(): Promise<BackupView[]>;

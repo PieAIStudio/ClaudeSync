@@ -28,7 +28,7 @@ async function request(credential: SessionCredential, path: string, method: 'GET
       'anthropic-beta': 'ccr-byoc-2025-07-29', 'anthropic-client-feature': 'ccr',
       'x-organization-uuid': credential.organizationId,
     }, redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(10000) });
-  } catch { throw new Error(method === 'DELETE' ? '删除请求的结果未能确认，已停止，未自动重试。请重新检查。' : '无法读取云端聊天，请检查网络后重新检查。'); }
+  } catch { throw new Error(method === 'DELETE' ? '删除请求的结果未能确认，已停止，未自动重试。请重新检查。' : '无法读取云端Code 会话，请检查网络后重新检查。'); }
   assertSessionCredential(credential);
   if (!response.ok) {
     await response.body?.cancel();
@@ -47,7 +47,7 @@ async function readRows(credential: SessionCredential): Promise<Row[]> {
   const ids = new Set<string>();
   return value.data.map((item): Row => {
     if (!isRecord(item) || typeof item.id !== 'string' || !ID.test(item.id) || ids.has(item.id)
-      || typeof item.title !== 'string' || item.title.length > 2000 || typeof item.status !== 'string') throw new Error('Claude 云端聊天结构无法识别，已停止处理。');
+      || typeof item.title !== 'string' || item.title.length > 2000 || typeof item.status !== 'string') throw new Error('Claude 云端Code 会话结构无法识别，已停止处理。');
     ids.add(item.id);
     const status = ['active', 'archived', 'paused', 'failed'].includes(item.status) ? item.status as CloudSessionView['status'] : 'unknown';
     // Current Desktop's Remote Control records were verified live. Unknown formats
@@ -82,19 +82,19 @@ export async function cloudSessions(): Promise<CloudWorkspaceView> {
 
 export async function deleteCloudSessions(value: unknown, revision: unknown): Promise<CloudDeleteResult> {
   if (typeof revision !== 'string' || !Array.isArray(value) || value.length < 1 || value.length > LIMIT
-    || value.some((id) => typeof id !== 'string' || !ID.test(id))) throw new Error('请勾选云端聊天后再删除。');
+    || value.some((id) => typeof id !== 'string' || !ID.test(id))) throw new Error('请勾选云端Code 会话后再删除。');
   const snapshot = snapshots.get(revision);
   snapshots.delete(revision); // Consume once, including failed or uncertain requests.
   if (!snapshot || Date.now() - snapshot.at > 15 * 60 * 1000) throw new Error('云端列表已过期，请重新检查后选择。');
   const selected = [...new Set(value as string[])];
-  if (selected.some((id) => !snapshot.rows.some((row) => row.view.id === id && row.view.deletable))) throw new Error('选择包含不在列表中、正在运行或暂不支持的云端聊天。');
+  if (selected.some((id) => !snapshot.rows.some((row) => row.view.id === id && row.view.deletable))) throw new Error('选择包含不在列表中、正在运行或暂不支持的云端Code 会话。');
   const identity = await currentIdentity();
   if (identity.accountId !== snapshot.identity.accountId || identity.organizationId !== snapshot.identity.organizationId
-    || identity.email !== snapshot.identity.email) throw new Error('Claude 登录账号已改变，尚未删除任何聊天。请重新检查。');
+    || identity.email !== snapshot.identity.email) throw new Error('Claude 登录账号已改变，尚未删除任何Code 会话。请重新检查。');
   const credential = await readSessionCredential(identity);
   const fresh = await readRows(credential);
   if (selected.some((id) => fresh.find((row) => row.view.id === id)?.fingerprint !== snapshot.rows.find((row) => row.view.id === id)?.fingerprint)) {
-    throw new Error('所选云端聊天的状态或内容已经变化，尚未删除。请重新检查后确认。');
+    throw new Error('所选云端Code 会话的状态或内容已经变化，尚未删除。请重新检查后确认。');
   }
   const accepted: string[] = [];
   const attempted: string[] = [];

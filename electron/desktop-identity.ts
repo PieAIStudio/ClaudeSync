@@ -82,7 +82,7 @@ export interface SessionCredential {
 export function assertSessionCredential(credential: SessionCredential): void {
   const current = readLogin();
   if (!current || current.accountId !== credential.accountId || current.encryptedCache !== credential.login.encryptedCache
-    || credential.expiresAt <= Date.now()) throw new Error('Claude 当前登录或授权已变化，请重新检查云端聊天。');
+    || credential.expiresAt <= Date.now()) throw new Error('Claude 当前登录或授权已变化，请重新检查云端 Code 会话。');
 }
 export async function readSessionCredential(identity: AccountIdentity): Promise<SessionCredential> {
   if (process.platform !== 'darwin' || !identity.organizationId) throw new Error('当前系统或登录资料暂不支持云端管理。');

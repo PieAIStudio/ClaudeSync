@@ -4,6 +4,7 @@ import { useTranslation } from './i18n';
 import type { TranslationKey } from './i18n';
 import type { AccountView, DesktopIdentityState, OperationPreview, SessionGroup, SessionView } from '../shared/contracts';
 import type { DeleteState } from './deletion-selection';
+import { TermTip } from './TermTip';
 
 export const groupLabels: Record<SessionGroup, TranslationKey> = {
   visible: 'visibleGroup', archived: 'archived', scheduled: 'scheduledGroup',
@@ -59,20 +60,24 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
   const t = useTranslation();
   return <aside className="account-sidebar">
     <div className="sidebar-heading"><h2>{t.t('accounts')}</h2><span>{accounts.length}</span></div>
+    <div className="sidebar-scope"><span>{t.t('sessions')}</span><TermTip term="code" /></div>
     <GameButton variant="ghost" className={`all-accounts ${currentFilter === 'all' ? 'is-active' : ''}`} onClick={() => onFilter('all')}>{t.t('allAccounts')}</GameButton>
     <ul className="account-list">{accounts.map((account) => <li key={account.id} className={`${currentFilter === account.id ? 'is-active' : ''} ${included.has(account.id) ? '' : 'is-excluded'}`}>
       <input type="checkbox" aria-label={`${t.t('includeAccount')} ${accountName(account, t)}`} checked={included.has(account.id)} disabled={busy}
         onChange={(event) => onInclude(account.id, event.target.checked)} />
-      <button className="account-open" onClick={() => onFilter(account.id)}>
-        <strong>{accountName(account, t)}</strong>
-        <span className="account-main-count">{account.visible === null || !account.organizationVerified ? t.t('unverifiedCount') : t.t('desktopCount', { count: account.visible })}</span>
-        <small>{t.t('supplementCounts', { archived: account.archived, scheduled: account.scheduled, old: account.oldCopies, deleted: account.deletedMarkers })}</small>
+      <div className="account-info">
+        <div className="account-heading"><button className="account-open" onClick={() => onFilter(account.id)}><strong>{accountName(account, t)}</strong></button>
+          {!account.email && <TermTip term="unknownEmail" />}</div>
+        <div className="count-with-tip"><span className="account-main-count">{account.visible === null || !account.organizationVerified ? t.t('unverifiedCount') : t.t('desktopCount', { count: account.visible })}</span>
+          <TermTip term={account.visible === null || !account.organizationVerified ? 'unverified' : 'visible'} /></div>
+        <div className="account-secondary-counts">{([
+          ['archived', 'archivedCountLabel', account.archived], ['scheduled', 'scheduledCountLabel', account.scheduled],
+          ['oldOrganization', 'oldCountLabel', account.oldCopies], ['deleted', 'deletedCountLabel', account.deletedMarkers],
+        ] as const).map(([term, label, count]) => <div className="count-with-tip" key={term}><span>{t.t(label)} {count}</span><TermTip term={term} /></div>)}</div>
         {account.current && <GameBadge tone="neutral">{t.t('current')}</GameBadge>}
-      </button>
+      </div>
     </li>)}</ul>
-    <details className="sidebar-tip"><summary>{t.t('numbersTip')}</summary><p>{t.t('numbersBody')}</p></details>
     {identityState && identityState !== 'verified' && <p className="identity-tip" role="status">{t.t(identityState === 'changed' ? 'identityChanged' : identityState === 'unsupported' ? 'identityUnsupported' : 'identityUnavailable')}</p>}
-    <p className="identity-tip">{t.t('identityTip')}</p>
   </aside>;
 }
 
@@ -119,11 +124,13 @@ export function CollapsedSessionGroup({ group, sessions, accounts, selected, fil
   filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; onCollapse(): void; busy: boolean; markerCount?: number;
 }) {
   const t = useTranslation();
-  return <details className="supplementary-group" data-group={group} onToggle={(event) => { if (!event.currentTarget.open) onCollapse(); }}>
-    <summary>{t.t(groupLabels[group])} <span>{group === 'deleted' ? markerCount : sessions.length}</span></summary>
-    <p className="group-help">{t.t(group === 'scheduled' ? 'scheduledGroupBody' : group === 'deleted' ? 'deletedGroupBody' : 'groupExcludedBody')}</p>
-    <SessionRows sessions={sessions} accounts={accounts} selected={selected} filterId={filterId} included={included} onToggle={onToggle} busy={busy} idPrefix={`group-${group}`} />
-  </details>;
+  return <div className="supplementary-section">
+    <details className="supplementary-group" data-group={group} onToggle={(event) => { if (!event.currentTarget.open) onCollapse(); }}>
+      <summary>{t.t(groupLabels[group])} <span>{group === 'deleted' ? markerCount : sessions.length}</span></summary>
+      <SessionRows sessions={sessions} accounts={accounts} selected={selected} filterId={filterId} included={included} onToggle={onToggle} busy={busy} idPrefix={`group-${group}`} />
+    </details>
+    <span className="group-tip"><TermTip term={group} /></span>
+  </div>;
 }
 
 export function OperationReview({ preview, accounts, choices, busy, blocked, onClose, onApply, onChooseTitle }: {

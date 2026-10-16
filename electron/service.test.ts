@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { basename, join } from 'node:path';
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { addScope, CHAT_A, CHAT_B, ID_A, ID_B, SCOPE_A, SCOPE_B, editIndex, indexPath, temporaryFixture } from '../tests/fixture';
 import type { DesktopIdentityCheck } from './desktop-identity';
 
@@ -14,7 +14,7 @@ vi.mock('./processes', () => ({
   processBlockers: () => environment.blocked ? ['Claude is running'] : [],
   assertClaudeStopped: () => { if (environment.blocked) throw new Error('Claude is running'); },
 }));
-import { applyOperation, availableBackups, checkWorkspace, deleteSelected, previewOperation, previewRestore } from './service';
+import { applyOperation, availableBackups, checkWorkspace, cleanupOldCopies, deleteSelected, previewOldCopies, previewOperation, previewRestore } from './service';
 import { configureFolders, rememberIdentities } from './accounts';
 
 beforeEach(() => {
@@ -27,6 +27,39 @@ beforeEach(() => {
 });
 afterEach(() => { rmSync(environment.root, { recursive: true, force: true }); });
 
+it('previews every old duplicate, uses Trash only on confirm and reads back unchanged main count', async () => {
+  const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  addScope(environment.root, oldScope, SCOPE_A);
+  const view = await checkWorkspace();
+  const preview = previewOldCopies([ID_A], view.revision);
+  expect(preview).toMatchObject({ trashCount: 2, archivedToImport: 0 });
+  expect(preview.items.every((item) => item.currentHasCopy)).toBe(true);
+  const trashFolder = join(environment.root, 'fake-trash');
+  mkdirSync(trashFolder);
+  let moved = 0;
+  const result = await cleanupOldCopies(preview.token, async (path) => {
+    renameSync(path, join(trashFolder, String(++moved) + '-' + path.split('/').at(-1)!));
+  });
+  expect(result.result).toEqual({ trashed: 2, importedArchived: 0, mainUnchanged: true, oldCopiesRemaining: 0 });
+  expect(result.workspace.accounts.find((a) => a.id === ID_A)).toMatchObject({ visible: 2, oldCopies: 0 });
+  expect(readdirSync(trashFolder)).toHaveLength(2);
+  await expect(cleanupOldCopies(preview.token, async () => {})).rejects.toThrow('过期');
+});
+it('does not trash anything when writers are running or the organization has changed', async () => {
+  const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  addScope(environment.root, oldScope, SCOPE_A);
+  const view = await checkWorkspace();
+  const preview = previewOldCopies([ID_A], view.revision);
+  environment.blocked = true;
+  await expect(cleanupOldCopies(preview.token, async () => { throw new Error('Never called'); })).rejects.toThrow('Claude is running');
+  environment.blocked = false;
+  expect(readdirSync(join(environment.root, 'session-root', oldScope))).toContain('local_' + CHAT_A + '.json');
+  const fresh = await checkWorkspace();
+  const second = previewOldCopies([ID_A], fresh.revision);
+  rememberIdentities([], { accountId: ID_A, email: 'fixture@example.com', organizationId: oldScope.split('/')[1] });
+  await expect(cleanupOldCopies(second.token, async () => { throw new Error('Never called'); })).rejects.toThrow('已经变化');
+  expect(readdirSync(join(environment.root, 'session-root', oldScope))).toContain('local_' + CHAT_A + '.json');
+});
 it('rejects an organization change after preview without any backup or session write', async () => {
   const view = await checkWorkspace();
   const preview = previewOperation({ kind: 'sync', group: 'visible', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision);

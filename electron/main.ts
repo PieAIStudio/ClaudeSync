@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { configPath, configureFolders, savedRoots } from './accounts';
-import { applyOperation, availableBackups, checkWorkspace, deleteSelected, previewOperation, previewRestore } from './service';
+import { applyOperation, availableBackups, checkWorkspace, cleanupOldCopies, deleteSelected, previewOldCopies, previewOperation, previewRestore } from './service';
 import { cloudSessions, deleteCloudSessions } from './cloud-sessions';
 
 app.setName('ClaudeSync');
@@ -32,6 +32,8 @@ function registerIpc(): void {
   handle('preview', (_event, request, revision) => previewOperation(request, revision));
   handle('apply', (_event, token) => applyOperation(token));
   handle('delete-selected', (_event, request, revision) => deleteSelected(request, revision));
+  handle('preview-old-copies', (_event, ids, revision) => previewOldCopies(ids, revision));
+  handle('cleanup-old-copies', (_event, token) => cleanupOldCopies(token, (path) => shell.trashItem(path)));
   handle('cloud-sessions', () => cloudSessions());
   handle('delete-cloud-sessions', (_event, ids, revision) => deleteCloudSessions(ids, revision));
   handle('backups', () => availableBackups());

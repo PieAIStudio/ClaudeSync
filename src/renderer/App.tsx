@@ -3,13 +3,16 @@ import { applyDocumentLanguage, rememberLocale } from '@pieai/swimmer-i18n-kit/b
 import { GameBadge, GameButton, GameCallout, GameInput } from '@pieai/swimmer-ui-kit';
 import { I18nProvider, getInitialLocale, locales, useTranslation } from './i18n';
 import type { AppLocale } from './i18n';
-import { SESSION_GROUPS, type OperationRequest, type SessionGroup, type SessionView } from '../shared/contracts';
+import { SESSION_GROUPS, type OldCleanupPreview, type OperationRequest, type SessionGroup, type SessionView } from '../shared/contracts';
 import { sessionsInGroup } from './session-groups';
 import { AccountSidebar, CollapsedSessionGroup, DeleteConfirmation, Modal, OperationReview, Panel, SessionRows, accountName, groupLabels } from './components';
 import { filterSessions, type SessionFilter } from './session-selection';
 import { useWorkspace } from './useWorkspace';
 import { deletionSelection, type DeleteSelection } from './deletion-selection';
 import { CloudSessions } from './CloudSessions';
+import { TermTip } from './TermTip';
+import { OldCleanupDialog } from './OldCleanupDialog';
+import { errorMessage } from './errors';
 
 const languageNames: Record<AppLocale, string> = { 'zh-CN': '简体中文', en: 'English', ja: '日本語', es: 'Español', 'pt-BR': 'Português' };
 const excludedKey = 'claudesync.excluded-account-ids';
@@ -27,7 +30,10 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   const [source, setSource] = useState<'local' | 'cloud'>('local');
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudRefresh, setCloudRefresh] = useState(0);
-  const busy = model.busy || cloudBusy;
+  const [cleanupBusy, setCleanupBusy] = useState(false);
+  const [oldPreview, setOldPreview] = useState<OldCleanupPreview>();
+  const [cleanupFeedback, setCleanupFeedback] = useState('');
+  const busy = model.busy || cloudBusy || cleanupBusy;
   const onCloudBusy = useCallback((value: boolean) => setCloudBusy(value), []);
   const [excluded, setExcluded] = useState(readExcluded);
   const [accountFilter, setAccountFilter] = useState('all');
@@ -76,6 +82,33 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
     const accountIds = kind === 'sync' || kind === 'keep' || accountFilter === 'all' ? [...included] : included.has(accountFilter) ? [accountFilter] : [];
     await model.preview({ kind, group: selectionGroup, sessionIds: [...selected], accountIds, title });
   }
+  async function reviewOldCopies() {
+    if (!workspace || !model.api) return;
+    const ids = accountFilter === 'all' ? [...included] : included.has(accountFilter) ? [accountFilter] : [];
+    if (!ids.length) return;
+    setCleanupBusy(true); setCleanupFeedback('');
+    try {
+      const preview = await model.api.previewOldCopies(ids, workspace.revision);
+      if (!preview.items.length) setCleanupFeedback(t.t('cleanupNone'));
+      else setOldPreview(preview);
+    } catch (error) { setCleanupFeedback(errorMessage(error)); }
+    finally { setCleanupBusy(false); }
+  }
+  async function confirmOldCopies() {
+    if (!oldPreview || !model.api) return;
+    const token = oldPreview.token;
+    setCleanupBusy(true); setCleanupFeedback('');
+    try {
+      const delivered = await model.api.cleanupOldCopies(token);
+      setOldPreview(undefined);
+      setCleanupFeedback(t.t('cleanupComplete', { trashed: delivered.result.trashed, imported: delivered.result.importedArchived }));
+      await model.refresh();
+    } catch (error) {
+      setOldPreview(undefined);
+      setCleanupFeedback(errorMessage(error));
+      await model.refresh();
+    } finally { setCleanupBusy(false); }
+  }
   const canAct = selected.size > 0 && included.size > 0 && !busy;
   const targetsVerified = workspace?.accounts.filter((account) => included.has(account.id)).every((account) => account.organizationVerified) ?? false;
   const title = accountFilter === 'all' ? t.t('sessions') : accountName(workspace?.accounts.find((account) => account.id === accountFilter), t);
@@ -83,10 +116,11 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
     {model.error && <GameCallout heading={t.t('issue')} tone="danger">{model.error}</GameCallout>}
     {model.completed && <GameCallout tone="success">{t.t('complete')}</GameCallout>}
     {model.deleted && <GameCallout tone="success">{t.t('deleteComplete')}</GameCallout>}
+    {cleanupFeedback && <GameCallout tone="warning">{cleanupFeedback}</GameCallout>}
   </div>;
 
   return <main className="claudesync-app" data-game-ui-theme="light" data-game-ui-style="outline">
-    <header className="brand-header"><span className="brand-mark" aria-hidden="true">CS</span><div className="brand-title"><p>ClaudeSync</p><small>{t.t('caption')}</small></div>
+    <header className="brand-header"><span className="brand-mark" aria-hidden="true">CS</span><div className="brand-title"><p>ClaudeSync</p><small>{t.t('caption')}</small></div><TermTip term="code" />
       <div className="header-actions"><GameButton variant="ghost" disabled={busy} onClick={() => setSettings(!settings)}>{t.t('settings')}</GameButton>
         <label className="language-switcher"><span>{t.t('language')}</span><select value={locale} onChange={(event) => onLocale(event.target.value as AppLocale)}>{locales.map((code) => <option key={code} value={code}>{languageNames[code]}</option>)}</select></label>
       </div>
@@ -106,7 +140,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       {!workspace ? <p className="empty-state">{t.t('noCheck')}</p> : <div className="manager-layout">
         <AccountSidebar accounts={workspace.accounts} included={included} currentFilter={accountFilter} onInclude={includeAccount} onFilter={(id) => { setAccountFilter(id); setSelected(new Set()); setSelectionGroup('visible'); }} busy={busy} identityState={workspace.identityState} />
         <section className="session-area" aria-label={t.t('sessions')}>
-          <div className="session-heading"><h2>{title}</h2><span>{listVerified ? t.t('visibleCount', { shown: visible.length, total: scopedGroups.visible.length }) : t.t('unverifiedCount')}</span></div>
+          <div className="session-heading"><div className="heading-with-tip"><h2>{title}</h2><TermTip term="code" /></div><span className="count-with-tip">{listVerified ? t.t('visibleCount', { shown: visible.length, total: scopedGroups.visible.length }) : t.t('unverifiedCount')}<TermTip term={listVerified ? 'visible' : 'unverified'} /></span></div>
           <div className="session-filters"><GameInput type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={search} onChange={(event) => setSearch(event.target.value)} />
             <select aria-label={t.t('filter')} value={filter} onChange={(event) => setFilter(event.target.value as SessionFilter)}>{(['active', 'all', 'syncable', 'blocked', 'starred'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</select>
             <select aria-label={t.t('sort')} value={sort} onChange={(event) => setSort(event.target.value as 'updated' | 'title')}><option value="updated">{t.t('sortUpdated')}</option><option value="title">{t.t('sortTitle')}</option></select>
@@ -117,6 +151,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
             <GameButton variant="ghost" disabled={busy} onClick={() => { setSelectionGroup('visible'); setSelected(new Set(eligibleToSelect.filter((session) => session.presence.some((item) => included.has(item.accountId) && item.eligible)).sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 10).map((session) => session.id))); }}>{t.t('selectTen')}</GameButton>
             {selected.size > 0 && <GameButton variant="ghost" disabled={busy} onClick={() => setSelected(new Set())}>{t.t('clearSelection')}</GameButton>}
           </div>
+          <div className="ordinary-heading"><h3>{t.t('visibleGroup')}</h3><TermTip term="visible" /></div>
           <SessionRows sessions={visible} accounts={workspace.accounts} selected={selectionGroup === 'visible' ? selected : new Set()} filterId={accountFilter} included={included} onToggle={(id, value) => toggle('visible', id, value)} busy={busy} />
           {(['archived', 'scheduled', 'oldOrganization', 'deleted', 'unverified'] as const).map((group) => <CollapsedSessionGroup key={`${accountFilter}-${group}`} group={group} sessions={grouped[group]} accounts={workspace.accounts}
             selected={selectionGroup === group ? selected : new Set()} filterId={accountFilter} included={included} onToggle={(id, value) => toggle(group, id, value)}
@@ -127,13 +162,14 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
         <div className="selection-summary"><strong>{t.t('selectedCount', { count: selected.size })}</strong><span>{t.t('targets')}：{[...included].map((id) => accountName(workspace.accounts.find((account) => account.id === id), t)).join('、') || '—'}</span></div>
         {hiddenSelected > 0 && <p className="hidden-selection">{t.t('hiddenSelected', { count: hiddenSelected })}</p>}
         {selected.size > 0 && <p className="action-tip">{t.t('groupScope', { group: t.t(groupLabels[selectionGroup]) })}</p>}
-        {!targetsVerified && <p className="operation-warning">{t.t('unverifiedWrite')}</p>}
+        {!targetsVerified && <div className="operation-warning count-with-tip"><span>{t.t('unverifiedWrite')}</span><TermTip term="unverified" /></div>}
         <div className="action-buttons"><GameButton variant="secondary" disabled={!canAct || included.size < 2 || !targetsVerified} onClick={() => void action('sync')}>{t.t('sync')}</GameButton>
           <GameButton variant="primary" disabled={!canAct || included.size < 2 || !targetsVerified} onClick={() => void action('keep')}>{t.t('keep')}</GameButton>
           <GameButton variant="secondary" disabled={!canAct} onClick={() => void action('archive')}>{t.t('archive')}</GameButton>
           <GameButton variant="ghost" disabled={!canAct} onClick={() => void action('unarchive')}>{t.t('unarchive')}</GameButton>
           <GameButton variant="danger" disabled={busy || !deleteTargets.sessionIds.length} onClick={() => setDeleting({ ...deleteTargets, revision: workspace.revision,
             names: deleteTargets.accountIds.map((id) => accountName(workspace.accounts.find((account) => account.id === id), t)) })}>{t.t('delete')}</GameButton>
+          <span className="count-with-tip"><GameButton variant="secondary" disabled={busy || !listVerified || grouped.oldOrganization.length === 0} onClick={() => void reviewOldCopies()}>{t.t('cleanupOldButton')}</GameButton><TermTip term="oldCleanup" /></span>
           <details className="more-actions"><summary>{t.t('more')}</summary><div><GameButton variant="ghost" disabled={!canAct || selected.size !== 1} onClick={() => { setNewTitle(scopedGroups[selectionGroup].find((session) => selected.has(session.id))?.title || ''); setRenameOpen(true); }}>{t.t('rename')}</GameButton>
             <GameButton variant="ghost" disabled={!canAct} onClick={() => void action('star')}>{t.t('star')}</GameButton><GameButton variant="ghost" disabled={!canAct} onClick={() => void action('unstar')}>{t.t('unstar')}</GameButton>
           </div></details>
@@ -152,6 +188,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       onChooseTitle={(id, scope) => { if (model.request) void model.preview({ ...model.request, titleSelections: { ...model.request.titleSelections, [id]: scope || 'skip' } }); }} />}
     {deleting && <DeleteConfirmation count={deleting.sessionIds.length} accountNames={deleting.names} state={deleting.state} group={deleting.group} busy={busy} blocked={Boolean(workspace?.blockers.length)} onClose={() => setDeleting(undefined)}
       onDelete={() => { const request = deleting; setDeleting(undefined); void model.deleteSelected(request, request.revision).then((success) => { if (success) setSelected(new Set()); }); }} />}
+    {oldPreview && <OldCleanupDialog preview={oldPreview} busy={cleanupBusy} blocked={Boolean(workspace?.blockers.length)} onClose={() => setOldPreview(undefined)} onConfirm={() => void confirmOldCopies()} />}
     {renameOpen && <Modal title={t.t('rename')} onClose={() => setRenameOpen(false)} busy={busy}><label className="rename-field"><span>{t.t('titleInput')}</span><GameInput autoFocus value={newTitle} maxLength={500} onChange={(event) => setNewTitle(event.target.value)} /></label>
       <div className="dialog-actions"><GameButton variant="secondary" onClick={() => setRenameOpen(false)}>{t.t('back')}</GameButton><GameButton variant="primary" disabled={busy || !newTitle.trim()} onClick={() => { setRenameOpen(false); void action('rename', newTitle); }}>{t.t('previewRename')}</GameButton></div>
     </Modal>}

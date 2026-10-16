@@ -4,6 +4,8 @@ import type { CloudSessionView, CloudWorkspaceView } from '../shared/contracts';
 import { DeleteConfirmation } from './components';
 import { useTranslation } from './i18n';
 import { errorMessage } from './errors';
+import { TermTip } from './TermTip';
+import { GameHelpTip } from '@pieai/swimmer-ui-kit';
 
 export function CloudSessions({ refreshKey, onBusy }: { refreshKey: number; onBusy(value: boolean): void }) {
   const t = useTranslation();
@@ -51,7 +53,7 @@ export function CloudSessions({ refreshKey, onBusy }: { refreshKey: number; onBu
   }
 
   return <section className="cloud-manager" aria-label={t.t('cloudSessions')}>
-    <p className="panel-intro">{t.t('cloudBody')}</p>
+    <div className="heading-with-tip"><h2>{t.t('cloudSessions')}</h2><TermTip term="code" /><GameHelpTip label={t.t('helpFor', { term: t.t('cloudSessions') })}>{t.t('cloudBody')}</GameHelpTip></div>
     {busy && !workspace && <p role="status">{t.t('checking')}</p>}
     {workspace && <>
       <div className="cloud-heading"><div><h2>{workspace.email}</h2><p>{t.t('cloudCounts', { active: workspace.sessions.filter((row) => row.status !== 'archived').length, archived: workspace.sessions.filter((row) => row.status === 'archived').length })}</p></div>

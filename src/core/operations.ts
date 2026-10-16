@@ -34,17 +34,17 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   const knownAccounts = new Set(workspace.accounts.map((account) => accountIdForScope(account.scope)));
   if (!accountIds.size || [...accountIds].some((id) => !knownAccounts.has(id))) throw new Error('请选择要处理的账号。');
   const selectedIds = new Set(request.sessionIds);
-  if (!selectedIds.size) throw new Error('请先勾选聊天。');
+  if (!selectedIds.size) throw new Error('请先勾选Code 会话。');
   const entries = workspace.entries.filter((entry) => accountIds.has(accountIdForScope(entry.account.scope)));
   const targetScopes = request.kind === 'sync' || request.kind === 'keep'
     ? new Set(verifiedTargets(workspace.accounts.filter((account) => accountIds.has(accountIdForScope(account.scope))), workspace.verifiedOrganizations).map((account) => account.scope)) : undefined;
   const selectedEntries = entries.filter((entry) => selectedIds.has(sessionKey(entry)) && (!request.group || entryGroup(workspace, entry) === request.group));
   if (request.group === 'deleted') throw new Error('有删除标记的记录不能恢复或修改。');
-  if ([...selectedIds].some((id) => !selectedEntries.some((entry) => sessionKey(entry) === id))) throw new Error('选中聊天不在所选账号内，请重新选择。');
+  if ([...selectedIds].some((id) => !selectedEntries.some((entry) => sessionKey(entry) === id))) throw new Error('选中Code 会话不在所选账号内，请重新选择。');
   if (selectedEntries.some((entry) => !isManageable(entry))) throw new Error('远程、云端或定时任务请在 Claude 内处理。');
   if (request.kind === 'rename' && (selectedIds.size !== 1 || typeof request.title !== 'string'
     || !request.title.trim() || request.title.length > 500 || /[\u0000-\u001f]/u.test(request.title))) {
-    throw new Error('一次只能给一条聊天改标题；标题需为 1 到 500 个字符。');
+    throw new Error('一次只能给一条Code 会话改标题；标题需为 1 到 500 个字符。');
   }
   if ((request.kind === 'sync' || request.kind === 'keep') && accountIds.size < 2) throw new Error('同步至少需要选择两个账号。');
 
@@ -95,7 +95,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
       const copy: SessionEntry = { path, raw, data, account: { scope, label: scope },
         archived: Boolean(data.isArchived || archives.get(scope)?.has(data.sessionId)), eligible: false };
       if (request.group && entryGroup(workspace, copy) !== request.group) continue;
-      if (!isManageable(copy)) throw new Error('所选聊天有无法安全处理的旧副本，请先在 Claude 中处理。');
+      if (!isManageable(copy)) throw new Error('所选Code 会话有无法安全处理的旧副本，请先在 Claude 中处理。');
       selectedEntries.push(copy);
     }
     const selectedPaths = new Set(selectedEntries.map((entry) => entry.path));
@@ -116,13 +116,13 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     for (const id of candidates) {
       if (globalClaims.has(id)) continue;
       const paths = workspace.transcriptPaths.get(id) ?? [];
-      if (paths.length > 1) throw new Error('不同项目中存在相同聊天正文，暂不能确定删除范围。');
+      if (paths.length > 1) throw new Error('不同项目中存在相同Code 会话正文，暂不能确定删除范围。');
       if (paths[0]) transcriptRemovals.push(inspectTranscript(paths[0]));
     }
     for (const entry of selectedEntries) {
       const otherClaims = remainingClaims.get(accountIdForScope(entry.account.scope)) ?? new Set<string>();
       if (otherClaims.has(entry.data.sessionId.slice(6))) {
-        throw new Error(`其他聊天或未参与整理的目录仍在使用这条聊天的历史，暂不能安全删除，请改用归档：${entry.data.title || '未命名聊天'}`);
+        throw new Error(`其他Code 会话或未参与整理的目录仍在使用这条Code 会话的历史，暂不能安全删除，请改用归档：${entry.data.title || '未命名Code 会话'}`);
       }
       put(entry.path, undefined, entry, 'delete');
       archives.get(entry.account.scope)!.delete(entry.data.sessionId);
@@ -142,7 +142,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     if (unsupported) throw new Error(`“只保留所选”不能自动整理远程或定时任务：${unsupported.data.title || '未命名'}。请先在 Claude 中处理。`);
     for (const id of selectedIds) {
       if (!selectedEntries.some((entry) => sessionKey(entry) === id && !entry.syncIssue)) {
-        throw new Error(`这条聊天暂时不能补到所有账号，尚未归档任何聊天：${selectedEntries.find((entry) => sessionKey(entry) === id)?.data.title || id}`);
+        throw new Error(`这条Code 会话暂时不能补到所有账号，尚未归档任何Code 会话：${selectedEntries.find((entry) => sessionKey(entry) === id)?.data.title || id}`);
       }
     }
     for (const entry of entries) {
@@ -184,7 +184,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
         for (const id of selectedIds) {
           const present = simulated.entries.some((entry) => entry.account.scope === account.scope && sessionKey(entry) === id && entryGroup(simulated, entry) === 'visible');
           const added = plan.additions.some((addition) => addition.target.scope === account.scope && addition.data.cliSessionId === id);
-          if (!present && !added) throw new Error('有账号无法得到全部选中聊天，尚未执行。请先解决删除标记或缺失正文问题。');
+          if (!present && !added) throw new Error('有账号无法得到全部选中Code 会话，尚未执行。请先解决删除标记或缺失正文问题。');
         }
       }
       for (const entry of entries.filter((entry) => targetScopes?.has(entry.account.scope) && entryGroup(workspace, entry) === 'visible' && !selectedIds.has(sessionKey(entry)))) archive(entry, true);

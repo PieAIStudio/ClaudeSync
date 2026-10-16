@@ -63,7 +63,7 @@ function assertInputsCurrent(workspace: Workspace, removedTranscripts = new Set<
     if ('error' in transcript) continue;
     if (removedTranscripts.has(transcript.path)) continue;
     if (JSON.stringify(fileFingerprint(transcript.path)) !== JSON.stringify(transcript.fingerprint)) {
-      throw new Error('聊天正文在检查后发生变化，请完全退出 Claude 后重新检查。');
+      throw new Error('Code 会话正文在检查后发生变化，请完全退出 Claude 后重新检查。');
     }
   }
 }
@@ -120,12 +120,12 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
     for (const check of plan.transcriptRemovals ?? []) {
       if (!removedTranscripts.has(check.path)) assertTranscriptCurrent(check);
     }
-    if (!sameSnapshot(expected, takeWorkspaceSnapshot(workspace.root, workspace.accounts))) throw new Error('检查后聊天数据发生变化，已停止修改。请重新检查。');
-    if (deletionExpected && !sameSnapshot(deletionExpected, takeDeletionSnapshot(workspace.root))) throw new Error('其他账号的聊天发生变化，已停止删除。');
+    if (!sameSnapshot(expected, takeWorkspaceSnapshot(workspace.root, workspace.accounts))) throw new Error('检查后Code 会话数据发生变化，已停止修改。请重新检查。');
+    if (deletionExpected && !sameSnapshot(deletionExpected, takeDeletionSnapshot(workspace.root))) throw new Error('其他账号的Code 会话发生变化，已停止删除。');
     if (deletionExpected) {
       const inventory = (index: Map<string, string[]>) => [...index].map(([id, paths]) => [id, paths.filter((path) => !removedTranscripts.has(path))] as const)
         .filter(([, paths]) => paths.length).sort(([a], [b]) => a.localeCompare(b));
-      if (JSON.stringify(inventory(workspace.transcriptPaths)) !== JSON.stringify(inventory(collectTranscriptIndex(workspace.projectsRoot)))) throw new Error('聊天正文目录发生变化，请重新检查。');
+      if (JSON.stringify(inventory(workspace.transcriptPaths)) !== JSON.stringify(inventory(collectTranscriptIndex(workspace.projectsRoot)))) throw new Error('Code 会话正文目录发生变化，请重新检查。');
     }
   }
   try {
@@ -231,7 +231,7 @@ export function buildRestorePlan(workspace: Workspace, id: string): FilePlan {
     const current = workspace.snapshot.files.get(change.path);
     const currentHash = current ? sha256(current) : null;
     if (currentHash === change.beforeSha256) continue;
-    if (currentHash !== change.afterSha256) throw new Error(`这条聊天后来又被修改过，不能覆盖：${change.title || change.sessionId}`);
+    if (currentHash !== change.afterSha256) throw new Error(`这条Code 会话后来又被修改过，不能覆盖：${change.title || change.sessionId}`);
     let restored: Buffer | undefined;
     if (change.beforeSha256 !== null) {
       const path = safeWorkspacePath(join(workspace.baseDirectory, 'backups', id, 'before'), change.path);

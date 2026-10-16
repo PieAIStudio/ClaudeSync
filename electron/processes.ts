@@ -55,7 +55,7 @@ export function processBlockers(): string[] {
       }
     }
   } catch {
-    blockers.push('无法确认 Claude 已停止，为保护聊天文件，暂时不能写入。');
+    blockers.push('无法确认 Claude 已停止，为保护 Code 会话文件，暂时不能写入。');
   }
   return blockers;
 }

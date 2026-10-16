@@ -181,7 +181,7 @@ export function takeDeletionSnapshot(root: string): WorkspaceSnapshot {
   assertPlainDirectory(root);
   const names = readdirSync(root).sort();
   const accounts: Account[] = names.map((id) => {
-    if (!UUID.test(id)) throw new Error('聊天目录中出现未知账号结构，暂不能删除正文。');
+    if (!UUID.test(id)) throw new Error('Code 会话目录中出现未知账号结构，暂不能删除正文。');
     const path = join(root, id);
     assertPlainDirectory(path);
     const orgs = readdirSync(path).sort();
@@ -196,7 +196,7 @@ export function takeDeletionSnapshot(root: string): WorkspaceSnapshot {
 export function assertTranscriptCurrent(check: TranscriptCheck): void {
   assertPlainDirectory(dirname(check.path));
   if (realpathSync(check.path) !== resolve(check.path) || !lstatSync(check.path).isFile()
-    || !sameFingerprint(fileFingerprint(check.path), check.fingerprint)) throw new Error('聊天正文在删除前发生变化，请重新检查。');
+    || !sameFingerprint(fileFingerprint(check.path), check.fingerprint)) throw new Error('Code 会话正文在删除前发生变化，请重新检查。');
 }
 
 export function removeTranscript(check: TranscriptCheck): void {
