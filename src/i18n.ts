@@ -52,7 +52,7 @@ const messages = {
   visibleGroup: ['普通会话', 'Regular sessions', '通常のセッション', 'Sesiones normales', 'Sessões normais'],
   scheduledGroup: ['定时任务运行记录', 'Scheduled task runs', '定期タスクの実行記録', 'Ejecuciones programadas', 'Execuções agendadas'],
   oldOrganizationGroup: ['旧组织里的副本', 'Copies in old organizations', '以前の組織にあるコピー', 'Copias en organizaciones anteriores', 'Cópias em organizações anteriores'],
-  deletedGroup: ['删除标记', 'Deleted notes', '削除の印', 'Notas de borrado', 'Notas de exclusão'],
+  deletedGroup: ['删过但仍有副本的会话', 'Deleted sessions with remaining copies', '削除後もコピーが残るセッション', 'Sesiones borradas con copias restantes', 'Sessões excluídas com cópias restantes'],
   unverifiedGroup: ['当前组织未核实', 'Current organization unverified', '現在の組織が未確認', 'Organización actual sin verificar', 'Organização atual não verificada'],
   groupScope: ['所选分组：{group}', 'Selected group: {group}', '選択グループ：{group}', 'Grupo elegido: {group}', 'Grupo selecionado: {group}'],
   unverifiedWrite: ['先核实当前组织，才能同步或只保留所选。', 'Confirm the current organization before syncing or keeping only selected sessions.', '同期や選択分のみ保持の前に、現在の組織を確認してください。', 'Confirma la organización actual antes de sincronizar o conservar solo las elegidas.', 'Confirme a organização atual antes de sincronizar ou manter só as escolhidas.'],
@@ -149,7 +149,7 @@ const messages = {
   archivedReason: ['已经归档，先取消归档才能同步', 'Archived; unarchive before syncing', '同期前にアーカイブを解除', 'Desarchiva antes de sincronizar', 'Desarquive antes de sincronizar'],
   missingProject: ['项目文件夹已找不到', 'Project folder is missing', 'プロジェクトが見つかりません', 'Falta la carpeta del proyecto', 'Pasta do projeto ausente'],
   missingTranscript: ['Code 会话正文或历史分支缺失', 'Code transcript or history is missing', 'Code の本文または履歴が不足', 'Falta conversación o historial de Code', 'Falta conversa ou histórico de Code'],
-  deletedReason: ['有删除标记，不把删过的 Code 会话加回来', 'A deleted note prevents bringing this Code session back', '削除の印があるため Code セッションを戻しません', 'Una nota de borrado impide recuperar esta sesión de Code', 'Uma nota de exclusão impede recolocar esta sessão de Code'],
+  deletedReason: ['这条会话曾被删除；要带回来，请勾选后点“同步所选”。', 'This session was deleted; select it and Sync selected to bring it back.', '削除済みです。戻すには選択して同期してください。', 'Esta sesión se borró; selecciónala y sincroniza para recuperarla.', 'Esta sessão foi excluída; selecione e sincronize para trazê-la de volta.'],
   unsupported: ['远程、云端或定时任务请在 Claude 内管理', 'Manage remote, cloud, or scheduled Code sessions in Claude', 'リモート・クラウド・定期実行の Code セッションは Claude で管理', 'Gestiona sesiones de Code remotas o programadas en Claude', 'Gerencie sessões de Code remotas ou agendadas no Claude'],
   checkedAt: ['检查于 {time}', 'Checked at {time}', '確認：{time}', 'Comprobado a las {time}', 'Verificado às {time}'],
 } as const satisfies Record<string, readonly [string, string, string, string, string]>;

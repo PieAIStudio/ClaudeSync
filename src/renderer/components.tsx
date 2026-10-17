@@ -73,7 +73,7 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
           <TermTip term={account.visible === null || !account.organizationVerified ? 'unverified' : 'visible'} /></div>
         <div className="account-secondary-counts">{([
           ['archived', 'archivedCountLabel', account.archived], ['scheduled', 'scheduledCountLabel', account.scheduled],
-          ['oldOrganization', 'oldCountLabel', account.oldCopies], ['deleted', 'deletedCountLabel', account.deletedMarkers],
+          ['oldOrganization', 'oldCountLabel', account.oldCopies],
         ] as const).map(([term, label, count]) => <div className="count-with-tip" key={term}><span>{t.t(label)} {count}</span><TermTip term={term} /></div>)}</div>
         {account.current && <GameBadge tone="neutral">{t.t('current')}</GameBadge>}
       </div>
@@ -120,14 +120,14 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
   })}</ul>;
 }
 
-export function CollapsedSessionGroup({ group, sessions, accounts, selected, filterId, included, onToggle, onCollapse, busy, markerCount = 0 }: {
+export function CollapsedSessionGroup({ group, sessions, accounts, selected, filterId, included, onToggle, onCollapse, busy }: {
   group: Exclude<SessionGroup, 'visible'>; sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>;
   filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; onCollapse(): void; busy: boolean; markerCount?: number;
 }) {
   const t = useTranslation();
   return <div className="supplementary-section">
     <details className="supplementary-group" data-group={group} onToggle={(event) => { if (!event.currentTarget.open) onCollapse(); }}>
-      <summary>{t.t(groupLabels[group])} <span>{group === 'deleted' ? markerCount : sessions.length}</span></summary>
+      <summary>{t.t(groupLabels[group])} <span>{sessions.length}</span></summary>
       <SessionRows sessions={sessions} accounts={accounts} selected={selected} filterId={filterId} included={included} onToggle={onToggle} busy={busy} idPrefix={`group-${group}`} />
     </details>
     <span className="group-tip"><TermTip term={group} /></span>

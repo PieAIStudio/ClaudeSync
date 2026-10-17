@@ -24,6 +24,8 @@ export interface FileChange {
 
 export interface FilePlan {
   blockingReason?: string;
+  inputTranscripts?: TranscriptCheck[];
+  restoredMarkerPaths?: string[];
   kind: OperationKind;
   changes: FileChange[];
   deletionSnapshot?: WorkspaceSnapshot;
@@ -100,7 +102,10 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
   if (plan.kind === 'sync' || plan.kind === 'keep') {
     const affected = new Set(plan.changes.map((change) => change.path.split('/')[0]));
     const targets = new Set(verifiedTargets(workspace.accounts.filter((account) => affected.has(account.scope.split('/')[0])), workspace.verifiedOrganizations).map((account) => account.scope));
-    if (plan.changes.some((change) => !targets.has(change.path.split('/').slice(0, 2).join('/')))) throw new Error('同步计划包含未核实或旧组织目录，已停止。');
+    if (plan.changes.some((change) => !targets.has(change.path.split('/').slice(0, 2).join('/'))
+      && !(plan.kind === 'sync' && change.action === 'restore' && !change.after && change.before
+        && plan.restoredMarkerPaths?.includes(change.path) && /^[0-9a-f-]{36}\/[0-9a-f-]{36}\/deleted_[0-9a-f-]{36}$/u.test(change.path))))
+      throw new Error('同步计划包含未核实或旧组织目录，已停止。');
   }
   if (plan.changes.length === 0) return { filesChanged: 0, verified: true };
   const paths = new Set<string>();
@@ -119,6 +124,7 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
   function checkInputs(): void {
     guard();
     assertInputsCurrent(workspace, removedTranscripts);
+    for (const check of plan.inputTranscripts ?? []) assertTranscriptCurrent(check);
     for (const check of plan.transcriptRemovals ?? []) {
       if (!removedTranscripts.has(check.path)) assertTranscriptCurrent(check);
     }

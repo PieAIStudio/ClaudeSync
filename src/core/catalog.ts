@@ -39,7 +39,7 @@ export function buildCatalog(workspace: Workspace, emails: Record<string, string
       id, title: preferred.data.title || '',
       project: typeof preferred.data.cwd === 'string' ? preferred.data.cwd : '',
       updatedAt: dates.at(-1), starred: entries.some((entry) => entry.data.isStarred),
-      manageable: entries.some((entry) => isManageable(entry) && groupOf(entry) !== 'deleted'),
+      manageable: entries.some((entry) => isManageable(entry)),
       presence: accountIds.map((accountId) => {
         const copies = entries.filter((entry) => accountIdForScope(entry.account.scope) === accountId);
         const records: SessionCopyView[] = copies.map((entry) => ({
@@ -47,7 +47,7 @@ export function buildCatalog(workspace: Workspace, emails: Record<string, string
           project: typeof entry.data.cwd === 'string' ? entry.data.cwd : '',
           updatedAt: timestamp(entry.data.lastActivityAt ?? entry.data.createdAt),
           archived: Boolean(entry.archived), eligible: entry.eligible,
-          manageable: isManageable(entry) && groupOf(entry) !== 'deleted', starred: Boolean(entry.data.isStarred),
+          manageable: isManageable(entry), starred: Boolean(entry.data.isStarred),
           reasons: entry.syncIssue ? [entry.syncIssue] : [],
         }));
         return {

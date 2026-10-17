@@ -2,7 +2,7 @@ import { reconcileProgress } from './sync-progress';
 import { accountIdForScope } from './account-identity';
 import { isManageable, sessionKey } from './catalog';
 import { entryGroup, verifiedTargets } from './visibility';
-import { buildWorkspacePlan } from './workspace';
+import { buildWorkspacePlan, entryEligibility } from './workspace';
 import type { Workspace } from './workspace';
 import { historyIds, isUuid, validateSessionRecord } from './record';
 import { updateTitle } from './title-policy';
@@ -40,7 +40,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   const targetScopes = request.kind === 'sync' || request.kind === 'keep'
     ? new Set(verifiedTargets(workspace.accounts.filter((account) => accountIds.has(accountIdForScope(account.scope))), workspace.verifiedOrganizations).map((account) => account.scope)) : undefined;
   const selectedEntries = entries.filter((entry) => selectedIds.has(sessionKey(entry)) && (!request.group || entryGroup(workspace, entry) === request.group));
-  if (request.group === 'deleted') throw new Error('有删除标记的记录不能恢复或修改。');
+  if (request.group === 'deleted' && request.kind !== 'sync') throw new Error('请用“同步所选”重新带回这条会话；其他整理操作不会恢复已删会话。');
   if ([...selectedIds].some((id) => !selectedEntries.some((entry) => sessionKey(entry) === id))) throw new Error('选中Code 会话不在所选账号内，请重新选择。');
   if (selectedEntries.some((entry) => !isManageable(entry))) throw new Error('远程、云端或定时任务请在 Claude 内处理。');
   if (request.kind === 'rename' && (selectedIds.size !== 1 || typeof request.title !== 'string'
@@ -140,6 +140,8 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   const conflicts: OperationPreview['conflicts'] = [];
   let progressUpdates: OperationPreview['progressUpdates'] = [];
   let progressConflicts: OperationPreview['progressConflicts'] = [];
+  const inputTranscripts: TranscriptCheck[] = [];
+  const restoredMarkerPaths: string[] = [];
   if (request.kind === 'keep') {
     const unsupported = entries.find((entry) => targetScopes?.has(entry.account.scope) && entryGroup(workspace, entry) === 'visible' && !isManageable(entry));
     if (unsupported) throw new Error(`“只保留所选”不能自动整理远程或定时任务：${unsupported.data.title || '未命名'}。请先在 Claude 中处理。`);
@@ -153,22 +155,49 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     }
   }
   if (request.kind === 'sync' || request.kind === 'keep') {
+    // An explicit sync is consent to bring the selected session back. Recheck
+    // every non-marker eligibility guard; never just erase the previous error.
+    const transcriptChecks = new Map(workspace.transcripts);
     const simulated: Workspace = {
-      ...workspace, archivedByAccount: archives,
+      ...workspace, archivedByAccount: archives, transcripts: transcriptChecks,
+      tombstones: request.kind === 'sync' ? new Set() : workspace.tombstones,
       entries: workspace.entries.map((entry) => {
         const importing = request.kind === 'keep' && selectedEntries.includes(entry) && !targetScopes?.has(entry.account.scope);
         const data = importing ? { ...entry.data, isArchived: false } : editedEntries.get(entry.path) ?? entry.data;
         const archived = !importing && Boolean(data.isArchived || archives.get(entry.account.scope)?.has(data.sessionId) || archives.get(entry.account.scope)?.has(data.sessionId.slice(6)));
-        return { ...entry, data, archived, eligible: !entry.syncIssue && !archived };
+        const syncIssue = request.kind === 'sync' && selectedIds.has(sessionKey(entry)) && accountIds.has(accountIdForScope(entry.account.scope))
+          ? entryEligibility(entry.account, data, archives, new Set(), workspace.transcriptPaths, transcriptChecks, true) : entry.syncIssue;
+        return { ...entry, data, archived, syncIssue, eligible: !syncIssue && !archived };
       }),
     };
     const excluded = workspace.accounts.filter((account) => !accountIds.has(accountIdForScope(account.scope))).map((account) => account.scope);
-    const progress = reconcileProgress(simulated, selectedEntries.map((entry) => entry.path), targetScopes!, request.contentSelections);
+    const sourcePaths = selectedEntries.map((entry) => entry.path);
+    // Keep-only aligns membership; version replacement is the explicit sync action.
+    const progress = request.kind === 'sync' ? reconcileProgress(simulated, sourcePaths, targetScopes!, request.contentSelections)
+      : { updates: [], progressUpdates: [], progressConflicts: [], sourcePaths };
     progressUpdates = progress.progressUpdates; progressConflicts = progress.progressConflicts;
     for (const update of progress.updates) edit(update.target, update.data, 'update');
     simulated.entries = simulated.entries.map((entry) => ({ ...entry, data: editedEntries.get(entry.path) ?? entry.data }));
     const plan = buildWorkspacePlan(simulated, request.titleSelections, excluded, [...selectedIds], progress.sourcePaths);
     for (const addition of plan.additions) put(addition.targetPath, encodeJson(addition.data), addition.source, 'add');
+    if (request.kind === 'sync') {
+      for (const check of transcriptChecks.values()) if (!('error' in check)) inputTranscripts.push(check);
+      // Native notes are account-wide, including notes in a previous organization.
+      // Clear only notes for a selected version actually present after this plan.
+      const restored = [
+        ...simulated.entries.filter((entry) => targetScopes!.has(entry.account.scope) && selectedIds.has(sessionKey(entry)) && entry.eligible),
+        ...plan.additions.map((addition) => ({ ...addition.source, account: addition.target, path: addition.targetPath, data: addition.data })),
+      ];
+      for (const [path] of workspace.snapshot.files) {
+        const [owner, , name, extra] = path.split('/');
+        if (extra || !name?.startsWith('deleted_') || !isUuid(name.slice(8)) || !accountIds.has(owner!)) continue;
+        const entry = restored.find((candidate) => accountIdForScope(candidate.account.scope) === owner
+          && new Set([...historyIds(candidate.data), candidate.data.sessionId.slice(6)]).has(name.slice(8)));
+        if (!entry) continue;
+        restoredMarkerPaths.push(path);
+        put(path, undefined, entry, 'restore');
+      }
+    }
     for (const action of plan.titleActions) {
       if (action.data) edit(action.target, action.data, 'title');
       if (action.status !== 'conflict' && action.status !== 'selected_source' && action.status !== 'selected_target') continue;
@@ -181,7 +210,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     const skippedKeys = new Set<string>();
     for (const entry of selectedEntries) {
       if (simulated.entries.find((item) => item.path === entry.path)?.eligible) continue;
-      const reason = entry.syncIssue ?? '来源会话已归档';
+      const reason = simulated.entries.find((item) => item.path === entry.path)?.syncIssue ?? '来源会话已归档';
       const key = `${sessionKey(entry)}:${reason}`;
       if (!skippedKeys.has(key)) { skippedKeys.add(key); skipped.push({ id: sessionKey(entry), title: entry.data.title || '', reason }); }
     }
@@ -210,6 +239,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   const selected = [...selectedIds].map((id) => ({ id, title: selectedEntries.find((entry) => sessionKey(entry) === id)?.data.title || '' }));
   return {
     kind: request.kind, changes: result,
+    inputTranscripts, restoredMarkerPaths,
     blockingReason: progressConflicts.some((conflict) => !conflict.resolved) ? '会话进度有分叉或无法确认先后，请选择保留哪边后再同步。' : undefined,
     ...(deletionSnapshot ? { deletionSnapshot, transcriptRemovals } : {}),
     preview: { group: request.group, kind: request.kind, accountIds: [...accountIds], selected, changes: changeViews(result), conflicts, progressUpdates, progressConflicts, skipped, fileCount: result.length },

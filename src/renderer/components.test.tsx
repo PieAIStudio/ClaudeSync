@@ -10,6 +10,14 @@ const sessions: SessionView[] = [{ id: 'chat', title: 'Chosen session', project:
   presence: [{ accountId: 'a', active: true, archived: false, eligible: true, copies: 2, titles: ['Chosen session'], reasons: [] }] }];
 const noop = () => undefined;
 
+it('does not expose raw native deletion-marker counts as session counts', () => {
+  const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(AccountSidebar, {
+    accounts: [{ ...accounts[0]!, deletedMarkers: 231 }], included: new Set(['a']), currentFilter: 'all', onInclude: noop, onFilter: noop, busy: false,
+  }) }));
+  expect(html).not.toContain('231');
+  expect(html).not.toContain('删除标记');
+});
+
 it('shows source, destination and turn delta and blocks unresolved version conflicts', () => {
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(OperationReview, {
     accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop,
