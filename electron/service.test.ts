@@ -27,6 +27,47 @@ beforeEach(() => {
 });
 afterEach(() => { rmSync(environment.root, { recursive: true, force: true }); });
 
+it('deletes selected old-only copies even when an unrelated session changed after the displayed check', async () => {
+  const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  addScope(environment.root, oldScope, SCOPE_A);
+  rmSync(indexPath(environment.root, oldScope, CHAT_A));
+  rmSync(indexPath(environment.root, SCOPE_A, CHAT_B));
+  const view = await checkWorkspace();
+  editIndex(environment.root, SCOPE_A, CHAT_A, { title: 'Unrelated work continued' });
+  writeFileSync(join(environment.root, 'projects/project', `${CHAT_A}.jsonl`), '{"type":"user","message":{"content":"unrelated new turn"}}\n');
+  const result = await deleteSelected({ group: 'oldOrganization', sessionIds: [CHAT_B], accountIds: [ID_A] }, view.revision);
+  expect(result.result.verified).toBe(true);
+  expect(result.workspace.sessions.some((session) => session.id === CHAT_B)).toBe(false);
+  expect(JSON.parse(readFileSync(indexPath(environment.root, SCOPE_A, CHAT_A), 'utf8')).title).toBe('Unrelated work continued');
+});
+
+it('previews and confirms old-copy cleanup despite unrelated transcript and index updates', async () => {
+  const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  addScope(environment.root, oldScope, SCOPE_A);
+  rmSync(indexPath(environment.root, oldScope, CHAT_A));
+  const view = await checkWorkspace();
+  editIndex(environment.root, SCOPE_A, CHAT_A, { title: 'Unrelated before preview' });
+  const preview = previewOldCopies([ID_A], view.revision);
+  writeFileSync(join(environment.root, 'projects/project', `${CHAT_A}.jsonl`), '{"type":"user","message":{"content":"unrelated continued"}}\n');
+  editIndex(environment.root, SCOPE_B, CHAT_A, { title: 'Unrelated after preview' });
+  const trashFolder = join(environment.root, 'fake-trash'); mkdirSync(trashFolder);
+  const result = await cleanupOldCopies(preview.token, async (path) => renameSync(path, join(trashFolder, basename(path))));
+  expect(result.result).toEqual({ trashed: 1, importedArchived: 0, mainUnchanged: true, oldCopiesRemaining: 0 });
+});
+
+it('names the selected old session and tells the user what to close when its own data changed', async () => {
+  const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  addScope(environment.root, oldScope, SCOPE_A);
+  rmSync(indexPath(environment.root, oldScope, CHAT_A));
+  editIndex(environment.root, oldScope, CHAT_B, { title: 'Selected old project' });
+  const view = await checkWorkspace();
+  const preview = previewOldCopies([ID_A], view.revision);
+  editIndex(environment.root, oldScope, CHAT_B, { completedTurns: 99 });
+  const trash = vi.fn();
+  await expect(cleanupOldCopies(preview.token, trash)).rejects.toThrow(/Selected old project.*关闭/u);
+  expect(trash).not.toHaveBeenCalled();
+});
+
 it('previews every old duplicate, uses Trash only on confirm and reads back unchanged main count', async () => {
   const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
   addScope(environment.root, oldScope, SCOPE_A);

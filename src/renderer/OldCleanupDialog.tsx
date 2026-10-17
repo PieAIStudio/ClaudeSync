@@ -14,6 +14,8 @@ export function OldCleanupDialog({ preview, busy, blocked, onClose, onConfirm }:
       total: preview.trashCount, imported: preview.archivedToImport
     })}</strong><TermTip term="oldCleanup" /></div>
     <p className="panel-intro">{t.t('cleanupOldReview')}</p>
+    <p className="panel-intro">{t.t('tipOldOrganization')}</p>
+    <p className="panel-intro">{t.t('scopedWriteCheck')}</p>
     <ul className="cleanup-copy-list">{preview.items.map((item, index) => <li key={item.oldScope + ':' + item.sessionId + ':' + index}>
       <strong>{item.title || t.t('untitled')}</strong>
       <small>{t.t('cleanupOldScope', { code: item.oldScope.split('/').at(-1)?.slice(0, 8) ?? '?' })}</small>

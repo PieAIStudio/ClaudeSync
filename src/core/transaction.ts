@@ -1,3 +1,4 @@
+import { assertDependencySnapshot, dependencyError, type DataDependencies } from './data-scope';
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
@@ -24,6 +25,7 @@ export interface FileChange {
 
 export interface FilePlan {
   blockingReason?: string;
+  dependencies?: DataDependencies;
   inputTranscripts?: TranscriptCheck[];
   restoredMarkerPaths?: string[];
   kind: OperationKind;
@@ -60,14 +62,12 @@ export function workspaceRevision(workspace: Workspace): string {
   }));
 }
 
-function assertInputsCurrent(workspace: Workspace, removedTranscripts = new Set<string>()): void {
+function assertInputsCurrent(workspace: Workspace, removedTranscripts = new Set<string>(), dependencies?: DataDependencies): void {
   if (!readRegularFile(workspace.configPath).equals(workspace.configRaw)) throw new Error('设置已改变，请重新检查。');
-  for (const transcript of workspace.transcripts.values()) {
-    if ('error' in transcript) continue;
-    if (removedTranscripts.has(transcript.path)) continue;
-    if (JSON.stringify(fileFingerprint(transcript.path)) !== JSON.stringify(transcript.fingerprint)) {
-      throw new Error('Code 会话正文在检查后发生变化，请完全退出 Claude 后重新检查。');
-    }
+  for (const [id, transcript] of workspace.transcripts) {
+    if ('error' in transcript || dependencies && !dependencies.ids.has(id) || removedTranscripts.has(transcript.path)) continue;
+    try { assertTranscriptCurrent(transcript); }
+    catch { throw dependencies ? dependencyError(dependencies, id) : new Error('Code 会话正文在检查后发生变化，请完全退出 Claude 后重新检查。'); }
   }
 }
 
@@ -123,15 +123,21 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
   let applied = 0;
   function checkInputs(): void {
     guard();
-    assertInputsCurrent(workspace, removedTranscripts);
+    assertInputsCurrent(workspace, removedTranscripts, plan.dependencies);
     for (const check of plan.inputTranscripts ?? []) assertTranscriptCurrent(check);
     for (const check of plan.transcriptRemovals ?? []) {
       if (!removedTranscripts.has(check.path)) assertTranscriptCurrent(check);
     }
-    if (!sameSnapshot(expected, takeWorkspaceSnapshot(workspace.root, workspace.accounts))) throw new Error('检查后Code 会话数据发生变化，已停止修改。请重新检查。');
-    if (deletionExpected && !sameSnapshot(deletionExpected, takeDeletionSnapshot(workspace.root))) throw new Error('其他账号的Code 会话发生变化，已停止删除。');
+    const current = takeWorkspaceSnapshot(workspace.root, workspace.accounts);
+    if (plan.dependencies) assertDependencySnapshot(expected, current, plan.dependencies);
+    else if (!sameSnapshot(expected, current)) throw new Error('检查后Code 会话数据发生变化，已停止修改。请重新检查。');
     if (deletionExpected) {
-      const inventory = (index: Map<string, string[]>) => [...index].map(([id, paths]) => [id, paths.filter((path) => !removedTranscripts.has(path))] as const)
+      const allAccounts = takeDeletionSnapshot(workspace.root);
+      if (plan.dependencies) assertDependencySnapshot(deletionExpected, allAccounts, plan.dependencies);
+      else if (!sameSnapshot(deletionExpected, allAccounts)) throw new Error('其他账号的Code 会话发生变化，已停止删除。');
+    }
+    if (deletionExpected) {
+      const inventory = (index: Map<string, string[]>) => [...index].filter(([id]) => !plan.dependencies || plan.dependencies.ids.has(id)).map(([id, paths]) => [id, paths.filter((path) => !removedTranscripts.has(path))] as const)
         .filter(([, paths]) => paths.length).sort(([a], [b]) => a.localeCompare(b));
       if (JSON.stringify(inventory(workspace.transcriptPaths)) !== JSON.stringify(inventory(collectTranscriptIndex(workspace.projectsRoot)))) throw new Error('Code 会话正文目录发生变化，请重新检查。');
     }

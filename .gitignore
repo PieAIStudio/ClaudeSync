@@ -37,6 +37,7 @@ preferences.json
 
 # Local smoke and renderer screenshots
 .scratch/
+.reports/
 
 # Private inspection evidence and counts-only local acceptance
 /docs/evidence/

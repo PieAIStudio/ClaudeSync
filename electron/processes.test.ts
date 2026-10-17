@@ -1,5 +1,23 @@
 import { expect, it } from 'vitest';
-import { classifyProcesses } from './processes';
+
+const selectedId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const otherId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const scope = { sessionIds: [selectedId], label: 'Selected old project' };
+it('does not block a positively identified unrelated CLI session', () => {
+  expect(scopedWriterBlockers([{ pid: 123, command: 'claude', args: `claude --resume ${otherId}` }], scope)).toEqual([]);
+});
+it('names the selected session and its process when a relevant CLI writer is active', () => {
+  const blockers = scopedWriterBlockers([{ pid: 123, command: 'node', args: `/usr/bin/node /tools/@anthropic-ai/claude-code/cli.js --session-id ${selectedId}` }], scope);
+  expect(blockers.join(' ')).toMatch(/Selected old project.*123.*关闭/u);
+});
+it('still blocks unidentifiable writers, Desktop, interactive selection and legacy automation', () => {
+  for (const args of ['claude', 'claude --resume', 'claude --continue', `claude --resume ${otherId} --fork-session`]) {
+    expect(scopedWriterBlockers([{ pid: 124, command: 'claude', args }], scope).length).toBeGreaterThan(0);
+  }
+  expect(scopedWriterBlockers([{ pid: 125, command: '/Applications/Claude.app/Contents/MacOS/Claude', args: 'Claude' }], scope).length).toBeGreaterThan(0);
+  expect(scopedWriterBlockers([{ pid: 126, command: 'python3', args: 'python3 /tmp/claudesync/auto_sync.py' }], scope).length).toBeGreaterThan(0);
+});
+import { classifyProcesses, scopedWriterBlockers } from './processes';
 
 it('recognizes native and npm Claude writers even when ps truncates comm', () => {
   expect(classifyProcesses([

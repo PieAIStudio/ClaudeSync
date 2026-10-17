@@ -1,16 +1,18 @@
+import { assertDependencySnapshot, captureDependencies, dependencyError, type DataDependencies } from './data-scope';
 import { dirname, join } from 'node:path';
 import { accountIdForScope } from './account-identity';
 import { buildCatalog, isManageable, sessionKey } from './catalog';
 import { deterministicBranchIndexId, isUuid, portableRecord } from './record';
-import { acquireFileLock, assertPlainDirectory, fileFingerprint, publishNewFile, readRegularFile, safeWorkspacePath, sameSnapshot, snapshotWithAdded, snapshotWithRemoved, snapshotWithReplaced, replaceRegularFile, takeWorkspaceSnapshot } from './storage';
+import { acquireFileLock, assertPlainDirectory, assertTranscriptCurrent, publishNewFile, readRegularFile, safeWorkspacePath, snapshotWithAdded, snapshotWithRemoved, snapshotWithReplaced, replaceRegularFile, takeWorkspaceSnapshot } from './storage';
 import { encodeJson } from './transaction';
 import { entryGroup, hasDeletionMarker, verifiedOrganization } from './visibility';
-import { loadWorkspace } from './workspace';
+import { collectTranscriptIndex, loadWorkspace } from './workspace';
 import type { Workspace } from './workspace';
 
 import type { OldCopyItemView } from '../shared/contracts';
 
 export interface OldCleanupPlan {
+  dependencies: DataDependencies;
   items: OldCopyItemView[];
   removals: Array<{ path: string; raw: Buffer }>;
   imports: Array<{ path: string; raw: Buffer }>;
@@ -96,7 +98,9 @@ export function planOldCleanup(workspace: Workspace, selectedAccountIds: readonl
     const archived = [...new Set([...(data.archived as string[] | undefined ?? []), ...names])].sort();
     archiveHints.push({ path, before, after: encodeJson({ ...data, archived }) });
   }
-  return { items, removals, imports, archiveHints, accountIds, expectedMain };
+  const dependencies = captureDependencies(workspace, { accountIds, oldCopies: true });
+  for (const addition of imports) dependencies.paths.add(addition.path);
+  return { items, removals, imports, archiveHints, accountIds, expectedMain, dependencies };
 }
 
 export interface OldCleanupResult {
@@ -119,13 +123,16 @@ export async function executeOldCleanup(
   let importedArchived = 0;
   function check() {
     guard();
-    if (!readRegularFile(workspace.configPath).equals(workspace.configRaw)
-      || !sameSnapshot(expected, takeWorkspaceSnapshot(workspace.root, workspace.accounts)))
-      throw new Error('本机 Code 会话已变化，已停止清理。');
-    for (const transcript of workspace.transcripts.values()) {
-      if ('error' in transcript) continue;
-      if (JSON.stringify(fileFingerprint(transcript.path)) !== JSON.stringify(transcript.fingerprint))
-        throw new Error('Code 会话正文已变化，已停止清理。');
+    if (!readRegularFile(workspace.configPath).equals(workspace.configRaw)) throw new Error('设置已变化，已停止清理。');
+    assertDependencySnapshot(expected, takeWorkspaceSnapshot(workspace.root, workspace.accounts), plan.dependencies);
+    for (const [id, transcript] of workspace.transcripts) {
+      if ('error' in transcript || !plan.dependencies.ids.has(id)) continue;
+      try { assertTranscriptCurrent(transcript); }
+      catch { throw dependencyError(plan.dependencies, id); }
+    }
+    const inventory = collectTranscriptIndex(workspace.projectsRoot);
+    for (const id of plan.dependencies.ids) {
+      if (JSON.stringify(inventory.get(id)) !== JSON.stringify(workspace.transcriptPaths.get(id))) throw dependencyError(plan.dependencies, id);
     }
   }
   try {

@@ -10,6 +10,20 @@ const sessions: SessionView[] = [{ id: 'chat', title: 'Chosen session', project:
   presence: [{ accountId: 'a', active: true, archived: false, eligible: true, copies: 2, titles: ['Chosen session'], reasons: [] }] }];
 const noop = () => undefined;
 
+it('describes explicit marker restoration as reviewable selection, never as restoring a deletion backup', () => {
+  const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement('div', null,
+    createElement(SessionRows, { sessions: [{ ...sessions[0]!, presence: [{ ...sessions[0]!.presence[0]!, eligible: false, reasons: ['会话曾被删除'] }] }],
+      accounts, selected: new Set(['chat']), included: new Set(['a']), filterId: 'all', onToggle: noop, busy: false }),
+    createElement(OperationReview, { accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop,
+      preview: { kind: 'sync', token: 'fixture', accountIds: ['a'], selected: [{ id: 'chat', title: 'Chosen session' }],
+        changes: [{ sessionId: 'chat', title: 'Chosen session', accountId: 'a', action: 'restore', copies: 1 }], conflicts: [], skipped: [], fileCount: 1 } }),
+  ) }));
+  expect(html).toContain('选择后核对');
+  expect(html).toContain('解除这条会话的删除记录');
+  expect(html).not.toContain('恢复这个备份');
+  expect(html).not.toContain('暂不能同步');
+});
+
 it('does not expose raw native deletion-marker counts as session counts', () => {
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(AccountSidebar, {
     accounts: [{ ...accounts[0]!, deletedMarkers: 231 }], included: new Set(['a']), currentFilter: 'all', onInclude: noop, onFilter: noop, busy: false,

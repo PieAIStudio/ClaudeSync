@@ -1,3 +1,4 @@
+import { captureDependencies } from './data-scope';
 import { reconcileProgress } from './sync-progress';
 import { accountIdForScope } from './account-identity';
 import { isManageable, sessionKey } from './catalog';
@@ -122,7 +123,13 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     }
     for (const entry of selectedEntries) {
       const otherClaims = remainingClaims.get(accountIdForScope(entry.account.scope)) ?? new Set<string>();
-      if (otherClaims.has(entry.data.sessionId.slice(6))) {
+      const owner = accountIdForScope(entry.account.scope);
+      const currentScope = `${owner}/${workspace.verifiedOrganizations?.[owner] ?? ''}`;
+      const currentCounterpart = request.group === 'oldOrganization' && workspace.entries.some((peer) =>
+        peer.account.scope === currentScope && !selectedPaths.has(peer.path) && peer.data.cliSessionId === entry.data.cliSessionId);
+      // Removing an explicitly selected old index is not deleting its current
+      // counterpart: shared IDs below receive no account-wide deletion marker.
+      if (otherClaims.has(entry.data.sessionId.slice(6)) && !currentCounterpart) {
         throw new Error(`其他Code 会话或未参与整理的目录仍在使用这条Code 会话的历史，暂不能安全删除，请改用归档：${entry.data.title || '未命名Code 会话'}`);
       }
       put(entry.path, undefined, entry, 'delete');
@@ -239,6 +246,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   const selected = [...selectedIds].map((id) => ({ id, title: selectedEntries.find((entry) => sessionKey(entry) === id)?.data.title || '' }));
   return {
     kind: request.kind, changes: result,
+    dependencies: request.kind === 'delete' ? captureDependencies(workspace, request) : undefined,
     inputTranscripts, restoredMarkerPaths,
     blockingReason: progressConflicts.some((conflict) => !conflict.resolved) ? '会话进度有分叉或无法确认先后，请选择保留哪边后再同步。' : undefined,
     ...(deletionSnapshot ? { deletionSnapshot, transcriptRemovals } : {}),

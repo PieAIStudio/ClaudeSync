@@ -1,3 +1,4 @@
+import { captureDependencies, dependencyError, selectionRevision, type DataSelection } from '../src/core/data-scope';
 import { randomUUID } from 'node:crypto';
 import { buildCatalog } from '../src/core/catalog';
 import { buildOperationPlan, changeViews } from '../src/core/operations';
@@ -15,15 +16,27 @@ import type { OldCleanupPlan } from '../src/core/old-organization';
 
 const pending = new Map<string, { workspace: Workspace; plan: FilePlan; at: number }>();
 const pendingOld = new Map<string, { workspace: Workspace; plan: OldCleanupPlan; at: number }>();
+const displayed = new Map<string, { workspace: Workspace; at: number }>();
 
-function freshWorkspace(revision: unknown): Workspace {
+function freshWorkspace(revision: unknown, selection?: DataSelection, saved?: Workspace): Workspace {
   const workspace = managedWorkspace(ensureConfiguredWorkspace());
-  if (typeof revision !== 'string' || revision !== workspaceRevision(workspace)) throw new Error('Code 会话列表已经变化，请重新检查后再选择。');
+  if (typeof revision !== 'string') throw new Error('Code 会话列表已经变化，请重新检查后再选择。');
+  if (selection) {
+    const checked = displayed.get(revision);
+    const before = saved ?? (checked && Date.now() - checked.at <= 15 * 60 * 1000 ? checked.workspace : undefined);
+    if (!before || workspaceRevision(before) !== revision) throw new Error('检查清单已过期，请重新检查后再选择。');
+    if (selectionRevision(before, selection) !== selectionRevision(workspace, selection)) throw dependencyError(captureDependencies(before, selection));
+  } else if (revision !== workspaceRevision(workspace)) throw new Error('Code 会话列表已经变化，请重新检查后再选择。');
   return workspace;
 }
 
 function assertOrganizationCurrent(workspace: Workspace): void {
   if (workspaceRevision(managedWorkspace(workspace)) !== workspaceRevision(workspace)) throw new Error('账号的当前组织已改变，请重新检查和预览。');
+}
+
+function writeScope(workspace: Workspace, selection: DataSelection) {
+  const dependencies = captureDependencies(workspace, selection);
+  return { sessionIds: [...dependencies.ids], label: [...new Set(dependencies.labels.values())].slice(0, 3).join('、') || '所选会话' };
 }
 
 function normalizeRequest(value: unknown): OperationRequest {
@@ -57,7 +70,11 @@ export async function checkWorkspace(): Promise<WorkspaceView> {
   const discovered = includeDesktopAccount(ensureConfiguredWorkspace(), desktop.identity);
   const emails = rememberIdentities(discovered.accounts, desktop.identity);
   const workspace = managedWorkspace(discovered);
-  return { checkedAt: new Date().toISOString(), revision: workspaceRevision(workspace), blockers: processBlockers(),
+  const revision = workspaceRevision(workspace);
+  for (const [key, item] of displayed) if (Date.now() - item.at > 15 * 60 * 1000) displayed.delete(key);
+  if (displayed.size >= 4) displayed.delete(displayed.keys().next().value!);
+  displayed.set(revision, { workspace, at: Date.now() });
+  return { checkedAt: new Date().toISOString(), revision, blockers: processBlockers(),
     identityState: desktop.state,
     ...buildCatalog(workspace, emails, desktop.identity?.accountId) };
 }
@@ -73,10 +90,11 @@ export function previewOperation(value: unknown, revision: unknown) {
 export async function deleteSelected(value: unknown, revision: unknown) {
   if (!isRecord(value)) throw new Error('删除参数无效。');
   const request = normalizeRequest({ group: value.group, sessionIds: value.sessionIds, accountIds: value.accountIds, kind: 'delete' });
-  const workspace = freshWorkspace(revision);
-  assertClaudeStopped();
+  const workspace = freshWorkspace(revision, request);
+  const scope = writeScope(workspace, request);
+  assertClaudeStopped(scope);
   const plan = buildOperationPlan(workspace, request);
-  const result = commitFilePlan(workspace, plan, () => { assertClaudeStopped(); assertOrganizationCurrent(workspace); });
+  const result = commitFilePlan(workspace, plan, () => { assertClaudeStopped(scope); assertOrganizationCurrent(workspace); });
   return { result, workspace: await checkWorkspace() };
 }
 
@@ -91,7 +109,7 @@ export async function applyOperation(token: unknown) {
 
 export function previewOldCopies(value: unknown, revision: unknown) {
   if (!Array.isArray(value) || value.length === 0 || value.length > 50 || value.some((id) => typeof id !== 'string')) throw new Error('请选择要清理的账号。');
-  const workspace = freshWorkspace(revision);
+  const workspace = freshWorkspace(revision, { accountIds: value as string[], oldCopies: true });
   const plan = planOldCleanup(workspace, value as string[]);
   if (!plan.items.length) return { token: '', items: [], accountIds: plan.accountIds, trashCount: 0, archivedToImport: 0 };
   for (const [key, item] of pendingOld) if (Date.now() - item.at > 15 * 60 * 1000) pendingOld.delete(key);
@@ -106,10 +124,15 @@ export async function cleanupOldCopies(token: unknown, trash: (path: string) => 
   const saved = pendingOld.get(token);
   pendingOld.delete(token); // Single-use even when blocked; never retry Trash automatically.
   if (!saved || Date.now() - saved.at > 15 * 60 * 1000) throw new Error('清理清单已过期，请重新查看。');
-  freshWorkspace(workspaceRevision(saved.workspace));
-  assertClaudeStopped();
-  const result = await executeOldCleanup(saved.workspace, saved.plan, trash,
-    () => { assertClaudeStopped(); assertOrganizationCurrent(saved.workspace); });
+  const selection = { accountIds: saved.plan.accountIds, oldCopies: true };
+  const workspace = freshWorkspace(workspaceRevision(saved.workspace), selection, saved.workspace);
+  const scope = writeScope(workspace, selection);
+  assertClaudeStopped(scope);
+  // Relevant bytes have matched the confirmed list. Use fresh unrelated counts
+  // and archive state as the baseline, not a stale whole-workspace snapshot.
+  const plan = planOldCleanup(workspace, saved.plan.accountIds);
+  const result = await executeOldCleanup(workspace, plan, trash,
+    () => { assertClaudeStopped(scope); assertOrganizationCurrent(workspace); });
   return { result, workspace: await checkWorkspace() };
 }
 

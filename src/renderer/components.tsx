@@ -38,7 +38,8 @@ export function DeleteConfirmation({ count, accountNames, state, group, source =
     {group && <p>{t.t('groupScope', { group: t.t(groupLabels[group]) })}</p>}
     <div className="review-targets"><strong>{t.t('targets')}</strong>{accountNames.map((name) => <span key={name}>{name}</span>)}</div>
     <p className="operation-warning">{t.t('deleteNoRecovery')}</p>
-    <p className="panel-intro">{t.t(state === 'archived' ? 'deleteArchivedAdvice' : state === 'mixed' ? 'deleteMixedAdvice' : 'deleteActiveAdvice')}</p>
+    {source === 'local' && <p className="panel-intro">{t.t('scopedWriteCheck')}</p>}
+    <p className="panel-intro">{t.t(source === 'local' && group === 'oldOrganization' ? 'oldDeleteAdvice' : state === 'archived' ? 'deleteArchivedAdvice' : state === 'mixed' ? 'deleteMixedAdvice' : 'deleteActiveAdvice')}</p>
     {blocked && <p className="operation-warning">{t.t('waiting')}</p>}
     <div className="dialog-actions"><GameButton variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</GameButton>
       <GameButton variant="danger" disabled={busy || blocked || count === 0} onClick={onDelete}>{t.t(busy ? 'deleting' : 'confirmDelete')}</GameButton>
@@ -92,6 +93,7 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
     const active = presence.some((item) => item.active);
     const eligible = presence.some((item) => item.eligible);
     const reasons = [...new Set(presence.flatMap((item) => item.reasons))];
+    const selectedRestore = session.manageable && reasons.some((reason) => reason.includes('删除标记') || reason.includes('曾被删除'));
     return <li key={session.id} className={`session-row ${selected.has(session.id) ? 'is-selected' : ''}`}>
       <input id={`${idPrefix}-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !session.manageable || !session.presence.some((item) => included.has(item.accountId))}
         onChange={(event) => onToggle(session.id, event.target.checked)} />
@@ -115,7 +117,7 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
           </div>)}
         </div></details>
       </div>
-      <GameBadge tone={!active ? 'neutral' : eligible ? 'success' : 'warning'}>{t.t(!active ? 'archived' : eligible ? 'syncable' : 'blocked')}</GameBadge>
+      <GameBadge tone={!active ? 'neutral' : eligible ? 'success' : 'warning'}>{t.t(selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? 'syncable' : 'blocked')}</GameBadge>
     </li>;
   })}</ul>;
 }
@@ -139,7 +141,7 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
   contentChoices?: Record<string, string>; onChooseContent?(id: string, path: string): void;
 }) {
   const t = useTranslation();
-  const actionKeys: Record<string, TranslationKey> = { update: 'update', add: 'add', title: 'title', archive: 'archive', unarchive: 'unarchive', delete: 'delete', star: 'star', unstar: 'unstar', restore: 'restore' };
+  const actionKeys: Record<string, TranslationKey> = { update: 'update', add: 'add', title: 'title', archive: 'archive', unarchive: 'unarchive', delete: 'delete', star: 'star', unstar: 'unstar', restore: preview.kind === 'sync' ? 'clearDeletionNote' : 'restore' };
   return <Modal title={t.t('previewTitle')} onClose={onClose} busy={busy}>
     <p className="panel-intro">{t.t('previewBody')}</p>
     <h3 className="operation-name">{t.t(preview.kind)}</h3>
@@ -149,6 +151,7 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
       <ul>{preview.selected.map((session) => <li key={session.id}><strong>{session.title || t.t('untitled')}</strong><small>{session.id.slice(0, 8)}</small></li>)}</ul>
     </details>}
     {preview.kind === 'keep' && <p className="operation-warning">{t.t('keepWarning')}</p>}
+    {preview.kind === 'sync' && <p className="panel-intro">{t.t('selectedSyncHelp')}</p>}
     <ProgressReview preview={preview} accounts={accounts} choices={contentChoices} busy={busy} onChoose={onChooseContent} />
     {preview.conflicts.length > 0 && <section className="title-conflicts"><h3>{t.t('conflicts')}</h3>{preview.conflicts.map((conflict) => <label key={conflict.id}>
       <span>{t.t('chooseTitle')}</span><select value={choices?.[conflict.id] === 'skip' ? '' : choices?.[conflict.id] ?? ''} onChange={(event) => onChooseTitle(conflict.id, event.target.value)} disabled={busy}>
