@@ -4,6 +4,7 @@ import { useTranslation } from './i18n';
 import type { TranslationKey } from './i18n';
 import type { AccountView, DesktopIdentityState, OperationPreview, SessionGroup, SessionView } from '../shared/contracts';
 import type { DeleteState } from './deletion-selection';
+import { ProgressReview } from './ProgressReview';
 import { TermTip } from './TermTip';
 
 export const groupLabels: Record<SessionGroup, TranslationKey> = {
@@ -133,11 +134,12 @@ export function CollapsedSessionGroup({ group, sessions, accounts, selected, fil
   </div>;
 }
 
-export function OperationReview({ preview, accounts, choices, busy, blocked, onClose, onApply, onChooseTitle }: {
+export function OperationReview({ preview, accounts, choices, contentChoices, busy, blocked, onClose, onApply, onChooseTitle, onChooseContent }: {
   preview: OperationPreview; accounts: AccountView[]; choices?: Record<string, string>; busy: boolean; blocked: boolean; onClose(): void; onApply(): void; onChooseTitle(id: string, scope: string): void;
+  contentChoices?: Record<string, string>; onChooseContent?(id: string, path: string): void;
 }) {
   const t = useTranslation();
-  const actionKeys: Record<string, TranslationKey> = { add: 'add', title: 'title', archive: 'archive', unarchive: 'unarchive', delete: 'delete', star: 'star', unstar: 'unstar', restore: 'restore' };
+  const actionKeys: Record<string, TranslationKey> = { update: 'update', add: 'add', title: 'title', archive: 'archive', unarchive: 'unarchive', delete: 'delete', star: 'star', unstar: 'unstar', restore: 'restore' };
   return <Modal title={t.t('previewTitle')} onClose={onClose} busy={busy}>
     <p className="panel-intro">{t.t('previewBody')}</p>
     <h3 className="operation-name">{t.t(preview.kind)}</h3>
@@ -147,6 +149,7 @@ export function OperationReview({ preview, accounts, choices, busy, blocked, onC
       <ul>{preview.selected.map((session) => <li key={session.id}><strong>{session.title || t.t('untitled')}</strong><small>{session.id.slice(0, 8)}</small></li>)}</ul>
     </details>}
     {preview.kind === 'keep' && <p className="operation-warning">{t.t('keepWarning')}</p>}
+    <ProgressReview preview={preview} accounts={accounts} choices={contentChoices} busy={busy} onChoose={onChooseContent} />
     {preview.conflicts.length > 0 && <section className="title-conflicts"><h3>{t.t('conflicts')}</h3>{preview.conflicts.map((conflict) => <label key={conflict.id}>
       <span>{t.t('chooseTitle')}</span><select value={choices?.[conflict.id] === 'skip' ? '' : choices?.[conflict.id] ?? ''} onChange={(event) => onChooseTitle(conflict.id, event.target.value)} disabled={busy}>
         <option value="">{t.t('leaveTitle')}</option>{conflict.options.map((option) => <option key={option.scope} value={option.scope}>
@@ -154,7 +157,7 @@ export function OperationReview({ preview, accounts, choices, busy, blocked, onC
         </option>)}
       </select>
     </label>)}</section>}
-    {preview.fileCount === 0 ? <p>{t.t('noChanges')}</p> : <div className="review-changes">
+    {preview.fileCount === 0 ? <p>{t.t(preview.progressConflicts?.some((item) => !item.resolved) ? 'chooseVersion' : 'noChanges')}</p> : <div className="review-changes">
       <h3>{t.t('planned')}</h3><ul>{preview.changes.map((item, index) => <li key={`${item.accountId}-${item.sessionId}-${item.action}-${index}`}>
         <span><strong>{item.title || t.t('untitled')}</strong><small>{accountName(accounts.find((account) => account.id === item.accountId), t)}</small></span>
         <GameBadge tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</GameBadge>
@@ -163,7 +166,7 @@ export function OperationReview({ preview, accounts, choices, busy, blocked, onC
     {preview.skipped.length > 0 && <details className="review-skipped"><summary>{t.t('skipped')} ({preview.skipped.length})</summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>：{reasonText(item.reason, t)}</p>)}</details>}
     {blocked && <p className="operation-warning">{t.t('waiting')}</p>}
     <div className="dialog-actions"><GameButton variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</GameButton>
-      <GameButton variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</GameButton>
+      <GameButton variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0 || preview.progressConflicts?.some((item) => !item.resolved)} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</GameButton>
     </div>
   </Modal>;
 }

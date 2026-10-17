@@ -184,7 +184,8 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       {workspace && source === 'local' && <GameButton variant="ghost" disabled={busy} onClick={() => void model.loadBackups().then((success) => { if (success) setBackupOpen(true); })}>{t.t('backupTitle')}</GameButton>}
       {workspace && source === 'local' && <span>{t.t('checkedAt', { time: t.date(workspace.checkedAt, { timeStyle: 'short' }) })}</span>}
     </footer>
-    {model.review && workspace && <OperationReview preview={model.review} choices={model.request?.titleSelections} accounts={workspace.accounts} busy={busy} blocked={workspace.blockers.length > 0} onClose={model.closeReview} onApply={() => void model.apply()}
+    {model.review && workspace && <OperationReview preview={model.review} choices={model.request?.titleSelections} contentChoices={model.request?.contentSelections} accounts={workspace.accounts} busy={busy} blocked={workspace.blockers.length > 0} onClose={model.closeReview} onApply={() => void model.apply()}
+      onChooseContent={(id, path) => { if (model.request) void model.preview({ ...model.request, contentSelections: { ...model.request.contentSelections, [id]: path } }); }}
       onChooseTitle={(id, scope) => { if (model.request) void model.preview({ ...model.request, titleSelections: { ...model.request.titleSelections, [id]: scope || 'skip' } }); }} />}
     {deleting && <DeleteConfirmation count={deleting.sessionIds.length} accountNames={deleting.names} state={deleting.state} group={deleting.group} busy={busy} blocked={Boolean(workspace?.blockers.length)} onClose={() => setDeleting(undefined)}
       onDelete={() => { const request = deleting; setDeleting(undefined); void model.deleteSelected(request, request.revision).then((success) => { if (success) setSelected(new Set()); }); }} />}

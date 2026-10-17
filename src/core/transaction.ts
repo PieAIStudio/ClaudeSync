@@ -23,6 +23,7 @@ export interface FileChange {
 }
 
 export interface FilePlan {
+  blockingReason?: string;
   kind: OperationKind;
   changes: FileChange[];
   deletionSnapshot?: WorkspaceSnapshot;
@@ -95,6 +96,7 @@ function createBackup(workspace: Workspace, plan: FilePlan): { path: string; man
 }
 
 export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () => void): ApplyResult {
+  if (plan.blockingReason) throw new Error(plan.blockingReason);
   if (plan.kind === 'sync' || plan.kind === 'keep') {
     const affected = new Set(plan.changes.map((change) => change.path.split('/')[0]));
     const targets = new Set(verifiedTargets(workspace.accounts.filter((account) => affected.has(account.scope.split('/')[0])), workspace.verifiedOrganizations).map((account) => account.scope));

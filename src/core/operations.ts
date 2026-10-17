@@ -1,3 +1,4 @@
+import { reconcileProgress } from './sync-progress';
 import { accountIdForScope } from './account-identity';
 import { isManageable, sessionKey } from './catalog';
 import { entryGroup, verifiedTargets } from './visibility';
@@ -137,6 +138,8 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
 
   const skipped: OperationPreview['skipped'] = [];
   const conflicts: OperationPreview['conflicts'] = [];
+  let progressUpdates: OperationPreview['progressUpdates'] = [];
+  let progressConflicts: OperationPreview['progressConflicts'] = [];
   if (request.kind === 'keep') {
     const unsupported = entries.find((entry) => targetScopes?.has(entry.account.scope) && entryGroup(workspace, entry) === 'visible' && !isManageable(entry));
     if (unsupported) throw new Error(`“只保留所选”不能自动整理远程或定时任务：${unsupported.data.title || '未命名'}。请先在 Claude 中处理。`);
@@ -160,7 +163,11 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
       }),
     };
     const excluded = workspace.accounts.filter((account) => !accountIds.has(accountIdForScope(account.scope))).map((account) => account.scope);
-    const plan = buildWorkspacePlan(simulated, request.titleSelections, excluded, [...selectedIds], selectedEntries.map((entry) => entry.path));
+    const progress = reconcileProgress(simulated, selectedEntries.map((entry) => entry.path), targetScopes!, request.contentSelections);
+    progressUpdates = progress.progressUpdates; progressConflicts = progress.progressConflicts;
+    for (const update of progress.updates) edit(update.target, update.data, 'update');
+    simulated.entries = simulated.entries.map((entry) => ({ ...entry, data: editedEntries.get(entry.path) ?? entry.data }));
+    const plan = buildWorkspacePlan(simulated, request.titleSelections, excluded, [...selectedIds], progress.sourcePaths);
     for (const addition of plan.additions) put(addition.targetPath, encodeJson(addition.data), addition.source, 'add');
     for (const action of plan.titleActions) {
       if (action.data) edit(action.target, action.data, 'title');
@@ -203,7 +210,8 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
   const selected = [...selectedIds].map((id) => ({ id, title: selectedEntries.find((entry) => sessionKey(entry) === id)?.data.title || '' }));
   return {
     kind: request.kind, changes: result,
+    blockingReason: progressConflicts.some((conflict) => !conflict.resolved) ? '会话进度有分叉或无法确认先后，请选择保留哪边后再同步。' : undefined,
     ...(deletionSnapshot ? { deletionSnapshot, transcriptRemovals } : {}),
-    preview: { group: request.group, kind: request.kind, accountIds: [...accountIds], selected, changes: changeViews(result), conflicts, skipped, fileCount: result.length },
+    preview: { group: request.group, kind: request.kind, accountIds: [...accountIds], selected, changes: changeViews(result), conflicts, progressUpdates, progressConflicts, skipped, fileCount: result.length },
   };
 }

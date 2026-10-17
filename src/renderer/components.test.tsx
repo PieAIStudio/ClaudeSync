@@ -10,6 +10,22 @@ const sessions: SessionView[] = [{ id: 'chat', title: 'Chosen session', project:
   presence: [{ accountId: 'a', active: true, archived: false, eligible: true, copies: 2, titles: ['Chosen session'], reasons: [] }] }];
 const noop = () => undefined;
 
+it('shows source, destination and turn delta and blocks unresolved version conflicts', () => {
+  const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(OperationReview, {
+    accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop,
+    preview: { kind: 'sync', token: 'fixture', accountIds: ['a'], selected: [], changes: [], conflicts: [], skipped: [], fileCount: 1,
+      progressUpdates: [{ id: 'chat', title: 'Shared work', sourceAccountId: 'a', targetAccountId: 'b', deltaTurns: 7, selected: false }],
+      progressConflicts: [{ id: 'branch', title: 'Two branches', resolved: false, options: [{ path: 'a/org/local.json', accountId: 'a', title: 'A', turns: 2 }] }],
+    },
+  }) }));
+  expect(html).toContain('比目标多 7 轮');
+  expect(html).toContain('fixture@example.com');
+  expect(html).toContain('请选择要保留的账号版本');
+  const confirm = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)?.find((button) => button.replace(/<[^>]*>/gu, '') === '确认执行');
+  expect(confirm).toBeDefined();
+  expect(confirm!.slice(0, confirm!.indexOf('>'))).toContain('disabled=""');
+});
+
 it.each([
   ['active', '再使用“归档”'], ['archived', '想保留归档内容'], ['mixed', '既有普通会话'],
 ] as const)('explains %s deletion with the right alternative, explicit account and no preview or backup promise', (state, advice) => {

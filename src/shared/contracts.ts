@@ -1,5 +1,5 @@
 export type OperationKind = 'sync' | 'keep' | 'archive' | 'unarchive' | 'delete' | 'rename' | 'star' | 'unstar' | 'restore';
-export type ChangeKind = 'add' | 'title' | 'archive' | 'unarchive' | 'delete' | 'star' | 'unstar' | 'restore';
+export type ChangeKind = 'add' | 'update' | 'title' | 'archive' | 'unarchive' | 'delete' | 'star' | 'unstar' | 'restore';
 
 export interface AppInfo {
   version: string;
@@ -81,6 +81,7 @@ export interface OperationRequest {
   accountIds: string[];
   title?: string;
   titleSelections?: Record<string, string>;
+  contentSelections?: Record<string, string>;
 }
 
 export interface DeleteRequest {
@@ -136,6 +137,15 @@ export interface TitleConflictView {
   options: Array<{ scope: string; accountId: string; title: string }>;
 }
 
+export interface ProgressUpdateView {
+  id: string; title: string; sourceAccountId: string; targetAccountId: string;
+  sourceTurns?: number; targetTurns?: number; deltaTurns?: number; updatedAt?: string; selected: boolean;
+}
+export interface ProgressConflictView {
+  id: string; title: string; resolved: boolean;
+  options: Array<{ path: string; accountId: string; title: string; turns?: number; updatedAt?: string }>;
+}
+
 export interface OperationPreview {
   group?: SessionGroup;
   token: string;
@@ -144,6 +154,8 @@ export interface OperationPreview {
   selected: Array<{ id: string; title: string }>;
   accountIds: string[];
   conflicts: TitleConflictView[];
+  progressUpdates?: ProgressUpdateView[];
+  progressConflicts?: ProgressConflictView[];
   skipped: Array<{ id: string; title: string; reason: string }>;
   fileCount: number;
 }

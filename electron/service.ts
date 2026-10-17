@@ -36,8 +36,12 @@ function normalizeRequest(value: unknown): OperationRequest {
   if (isRecord(value.titleSelections)) {
     for (const [id, scope] of Object.entries(value.titleSelections)) if (typeof scope === 'string') choices[id] = scope;
   }
+  const contentSelections: Record<string, string> = {};
+  if (isRecord(value.contentSelections)) {
+    for (const [id, path] of Object.entries(value.contentSelections)) if (typeof path === 'string') contentSelections[id] = path;
+  }
   return { group: (value.group ?? 'visible') as SessionGroup, kind: value.kind as OperationRequest['kind'], sessionIds: [...new Set(value.sessionIds as string[])],
-    accountIds: [...new Set(value.accountIds as string[])], title: typeof value.title === 'string' ? value.title : undefined, titleSelections: choices };
+    accountIds: [...new Set(value.accountIds as string[])], title: typeof value.title === 'string' ? value.title : undefined, titleSelections: choices, contentSelections };
 }
 
 function savePreview(workspace: Workspace, plan: FilePlan): string {
