@@ -19,6 +19,8 @@ Las tareas remotas o programadas activas también bloquean esta operación. Gest
 
 Las cuentas verificadas usan la organización confirmada por el perfil; copias antiguas no cambian el estado actual de archivo. Correo y organización se guardan solo en el equipo. Las verificaciones local y de nube recuerdan la organización. Los registros antiguos con solo correo necesitan una nueva comprobación mientras esa cuenta está conectada para confirmar su organización. Local y nube tienen cifras y selecciones separadas. La nube muestra historial Code de la cuenta actual, incluido Wakeup, hasta 100 registros. Usa autorización existente sin caducar. Solo borra registros Remote Control verificados e inactivos; registros en ejecución, vinculados o desconocidos quedan bloqueados. Comprueba antes de escribir, para al primer fallo y verifica por lectura. No renueva OAuth, registra dispositivos, cambia horarios ni reintenta automáticamente. Cierra Claude para cambios locales; no para la nube. Credenciales solo en memoria del proceso principal. Lecturas reales verificadas; no se borraron conversaciones reales en la aceptación.
 
+Las entradas locales desconocidas se omiten sin modificarlas y Atención muestra su ruta y «omitido, sin cambios». Los directorios conocidos de Desktop `backlog` y `waiting-input` se conservan sin avisos ni gestión. Si puede haber referencias compartidas desconocidas, el borrado conserva las conversaciones. Un destino de escritura inseguro o un cambio en el texto pertinente detiene la operación afectada.
+
 ## Desarrollo
 
 Usa Node 24 y la versión fijada de pnpm. En un checkout nuevo: `pnpm install --frozen-lockfile`.

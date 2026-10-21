@@ -19,6 +19,8 @@ Tarefas remotas ou agendadas ativas também bloqueiam essa operação. Gerencie 
 
 Contas verificadas usam a organização confirmada pelo perfil; cópias antigas não alteram o estado atual de arquivo. E-mail e organização ficam só neste computador. As verificações local e da nuvem lembram a organização. Registros antigos que só têm e-mail precisam de uma nova verificação com essa conta conectada para confirmar sua organização. Local e nuvem têm números e seleções separados. A nuvem mostra histórico Code da conta atual, incluindo Wakeup, até 100 registros. Usa autorização existente não expirada. Exclui apenas registros Remote Control verificados e ociosos; registros em execução, vinculados ou desconhecidos ficam bloqueados. Verifica antes de escrever, para na primeira falha e confirma por leitura. Não renova OAuth, registra dispositivos, muda horários ou tenta novamente automaticamente. Feche Claude para alterações locais; não para a nuvem. Credenciais só na memória principal. Leituras reais verificadas; nenhuma conversa real foi excluída na aceitação.
 
+Entradas locais desconhecidas são ignoradas sem alterações; Atenção mostra o caminho e «ignorado, sem alterações». As pastas conhecidas do Desktop `backlog` e `waiting-input` são preservadas sem avisos nem gerenciamento. Se puderem existir referências compartilhadas desconhecidas, a exclusão mantém o texto. Um destino de gravação inseguro ou uma mudança no texto relevante interrompe a operação afetada.
+
 ## Desenvolvimento
 
 Use Node 24 e a versão fixa do pnpm. Em um checkout novo: `pnpm install --frozen-lockfile`.

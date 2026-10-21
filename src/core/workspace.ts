@@ -175,14 +175,6 @@ export function loadWorkspace(configPath: string): Workspace {
   assertPlainDirectory(root);
   assertPlainDirectory(projectsRoot);
   const snapshot = takeWorkspaceSnapshot(root, config.accounts);
-  const configuredScopes = new Set(config.accounts.map((account) => account.scope));
-  for (const path of snapshot.files.keys()) {
-    const scope = dirname(path).replaceAll('\\', '/');
-    const name = basename(path);
-    if (configuredScopes.has(scope) && !/^(?:local_[0-9a-f-]{36}\.json|deleted_[0-9a-f-]{36}|archived-sessions\.idx|scheduled-tasks\.json)$/u.test(name)) {
-      throw new Error(`出现未知或未完成的会话文件，请先退出 Claude 后检查：${name}`);
-    }
-  }
   const archivedByAccount = archivedSessions(snapshot, config.accounts);
   const tombstones = collectTombstones(snapshot, config.accounts);
   const transcriptIndex = collectTranscriptIndex(projectsRoot);

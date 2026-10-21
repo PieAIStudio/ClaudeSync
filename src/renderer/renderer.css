@@ -120,6 +120,7 @@ select { min-height: 38px; border: 1px solid var(--game-ui-paper-line-light, #d3
 .review-dialog > .game-ui-panel { border: 0; padding: 25px; }
 .review-targets { display: grid; gap: 6px; padding: 13px 15px; border-radius: 10px; background: var(--game-ui-paper-soft-light, #f4eee3); overflow-wrap: anywhere; font-size: 12px; }
 .review-targets > strong { margin-bottom: 3px; }
+.skipped-entries ul { margin: 0; padding-left: 20px; max-height: 160px; overflow: auto; overflow-wrap: anywhere; }
 .operation-warning { font-size: 12px; line-height: 1.7; color: #85621d; background: #f5eddc; padding: 12px 14px; border-radius: 8px; }
 .operation-name { margin: 0 0 12px; font-size: 14px; }
 .review-selection { margin-top: 16px; font-size: 12px; }

@@ -1,5 +1,5 @@
 import { assertDependencySnapshot, dependencyError, type DataDependencies } from './data-scope';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import {
@@ -110,6 +110,9 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
   if (plan.changes.length === 0) return { filesChanged: 0, verified: true };
   const paths = new Set<string>();
   for (const change of plan.changes) {
+    if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/(?:local_[0-9a-f-]{36}\.json|archived-sessions\.idx|deleted_[0-9a-f-]{36})$/u.test(change.path)) {
+      throw new Error('操作计划包含未管理的目标路径，已停止。');
+    }
     if (paths.has(change.path)) throw new Error('操作计划包含重复文件。');
     paths.add(change.path);
     const before = workspace.snapshot.files.get(change.path);
@@ -135,6 +138,17 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
       const allAccounts = takeDeletionSnapshot(workspace.root);
       if (plan.dependencies) assertDependencySnapshot(deletionExpected, allAccounts, plan.dependencies);
       else if (!sameSnapshot(deletionExpected, allAccounts)) throw new Error('其他账号的Code 会话发生变化，已停止删除。');
+    }
+    // A skipped entry must never be overwritten by an addition. Check all
+    // destination parents/collisions before the first backup or write, including
+    // dangling links (existsSync alone cannot detect those).
+    for (const change of plan.changes) {
+      const target = safeWorkspacePath(workspace.root, change.path);
+      assertPlainDirectory(dirname(target));
+      if (expected.files.has(change.path)) continue;
+      try { lstatSync(target); }
+      catch (error) { if (isRecord(error) && error.code === 'ENOENT') continue; throw error; }
+      throw new Error(`目标路径已有未识别条目，未改动：${change.path}`);
     }
     if (deletionExpected) {
       const inventory = (index: Map<string, string[]>) => [...index].filter(([id]) => !plan.dependencies || plan.dependencies.ids.has(id)).map(([id, paths]) => [id, paths.filter((path) => !removedTranscripts.has(path))] as const)
@@ -173,6 +187,9 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
     for (const transcript of plan.transcriptRemovals ?? []) {
       if (plan.kind !== 'delete' || !deletionExpected) throw new Error('正文删除计划无效。');
       checkInputs();
+      // Unknown stores may hold references we cannot inspect. Delete recognized
+      // indexes normally, but retain shared bodies rather than guessing ownership.
+      if (takeDeletionSnapshot(workspace.root).skippedPaths.length) continue;
       removeTranscript(transcript);
       removedTranscripts.add(transcript.path);
       applied++;

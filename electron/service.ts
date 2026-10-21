@@ -75,7 +75,7 @@ export async function checkWorkspace(): Promise<WorkspaceView> {
   if (displayed.size >= 4) displayed.delete(displayed.keys().next().value!);
   displayed.set(revision, { workspace, at: Date.now() });
   return { checkedAt: new Date().toISOString(), revision, blockers: processBlockers(),
-    identityState: desktop.state,
+    identityState: desktop.state, skippedPaths: workspace.snapshot.skippedPaths,
     ...buildCatalog(workspace, emails, desktop.identity?.accountId) };
 }
 

@@ -47,8 +47,8 @@ export function captureDependencies(workspace: Workspace, selection: DataSelecti
   return dependencies;
 }
 
-// All paths are still scanned and validated as plain files/directories. The
-// comparison ignores unrelated progress, but discovers new relevant references
+// Unrecognized entries are skipped without following links. The comparison
+// ignores unrelated progress, but discovers new recognized relevant references
 // in any account, including accounts omitted from the application's settings.
 export function dependencySnapshot(snapshot: WorkspaceSnapshot, dependencies?: DataDependencies): WorkspaceSnapshot {
   if (!dependencies) return snapshot;
@@ -64,7 +64,7 @@ export function dependencySnapshot(snapshot: WorkspaceSnapshot, dependencies?: D
     } else if (name.startsWith('deleted_')) related ||= dependencies.ids.has(name.slice(8));
     if (related) files.set(path, raw);
   }
-  return { files, directories: new Map() };
+  return { files, directories: new Map(), skippedPaths: snapshot.skippedPaths };
 }
 
 export function dependencyError(dependencies: DataDependencies, changed?: string): Error {

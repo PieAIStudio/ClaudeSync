@@ -71,6 +71,7 @@ export interface WorkspaceView {
   accounts: AccountView[];
   sessions: SessionView[];
   blockers: string[];
+  skippedPaths: string[];
   identityState: DesktopIdentityState;
 }
 

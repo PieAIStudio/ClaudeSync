@@ -31,8 +31,55 @@ it('loads native task backlogs without counting their tasks as chats', () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+it.each(['empty', 'regular files'])('loads native waiting-input with %s without changing chat listings or plans', (contents) => {
+  const root = temporaryFixture();
+  try {
+    const configPath = join(root, 'config.json');
+    const baseline = loadWorkspace(configPath);
+    const directory = join(root, 'session-root', SCOPE_A, 'waiting-input');
+    mkdirSync(directory);
+    const raw = Buffer.from([0, 255, 10, 13]);
+    const name = 'local_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.json';
+    if (contents === 'regular files') {
+      writeFileSync(join(directory, name), raw);
+      writeFileSync(join(directory, 'pending'), 'Not a chat index');
+    }
+    const loaded = loadWorkspace(configPath);
+    expect(loaded.snapshot.directories.get(`${SCOPE_A}/waiting-input`)).toEqual(contents === 'empty' ? [] : [name, 'pending']);
+    if (contents === 'regular files') {
+      expect(loaded.snapshot.files.get(`${SCOPE_A}/waiting-input/${name}`)).toEqual(raw);
+      expect(loaded.snapshot.files.get(`${SCOPE_A}/waiting-input/pending`)?.toString()).toBe('Not a chat index');
+    }
+    expect(sameSnapshot(baseline.snapshot, loaded.snapshot)).toBe(false);
+    expect(loaded.snapshot.skippedPaths).toEqual([]);
+    expect(loaded.entries.length).toBeGreaterThan(0);
+    expect(buildCatalog(loaded)).toEqual(buildCatalog(baseline));
+    expect(buildWorkspacePlan(loaded)).toEqual(buildWorkspacePlan(baseline));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+it.each(['linked directory', 'file instead of directory', 'nested directory', 'linked file', 'linked subdirectory'])(
+  'skips and reports unrecognized waiting-input structure: %s', (scenario) => {
+    const root = temporaryFixture();
+    try {
+      const directory = join(root, 'session-root', SCOPE_A, 'waiting-input');
+      if (scenario === 'linked directory') symlinkSync(join(root, 'projects'), directory, 'dir');
+      else if (scenario === 'file instead of directory') writeFileSync(directory, 'not a directory');
+      else {
+        mkdirSync(directory);
+        if (scenario === 'nested directory') mkdirSync(join(directory, 'nested'));
+        if (scenario === 'linked file') symlinkSync(join(root, 'config.json'), join(directory, 'pending'));
+        if (scenario === 'linked subdirectory') symlinkSync(join(root, 'projects'), join(directory, 'nested'), 'dir');
+      }
+      const workspace = loadWorkspace(join(root, 'config.json'));
+      expect(workspace.entries.length).toBeGreaterThan(0);
+      expect(workspace.snapshot.skippedPaths).toEqual([`${SCOPE_A}/waiting-input${scenario.includes('nested') || scenario === 'linked subdirectory' ? '/nested' : scenario === 'linked file' ? '/pending' : ''}`]);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  },
+);
+
 it.each(['linked backlog', 'linked tasks', 'directory tasks', 'unknown backlog file', 'unknown sibling directory'])(
-  'still rejects unsafe or unknown structure: %s', (scenario) => {
+  'skips and reports unknown entries without blocking known chats: %s', (scenario) => {
     const root = temporaryFixture();
     try {
       const scope = join(root, 'session-root', SCOPE_A);
@@ -45,7 +92,9 @@ it.each(['linked backlog', 'linked tasks', 'directory tasks', 'unknown backlog f
         if (scenario === 'directory tasks') mkdirSync(join(backlog, 'tasks.json'));
         if (scenario === 'unknown backlog file') writeFileSync(join(backlog, 'unknown.json'), '{}');
       }
-      expect(() => loadWorkspace(join(root, 'config.json'))).toThrow(/符号链接|普通文件|未知/u);
+      const workspace = loadWorkspace(join(root, 'config.json'));
+      expect(workspace.entries.length).toBeGreaterThan(0);
+      expect(workspace.snapshot.skippedPaths).toEqual([`${SCOPE_A}/${scenario === 'unknown sibling directory' ? 'unknown' : scenario === 'linked backlog' ? 'backlog' : `backlog/${scenario === 'unknown backlog file' ? 'unknown.json' : 'tasks.json'}`}`]);
     } finally { rmSync(root, { recursive: true, force: true }); }
   },
 );

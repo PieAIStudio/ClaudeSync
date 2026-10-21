@@ -2,13 +2,27 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
 import { I18nProvider } from './i18n';
-import { AccountSidebar, DeleteConfirmation, OperationReview, SessionRows } from './components';
+import { AccountSidebar, DeleteConfirmation, OperationReview, SessionRows, SkippedEntriesNotice } from './components';
 import type { AccountView, SessionView } from '../shared/contracts';
 
 const accounts: AccountView[] = [{ id: 'a', email: 'fixture@example.com', scopes: ['a/org'], active: 10, archived: 2, total: 12, eligible: 10, copies: 20, current: true, visible: 10, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 }];
 const sessions: SessionView[] = [{ id: 'chat', title: 'Chosen session', project: '/fixture/project', manageable: true, starred: false,
   presence: [{ accountId: 'a', active: true, archived: false, eligible: true, copies: 2, titles: ['Chosen session'], reasons: [] }] }];
 const noop = () => undefined;
+
+it('reports skipped paths as unchanged under non-blocking attention, without hiding session controls', () => {
+  const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement('div', null,
+    createElement(SkippedEntriesNotice, { paths: ['account/organization/unknown', 'account/organization/link'] }),
+    createElement(SessionRows, { sessions, accounts, selected: new Set<string>(), included: new Set(['a']), filterId: 'all', onToggle: noop, busy: false }),
+  ) }));
+  expect(html).toContain('需要注意');
+  expect(html).toContain('account/organization/unknown：已跳过，未改动');
+  expect(html).toContain('account/organization/link：已跳过，未改动');
+  expect(html).toContain('Chosen session');
+  expect(html).not.toContain('disabled=""');
+  const empty = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(SkippedEntriesNotice, { paths: [] }) }));
+  expect(empty).toBe('');
+});
 
 it('describes explicit marker restoration as reviewable selection, never as restoring a deletion backup', () => {
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement('div', null,

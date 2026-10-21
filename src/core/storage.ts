@@ -20,6 +20,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { Account } from './types';
+import { validateSessionRecord } from './record';
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 export const MAX_INDEX_BYTES = 10 * 1024 * 1024;
@@ -36,6 +37,7 @@ export interface FileFingerprint {
 export interface WorkspaceSnapshot {
   files: Map<string, Buffer>;
   directories: Map<string, string[]>;
+  skippedPaths: string[];
 }
 
 export interface TranscriptCheck {
@@ -139,57 +141,86 @@ export function takeWorkspaceSnapshot(root: string, accounts: Account[]): Worksp
   assertPlainDirectory(root);
   const files = new Map<string, Buffer>();
   const directories = new Map<string, string[]>();
+  const skipped = new Set<string>();
+  function members(path: string): string[] | undefined {
+    try {
+      assertPlainDirectory(join(root, path));
+      return readdirSync(join(root, path)).sort();
+    } catch { skipped.add(path); return undefined; }
+  }
+  function retain(path: string, limit = MAX_INDEX_BYTES, validate?: (raw: Buffer) => void): boolean {
+    try {
+      const raw = readRegularFile(join(root, path), limit);
+      validate?.(raw);
+      files.set(path, raw);
+      return true;
+    } catch { skipped.add(path); return false; }
+  }
+  // Inspect names/types only: never follow an unknown login's link or recurse
+  // into an unrecognized store. Configured write targets are checked separately.
+  for (const name of readdirSync(root).sort()) {
+    try {
+      if (!UUID.test(name)) skipped.add(name);
+      else assertPlainDirectory(join(root, name));
+    } catch { skipped.add(name); }
+  }
   const organizations = [...new Set(accounts.map((account) => account.scope.split('/')[0]))].sort();
   for (const organization of organizations) {
     if (!UUID.test(organization)) throw new Error(`账号目录格式错误：${organization}`);
-    const organizationPath = join(root, organization);
-    assertPlainDirectory(organizationPath);
-    const accountsInOrganization = readdirSync(organizationPath).sort();
-    directories.set(organization, accountsInOrganization);
+    const accountsInOrganization = members(organization);
+    if (!accountsInOrganization) continue;
+    const plainAccounts: string[] = [];
+    directories.set(organization, plainAccounts);
     for (const accountName of accountsInOrganization) {
-      if (!UUID.test(accountName)) throw new Error(`出现未知账号目录结构：${join(organizationPath, accountName)}`);
-      const accountPath = join(organizationPath, accountName);
-      assertPlainDirectory(accountPath);
-      const members = readdirSync(accountPath).sort();
-      directories.set(`${organization}/${accountName}`, members);
-      for (const name of members) {
-        const path = join(accountPath, name);
-        const relativePath = `${organization}/${accountName}/${name}`;
-        const info = lstatSync(path);
-        if (name === 'backlog') {
-          // Claude Desktop keeps task suggestions here, outside the chat indexes.
-          // Retain their bytes in the transaction snapshot without managing them.
-          assertPlainDirectory(path);
-          const backlogMembers = readdirSync(path).sort();
-          directories.set(relativePath, backlogMembers);
-          for (const member of backlogMembers) {
-            if (member !== 'tasks.json') throw new Error(`出现未知的 Claude 待办目录结构：${relativePath}/${member}`);
-            files.set(`${relativePath}/${member}`, readRegularFile(join(path, member), MAX_BACKLOG_BYTES));
+      const scope = `${organization}/${accountName}`;
+      if (!UUID.test(accountName)) { skipped.add(scope); continue; }
+      const names = members(scope);
+      if (!names) continue;
+      plainAccounts.push(accountName);
+      const retained: string[] = [];
+      directories.set(scope, retained);
+      for (const name of names) {
+        const path = `${scope}/${name}`;
+        if (name === 'backlog' || name === 'waiting-input') {
+          // Desktop owns these auxiliary stores. Snapshot regular bytes only;
+          // neither their contents nor skipped entries become chat records.
+          const children = members(path);
+          if (!children) continue;
+          retained.push(name);
+          const plainChildren: string[] = [];
+          directories.set(path, plainChildren);
+          for (const child of children) {
+            const childPath = `${path}/${child}`;
+            if (name === 'backlog' && child !== 'tasks.json') { skipped.add(childPath); continue; }
+            if (retain(childPath, name === 'backlog' ? MAX_BACKLOG_BYTES : MAX_INDEX_BYTES)) plainChildren.push(child);
           }
           continue;
         }
-        if (!info.isFile()) throw new Error(`账号目录中存在非普通文件：${relativePath}`);
-        files.set(relativePath, readRegularFile(path));
+        if (!/^(?:local_[0-9a-f-]{36}\.json|deleted_[0-9a-f-]{36}|archived-sessions\.idx|scheduled-tasks\.json)$/u.test(name)) {
+          skipped.add(path);
+          continue;
+        }
+        if (retain(path, MAX_INDEX_BYTES, (raw) => {
+          if (name.startsWith('local_')) validateSessionRecord(name, JSON.parse(raw.toString('utf8')));
+          if (name === 'archived-sessions.idx') {
+            const value: unknown = JSON.parse(raw.toString('utf8'));
+            if (!isRecord(value) || value.v !== 1 || !Array.isArray(value.archived)
+              || value.archived.some((id) => typeof id !== 'string')) throw new Error('无法识别归档索引');
+          }
+        })) retained.push(name);
       }
     }
   }
-  return { files, directories };
+  return { files, directories, skippedPaths: [...skipped].sort() };
 }
 
 // Deleting an exclusive transcript must account for logins omitted from tool settings.
 export function takeDeletionSnapshot(root: string): WorkspaceSnapshot {
   assertPlainDirectory(root);
-  const names = readdirSync(root).sort();
-  const accounts: Account[] = names.map((id) => {
-    if (!UUID.test(id)) throw new Error('Code 会话目录中出现未知账号结构，暂不能删除正文。');
-    const path = join(root, id);
-    assertPlainDirectory(path);
-    const orgs = readdirSync(path).sort();
-    if (!orgs.length) return { label: id, scope: `${id}/${id}` };
-    return { label: id, scope: `${id}/${orgs[0]}` };
-  });
+  const names = readdirSync(root).sort().filter((name) => UUID.test(name));
+  const accounts: Account[] = names.map((id) => ({ label: id, scope: `${id}/${id}` }));
   const snapshot = takeWorkspaceSnapshot(root, accounts);
-  snapshot.directories.set('', names);
+  snapshot.directories.set('', names.filter((id) => snapshot.directories.has(id)));
   return snapshot;
 }
 
@@ -235,14 +266,14 @@ export function snapshotWithAdded(snapshot: WorkspaceSnapshot, relativePath: str
   const members = directories.get(parent);
   if (!members) throw new Error(`目标账号目录不在扫描快照中：${parent}`);
   directories.set(parent, [...members, name].sort());
-  return { files, directories };
+  return { ...snapshot, files, directories };
 }
 
 export function snapshotWithReplaced(snapshot: WorkspaceSnapshot, relativePath: string, raw: Buffer): WorkspaceSnapshot {
   if (!snapshot.files.has(relativePath)) throw new Error(`快照中没有标题目标：${relativePath}`);
   const files = new Map(snapshot.files);
   files.set(relativePath, raw);
-  return { files, directories: new Map(snapshot.directories) };
+  return { ...snapshot, files, directories: new Map(snapshot.directories) };
 }
 
 export function snapshotWithRemoved(snapshot: WorkspaceSnapshot, relativePath: string): WorkspaceSnapshot {
@@ -252,7 +283,7 @@ export function snapshotWithRemoved(snapshot: WorkspaceSnapshot, relativePath: s
   const directories = new Map(snapshot.directories);
   const parent = dirname(relativePath).replaceAll('\\', '/');
   directories.set(parent, (directories.get(parent) ?? []).filter((name) => name !== basename(relativePath)));
-  return { files, directories };
+  return { ...snapshot, files, directories };
 }
 
 export function removeRegularFile(path: string, expected: Buffer): void {

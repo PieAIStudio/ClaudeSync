@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { GameBadge, GameButton, GamePanel } from '@pieai/swimmer-ui-kit';
+import { GameBadge, GameButton, GameCallout, GamePanel } from '@pieai/swimmer-ui-kit';
 import { useTranslation } from './i18n';
 import type { TranslationKey } from './i18n';
 import type { AccountView, DesktopIdentityState, OperationPreview, SessionGroup, SessionView } from '../shared/contracts';
@@ -14,6 +14,14 @@ export const groupLabels: Record<SessionGroup, TranslationKey> = {
 
 export function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return <GamePanel className={className}><h2 className="panel-heading">{title}</h2>{children}</GamePanel>;
+}
+
+export function SkippedEntriesNotice({ paths }: { paths: string[] }) {
+  const t = useTranslation();
+  if (!paths.length) return null;
+  return <div className="skipped-entries" role="status"><GameCallout heading={t.t('attention')} tone="warning">
+    <ul>{paths.map((path) => <li key={path}>{t.t('skippedPath', { path })}</li>)}</ul>
+  </GameCallout></div>;
 }
 
 export function Modal({ title, children, onClose, busy = false }: { title: string; children: ReactNode; onClose(): void; busy?: boolean }) {

@@ -258,7 +258,7 @@ it('preserves a previously verified Desktop email when older CLI metadata still 
   expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ email: 'verified@example.com', current: false });
 });
 
-it('restores tool configuration if the newly discovered current account has an unsafe directory', async () => {
+it('includes a newly discovered current account while reporting and skipping its unknown entries', async () => {
   const path = join(environment.root, 'config.json');
   const config = JSON.parse(readFileSync(path, 'utf8'));
   config.accounts = config.accounts.slice(0, 1);
@@ -266,8 +266,10 @@ it('restores tool configuration if the newly discovered current account has an u
   writeFileSync(path, original);
   mkdirSync(join(environment.root, 'session-root', SCOPE_B, 'unknown'));
   desktop.check.mockResolvedValue({ state: 'verified', identity: { accountId: ID_B, email: 'new@example.com' } } satisfies DesktopIdentityCheck);
-  await expect(checkWorkspace()).rejects.toThrow('非普通文件');
-  expect(readFileSync(path, 'utf8')).toBe(original);
+  const view = await checkWorkspace();
+  expect(view.skippedPaths).toEqual([`${SCOPE_B}/unknown`]);
+  expect(view.sessions.length).toBeGreaterThan(0);
+  expect(JSON.parse(readFileSync(path, 'utf8')).accounts.map((account: { scope: string }) => account.scope)).toEqual([SCOPE_A, SCOPE_B]);
   desktop.check.mockResolvedValue({ state: 'unavailable' } satisfies DesktopIdentityCheck);
-  expect((await checkWorkspace()).accounts.map((account) => account.id)).toEqual([ID_A]);
+  expect((await checkWorkspace()).accounts.map((account) => account.id)).toEqual([ID_A, ID_B]);
 });

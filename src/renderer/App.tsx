@@ -5,7 +5,7 @@ import { I18nProvider, getInitialLocale, locales, useTranslation } from './i18n'
 import type { AppLocale } from './i18n';
 import { SESSION_GROUPS, type OldCleanupPreview, type OperationRequest, type SessionGroup, type SessionView } from '../shared/contracts';
 import { sessionsInGroup } from './session-groups';
-import { AccountSidebar, CollapsedSessionGroup, DeleteConfirmation, Modal, OperationReview, Panel, SessionRows, accountName, groupLabels } from './components';
+import { AccountSidebar, CollapsedSessionGroup, DeleteConfirmation, Modal, OperationReview, Panel, SessionRows, SkippedEntriesNotice, accountName, groupLabels } from './components';
 import { filterSessions, type SessionFilter } from './session-selection';
 import { useWorkspace } from './useWorkspace';
 import { deletionSelection, type DeleteSelection } from './deletion-selection';
@@ -134,6 +134,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       </div>)}<div className="dialog-actions"><GameButton variant="primary" disabled={busy || !sessionRoot || !projectsRoot} onClick={() => void model.configure(sessionRoot, projectsRoot).then((success) => { if (success) setSettings(false); })}>{t.t('saveFolders')}</GameButton></div>
     </Panel> : <>
       <div className="workspace-status"><span>{t.t('localOnly')}</span>{workspace && source === 'local' && <GameBadge tone={workspace.blockers.length ? 'warning' : 'success'}>{t.t(workspace.blockers.length ? 'waiting' : 'ready')}</GameBadge>}</div>
+      {workspace && source === 'local' && <SkippedEntriesNotice paths={workspace.skippedPaths} />}
       <div className="source-tabs" role="group" aria-label={t.t('sources')}><GameButton variant={source === 'local' ? 'primary' : 'secondary'} aria-pressed={source === 'local'} disabled={busy} onClick={() => { if (source !== 'local') { setSource('local'); void model.refresh(); } }}>{t.t('localSessions')}</GameButton>
         <GameButton variant={source === 'cloud' ? 'primary' : 'secondary'} aria-pressed={source === 'cloud'} disabled={busy} onClick={() => setSource('cloud')}>{t.t('cloudSessions')}</GameButton></div>
       {source === 'cloud' ? <CloudSessions refreshKey={cloudRefresh} onBusy={onCloudBusy} /> : <>

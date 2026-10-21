@@ -137,6 +137,8 @@ const messages = {
   chooseTitle: ['选一个统一标题', 'Choose a shared title', '統一タイトルを選択', 'Elige un título común', 'Escolha um título comum'],
   leaveTitle: ['暂时各自保留', 'Keep each title for now', '今は各タイトルを保持', 'Conservar cada título', 'Manter cada título'],
   complete: ['整理完成；已验证，并保留了备份。', 'Done. Verified and backed up.', '完了。確認とバックアップ済み。', 'Listo. Verificado y con copia.', 'Concluído. Verificado e com backup.'],
+  attention: ['需要注意', 'Needs attention', '確認事項', 'Atención', 'Atenção'],
+  skippedPath: ['{path}：已跳过，未改动', '{path}: skipped, unchanged', '{path}：スキップ済み、変更なし', '{path}: omitido, sin cambios', '{path}: ignorado, sem alterações'],
   issue: ['需要处理的问题', 'An issue to resolve', '対応が必要', 'Problema por resolver', 'Problema a resolver'],
   backupTitle: ['备份与恢复', 'Backups and recovery', 'バックアップと復元', 'Copias y recuperación', 'Backups e recuperação'],
   backupBody: ['恢复前也会预览并备份。Code 会话后来又改过时，会停下来，避免盖掉新内容。', 'Restores also have a preview and backup. Later edits block restoration to protect new content.', '復元も事前確認とバックアップ。後の変更は上書きしません。', 'La recuperación también tiene revisión y copia. Si hubo cambios posteriores, se detiene.', 'A recuperação também tem revisão e backup. Edições posteriores bloqueiam a restauração.'],

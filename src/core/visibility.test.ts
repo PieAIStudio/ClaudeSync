@@ -50,7 +50,10 @@ it('classifies by metadata, never by title, age, or single-turn length', () => {
   const workspace = load();
   expect(buildCatalog(workspace).accounts.find((account) => account.id === ID_A)?.visible).toBe(4);
   editIndex(root, SCOPE_A, CHAT_A, { scheduledTaskId: 123 });
-  expect(() => load()).toThrow('定时任务字段');
+  const skipped = load();
+  expect(skipped.snapshot.skippedPaths).toEqual([`${SCOPE_A}/local_${CHAT_A}.json`]);
+  expect(skipped.entries.some((entry) => entry.path === `${SCOPE_A}/local_${CHAT_A}.json`)).toBe(false);
+  expect(buildCatalog(skipped).accounts.find((account) => account.id === ID_A)?.visible).toBe(3);
 });
 
 it('gives deletion precedence over scheduled and archive state without affecting other accounts', () => {

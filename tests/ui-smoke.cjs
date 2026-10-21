@@ -16,11 +16,13 @@ const SA = `${A}/${CHAT_A}`, SB = `${B}/${CHAT_B}`;
 const OLD = `${A}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`;
 const H1 = '10000000-0000-4000-8000-000000000001';
 const H2 = '10000000-0000-4000-8000-000000000002';
+const skippedEntriesScenario = process.env.CLAUDESYNC_UI_SCENARIO === 'skipped-entries';
+const evidenceTask = skippedEntriesScenario ? '2026-10-21-waiting-input' : '2026-10-18-claudesync-fixes';
 
 if (!process.versions.electron) {
   assert(fs.existsSync(path.join(repository, 'out/main/index.js')), 'Build the application first.');
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'claudesync-ui-')));
-  const evidence = path.join(repository, '.reports', '2026-10-18-claudesync-fixes', path.basename(root));
+  const evidence = path.join(repository, '.reports', evidenceTask, path.basename(root));
   fs.mkdirSync(evidence, { recursive: true });
   fs.mkdirSync(path.join(root, 'home'), { recursive: true });
   fs.cpSync(path.join(__dirname, 'fixtures/basic'), root, { recursive: true });
@@ -38,6 +40,16 @@ if (!process.versions.electron) {
     [A]: { email: 'account-a@fixture.invalid', organizationId: CHAT_A },
     [B]: { email: 'account-b@fixture.invalid', organizationId: CHAT_B },
   }));
+  if (skippedEntriesScenario) {
+    for (const scope of [SA, SB]) fs.mkdirSync(path.join(root, 'session-root', scope, 'waiting-input'));
+    fs.writeFileSync(path.join(root, 'session-root', SB, 'waiting-input', `local_${CHAT_B}.json`), Buffer.from([0, 255, 10]));
+    const scope = path.join(root, 'session-root', SA);
+    fs.mkdirSync(path.join(scope, 'unknown', 'nested'), { recursive: true });
+    fs.writeFileSync(path.join(scope, 'unknown', 'nested', 'keep'), 'Opaque nested state');
+    fs.symlinkSync(path.join(scope, 'unknown'), path.join(scope, 'unknown-link'), 'dir');
+    fs.writeFileSync(path.join(scope, 'unknown.json'), 'NOT JSON');
+    if (process.platform !== 'win32') cp.execFileSync('mkfifo', [path.join(scope, 'mystery.pipe')]);
+  }
   const env = { ...process.env, HOME: path.join(root, 'home'),
     APPDATA: path.join(root, 'home', 'appdata'), XDG_CONFIG_HOME: path.join(root, 'home', '.config'),
     CLAUDESYNC_DATA_DIR: root, CLAUDESYNC_UI_ROOT: root, CLAUDESYNC_UI_EVIDENCE: evidence };
@@ -57,7 +69,7 @@ const evidence = process.env.CLAUDESYNC_UI_EVIDENCE;
 assert(root && path.basename(root).startsWith('claudesync-ui-') && fs.realpathSync(root) === root);
 assert.equal(process.env.CLAUDESYNC_DATA_DIR, root);
 assert.equal(process.env.HOME, path.join(root, 'home'));
-assert(evidence && evidence.startsWith(path.join(repository, '.reports', '2026-10-18-claudesync-fixes') + path.sep));
+assert(evidence && evidence.startsWith(path.join(repository, '.reports', evidenceTask) + path.sep));
 for (const name of ['appdata', 'userData']) fs.mkdirSync(path.join(root, 'home', name), { recursive: true });
 app.setPath('home', path.join(root, 'home'));
 app.setPath('appData', path.join(root, 'home', 'appdata'));
@@ -155,6 +167,46 @@ function seedOld(batch) {
   return ids;
 }
 
+function preservedStructure(file) {
+  const info = fs.lstatSync(file);
+  if (info.isSymbolicLink()) return { link: fs.readlinkSync(file) };
+  if (info.isDirectory()) return Object.fromEntries(fs.readdirSync(file).sort().map((name) => [name, preservedStructure(path.join(file, name))]));
+  return info.isFile() ? { bytes: fs.readFileSync(file).toString('hex') } : { mode: info.mode };
+}
+async function runSkippedEntries() {
+  const paths = ['unknown', 'unknown-link', 'unknown.json', ...(process.platform === 'win32' ? [] : ['mystery.pipe'])]
+    .map((name) => path.join(root, 'session-root', SA, name));
+  paths.push(...[SA, SB].map((scope) => path.join(root, 'session-root', scope, 'waiting-input')));
+  const before = paths.map(preservedStructure);
+  await refresh();
+  const view = await js('window.claudeSync.check()');
+  assert.equal(view.sessions.length, 2);
+  assert.equal(view.skippedPaths.length, paths.length - 2);
+  assert(view.skippedPaths.every((name) => !name.includes('waiting-input')));
+  const text = await js('document.body.innerText');
+  assert(text.includes('需要注意'));
+  for (const name of view.skippedPaths) assert(text.includes(`${name}：已跳过，未改动`));
+  await shot('01-skipped-notice-and-sessions');
+  await selectSession(CHAT_B);
+  await clickButton('同步所选');
+  await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'known-session sync review');
+  await clickButton('确认执行');
+  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('整理完成')`, 'known-session sync complete');
+  assert(fs.existsSync(index(SB, CHAT_B)));
+  assert.deepEqual(paths.map(preservedStructure), before);
+  await selectSession(CHAT_B);
+  await clickButton('归档所选');
+  await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'known-session archive review');
+  await clickButton('确认执行');
+  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('整理完成')`, 'known-session archive complete');
+  assert(record(SA, CHAT_B).isArchived && record(SB, CHAT_B).isArchived);
+  assert.deepEqual(paths.map(preservedStructure), before);
+  await shot('02-sync-archive-preserved-entries');
+  checks.push('Known waiting-input is silent; unknown directory/link/file/FIFO has path and skipped-unchanged notice');
+  checks.push('Real renderer/preload/IPC sync and archive work; opaque bytes, structures, links and special files unchanged');
+  successful = true;
+}
+
 async function run() {
   assert.equal(app.getPath('home'), path.join(root, 'home'));
   assert.equal(app.getPath('userData'), root);
@@ -162,6 +214,7 @@ async function run() {
   window.webContents.setBackgroundThrottling(false);
   await js('document.fonts.ready.then(() => true)');
   await waitFor(`Boolean(document.getElementById('session-${CHAT_A}'))`, 'fixture loaded');
+  if (skippedEntriesScenario) return runSkippedEntries();
   // 1: already-present session advances through real UI -> preload -> IPC -> disk.
   await selectSession(CHAT_A);
   await clickButton('同步所选');

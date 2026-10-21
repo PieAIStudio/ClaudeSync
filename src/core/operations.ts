@@ -90,7 +90,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     for (const [path, raw] of deletionSnapshot.files) {
       const scope = path.split('/').slice(0, 2).join('/');
       const name = path.split('/').at(-1)!;
-      if (!accountIds.has(accountIdForScope(path)) || !archives.has(scope) || selectedEntries.some((entry) => entry.path === path)
+      if (path.split('/').length !== 3 || !accountIds.has(accountIdForScope(path)) || !archives.has(scope) || selectedEntries.some((entry) => entry.path === path)
         || !name.startsWith('local_') || !name.endsWith('.json')) continue;
       const data = validateSessionRecord(name, JSON.parse(raw.toString('utf8')));
       if (!isUuid(data.cliSessionId) || !selectedIds.has(data.cliSessionId)) continue;
@@ -108,7 +108,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     for (const [path, raw] of deletionSnapshot.files) {
       const identity = accountIdForScope(path);
       const name = path.split('/').at(-1)!;
-      if (selectedPaths.has(path) || !name.startsWith('local_') || !name.endsWith('.json')) continue;
+      if (path.split('/').length !== 3 || selectedPaths.has(path) || !name.startsWith('local_') || !name.endsWith('.json')) continue;
       const data = validateSessionRecord(name, JSON.parse(raw.toString('utf8')));
       const claims = remainingClaims.get(identity) ?? new Set<string>();
       for (const id of [...historyIds(data), data.sessionId.slice(6)]) { claims.add(id); globalClaims.add(id); }
@@ -116,7 +116,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     }
     const candidates = new Set(selectedEntries.flatMap((entry) => [...historyIds(entry.data)]));
     for (const id of candidates) {
-      if (globalClaims.has(id)) continue;
+      if (globalClaims.has(id) || deletionSnapshot.skippedPaths.length) continue;
       const paths = workspace.transcriptPaths.get(id) ?? [];
       if (paths.length > 1) throw new Error('不同项目中存在相同Code 会话正文，暂不能确定删除范围。');
       if (paths[0]) transcriptRemovals.push(inspectTranscript(paths[0]));

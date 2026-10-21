@@ -55,6 +55,44 @@ it('preserves native task backlog bytes through sync, archive, removal and resto
   }
 });
 
+it.each(['empty', 'regular files'])('preserves native waiting-input with %s through sync, archive, removal and restore', (contents) => {
+  const directories = [SCOPE_A, SCOPE_B].map((scope) => {
+    const directory = join(root, 'session-root', scope, 'waiting-input');
+    mkdirSync(directory);
+    const raw = Buffer.from(`Opaque Desktop state: ${scope}\r\n\0`);
+    if (contents === 'regular files') writeFileSync(join(directory, `local_${CHAT_B}.json`), raw);
+    return { directory, raw };
+  });
+  for (const kind of ['sync', 'archive', 'delete'] as const) {
+    const { plan, result } = operation(kind, [CHAT_B]);
+    expect(result.verified).toBe(true);
+    expect(plan.changes.length).toBeGreaterThan(0);
+    expect(plan.changes.every((change) => !change.path.includes('/waiting-input/'))).toBe(true);
+    if (kind === 'delete') expect(result.backup).toBeUndefined();
+    else commitFilePlan(load(), buildRestorePlan(load(), basename(result.backup!)), () => undefined);
+    for (const { directory, raw } of directories) {
+      expect(readdirSync(directory)).toEqual(contents === 'empty' ? [] : [`local_${CHAT_B}.json`]);
+      if (contents === 'regular files') expect(readFileSync(join(directory, `local_${CHAT_B}.json`))).toEqual(raw);
+    }
+  }
+});
+
+it.each(['edit', 'add', 'remove'] as const)('blocks a stale preview after waiting-input file %s before creating a backup or changing chats', (change) => {
+  const directory = join(root, 'session-root', SCOPE_A, 'waiting-input');
+  mkdirSync(directory);
+  const path = join(directory, 'pending');
+  if (change !== 'add') writeFileSync(path, 'Original Desktop state');
+  const workspace = load();
+  const plan = buildOperationPlan(workspace, { kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A] });
+  const chatBefore = readFileSync(indexPath(root, SCOPE_A, CHAT_A));
+  if (change === 'remove') rmSync(path);
+  else writeFileSync(path, 'Changed Desktop state');
+  expect(workspaceRevision(load())).not.toBe(workspaceRevision(workspace));
+  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('检查后');
+  expect(readFileSync(indexPath(root, SCOPE_A, CHAT_A))).toEqual(chatBefore);
+  expect(listBackups(root)).toHaveLength(0);
+});
+
 it.each(['edit', 'add', 'remove'] as const)('blocks a stale preview after backlog task %s before creating a backup or changing chats', (change) => {
   const directory = join(root, 'session-root', SCOPE_A, 'backlog');
   mkdirSync(directory);
@@ -247,14 +285,18 @@ it('keeps an interrupted journal recoverable and refuses to overwrite later edit
   expect(() => buildRestorePlan(load(), '../bad')).toThrow('编号');
 });
 
-it('rejects symlink indexes and unknown schemas rather than writing around them', () => {
+it('skips and reports symlink indexes and unknown schemas without treating them as managed sessions', () => {
+  const relative = `${SCOPE_A}/local_${CHAT_A}.json`;
   editIndex(root, SCOPE_A, CHAT_A, { priorCliSessionIds: null });
-  expect(() => load()).toThrow('格式改变');
+  expect(load().snapshot.skippedPaths).toContain(relative);
+  expect(load().entries.some((entry) => entry.path === relative)).toBe(false);
   editIndex(root, SCOPE_A, CHAT_A, { priorCliSessionIds: [] });
   const path = indexPath(root, SCOPE_A, CHAT_A);
   const raw = readFileSync(path); rmSync(path);
   const alternate = join(root, 'alternate.json'); writeFileSync(alternate, raw); symlinkSync(alternate, path);
-  expect(() => load()).toThrow('普通文件');
+  expect(load().snapshot.skippedPaths).toContain(relative);
+  expect(load().entries.some((entry) => entry.path === relative)).toBe(false);
+  expect(readFileSync(alternate)).toEqual(raw);
 });
 
 it('previews title conflicts and applies the user choice without unselected title changes', () => {
