@@ -139,8 +139,19 @@ async function shot(name) {
   screenshots.push(name + '.png');
 }
 async function refresh() {
-  await clickButton('重新检查');
-  await waitFor(`![...document.querySelectorAll('button')].some(b=>b.textContent.includes('正在检查'))`, 'refresh complete');
+  const hasTextButton = await js(`Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='重新检查'&&!b.disabled))`);
+  if (hasTextButton) {
+    await js(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='重新检查'&&!b.disabled);b.click()})()`);
+  } else {
+    await clickButton('概览');
+    await waitFor(`document.body.innerText.includes('换个账号')`, 'refresh home');
+    await clickButton('重新检查');
+  }
+  await waitFor(`document.body.innerText.includes('桌面版里')`, 'refresh results');
+  await clickButton('查看');
+  await waitFor(`document.body.innerText.includes('挑好聊天')`, 'refresh review');
+  await clickButton('全部聊天', true);
+  await waitFor(`Boolean(document.getElementById('session-${CHAT_A}'))`, 'refresh complete');
   await sleep(120);
 }
 async function oldGroup() {
@@ -194,6 +205,7 @@ async function runSkippedEntries() {
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('整理完成')`, 'known-session sync complete');
   assert(fs.existsSync(index(SB, CHAT_B)));
   assert.deepEqual(paths.map(preservedStructure), before);
+  await clickButton('回到聊天');
   await selectSession(CHAT_B);
   await clickButton('归档所选');
   await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'known-session archive review');
@@ -213,7 +225,13 @@ async function run() {
   window.setSize(1240, 1000);
   window.webContents.setBackgroundThrottling(false);
   await js('document.fonts.ready.then(() => true)');
-  await waitFor(`Boolean(document.getElementById('session-${CHAT_A}'))`, 'fixture loaded');
+  await waitFor(`Boolean([...document.querySelectorAll('button')].find(b => b.textContent.trim() === '重新检查' && !b.disabled))`, 'home check action');
+  await clickButton('重新检查');
+  await waitFor(`document.body.innerText.includes('桌面版里')`, 'scan results');
+  await clickButton('查看');
+  await waitFor(`document.body.innerText.includes('挑好聊天')`, 'review loaded');
+  await clickButton('已经齐全', true);
+  await waitFor(`Boolean(document.getElementById('session-${CHAT_A}'))`, 'review category loaded');
   if (skippedEntriesScenario) return runSkippedEntries();
   // 1: already-present session advances through real UI -> preload -> IPC -> disk.
   await selectSession(CHAT_A);
@@ -227,6 +245,7 @@ async function run() {
   assert(fs.readFileSync(body(CHAT_A)).equals(initialBody));
   checks.push('Existing A advanced from B; A permission and shared JSONL unchanged');
   await shot('01-progress-complete');
+  await clickButton('回到聊天');
   // 2: delete only A, then explicitly restore from B, without a production account.
   await clickButton('account-a@fixture.invalid', true);
   await selectSession(CHAT_A);
@@ -235,6 +254,7 @@ async function run() {
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('没有创建删除备份')`, 'A deletion complete');
   assert(!fs.existsSync(index(SA, CHAT_A)));
   assert(fs.existsSync(index(SB, CHAT_A)));
+  await clickButton('回到聊天');
   await clickButton('account-b@fixture.invalid', true);
   await selectSession(CHAT_A);
   await clickButton('同步所选');
@@ -248,6 +268,7 @@ async function run() {
   assert(fs.readFileSync(body(CHAT_A)).equals(initialBody));
   checks.push('Deleted A restored from selected B; native note cleared; shared body intact');
   await shot('02-selected-restore-complete');
+  await clickButton('回到聊天');
   // 3a/3b: six old copies, while a positively identified unrelated CLI keeps writing.
   await clickButton('account-a@fixture.invalid', true);
   const originalCurrent = fs.readFileSync(index(SA, CHAT_B));
@@ -272,6 +293,7 @@ async function run() {
   assert(oldIds.slice(1).every((id) => !fs.existsSync(body(id))));
   checks.push('Directly deleted six old copies despite unrelated writes; current duplicate/shared body retained');
   await shot('03-old-delete-complete');
+  await clickButton('回到聊天');
   // Independent fresh old IDs exercise the non-destructive cleanup alternative.
   const cleanupIds = seedOld(2);
   await refresh();
