@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { GameBadge, GameButton, GameCallout, GameInput } from '@pieai/swimmer-ui-kit';
+import { Badge, Button, Callout, Input } from '@pieai/swimmer-ui-kit';
 import type { CloudSessionView, CloudWorkspaceView } from '../shared/contracts';
 import { DeleteConfirmation } from './components';
 import { useTranslation } from './i18n';
 import { errorMessage } from './errors';
 import { TermTip } from './TermTip';
-import { GameHelpTip } from '@pieai/swimmer-ui-kit';
+import { HelpTip } from '@pieai/swimmer-ui-kit';
 
 export function CloudSessions({ refreshKey, onBusy }: { refreshKey: number; onBusy(value: boolean): void }) {
   const t = useTranslation();
@@ -53,20 +53,20 @@ export function CloudSessions({ refreshKey, onBusy }: { refreshKey: number; onBu
   }
 
   return <section className="cloud-manager" aria-label={t.t('cloudSessions')}>
-    <div className="heading-with-tip"><h2>{t.t('cloudSessions')}</h2><TermTip term="code" /><GameHelpTip label={t.t('helpFor', { term: t.t('cloudSessions') })}>{t.t('cloudBody')}</GameHelpTip></div>
+    <div className="heading-with-tip"><h2>{t.t('cloudSessions')}</h2><TermTip term="code" /><HelpTip label={t.t('helpFor', { term: t.t('cloudSessions') })}>{t.t('cloudBody')}</HelpTip></div>
     {busy && !workspace && <p role="status">{t.t('checking')}</p>}
     {workspace && <>
       <div className="cloud-heading"><div><h2>{workspace.email}</h2><p>{t.t('cloudCounts', { active: workspace.sessions.filter((row) => row.status !== 'archived').length, archived: workspace.sessions.filter((row) => row.status === 'archived').length })}</p></div>
-        <GameBadge tone="neutral">{t.t('current')}</GameBadge>
+        <Badge tone="neutral">{t.t('current')}</Badge>
       </div>
-      {workspace.limitReached && <GameCallout tone="warning">{t.t('cloudLimit')}</GameCallout>}
-      <div className="session-filters cloud-filters"><GameInput type="search" aria-label={t.t('search')} placeholder={t.t('cloudSearch')} value={search} onChange={(event) => setSearch(event.target.value)} />
+      {workspace.limitReached && <Callout tone="warning">{t.t('cloudLimit')}</Callout>}
+      <div className="session-filters cloud-filters"><Input type="search" aria-label={t.t('search')} placeholder={t.t('cloudSearch')} value={search} onChange={(event) => setSearch(event.target.value)} />
         <select aria-label={t.t('filter')} value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}>{(['archived', 'active', 'all'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</select>
       </div>
       <div className="selection-tools"><label><input type="checkbox" disabled={busy || !selectable.length} checked={selectable.length > 0 && selectable.every((row) => selected.has(row.id))}
         ref={(element) => { if (element) element.indeterminate = selectable.some((row) => selected.has(row.id)) && !selectable.every((row) => selected.has(row.id)); }}
         onChange={(event) => { const checked = event.target.checked; setSelected((current) => { const next = new Set(current); for (const row of selectable) { if (checked) next.add(row.id); else next.delete(row.id); } return next; }); }} />{t.t('selectVisible')}</label>
-        {selected.size > 0 && <GameButton variant="ghost" disabled={busy} onClick={() => setSelected(new Set())}>{t.t('clearSelection')}</GameButton>}
+        {selected.size > 0 && <Button variant="ghost" disabled={busy} onClick={() => setSelected(new Set())}>{t.t('clearSelection')}</Button>}
         <span>{t.t('visibleCount', { shown: visible.length, total: workspace.sessions.length })}</span>
       </div>
       {!visible.length ? <p className="empty-state">{t.t('noSessions')}</p> : <ul className="session-list cloud-list">{visible.map((row) => <li key={row.id} className={`session-row ${selected.has(row.id) ? 'is-selected' : ''}`}>
@@ -75,15 +75,15 @@ export function CloudSessions({ refreshKey, onBusy }: { refreshKey: number; onBu
         <div className="session-copy"><label className="session-title" htmlFor={`cloud-${row.id}`}>{row.title || t.t('untitled')}</label>
           <div className="session-meta"><span>{t.t('cloudSessions')}</span>{row.updatedAt && <time dateTime={row.updatedAt}>{t.date(row.updatedAt, { dateStyle: 'medium' })}</time>}</div>
           {!row.deletable && <p className="session-reason">{t.t(row.blockedReason === 'running' ? 'cloudRunning' : 'cloudUnsupported')}</p>}
-        </div><GameBadge tone="neutral">{t.t(row.status === 'archived' ? 'archived' : 'active')}</GameBadge>
+        </div><Badge tone="neutral">{t.t(row.status === 'archived' ? 'archived' : 'active')}</Badge>
       </li>)}</ul>}
       <p className="action-tip">{t.t('checkedAt', { time: t.date(workspace.checkedAt, { timeStyle: 'short' }) })}</p>
       <section className="management-actions"><div className="selection-summary"><strong>{t.t('selectedCount', { count: chosen.length })}</strong><span>{workspace.email} · {t.t('cloudSessions')}</span></div>
         {hidden > 0 && <p className="hidden-selection">{t.t('hiddenSelected', { count: hidden })}</p>}
-        <div className="action-buttons"><GameButton variant="danger" disabled={busy || !chosen.length} onClick={() => setConfirmation({ workspace, rows: chosen })}>{t.t('delete')}</GameButton></div>
+        <div className="action-buttons"><Button variant="danger" disabled={busy || !chosen.length} onClick={() => setConfirmation({ workspace, rows: chosen })}>{t.t('delete')}</Button></div>
       </section>
     </>}
-    <div className="workspace-feedback" role="status" aria-live="polite">{error && <GameCallout heading={t.t('issue')} tone="danger">{error}</GameCallout>}{done && <GameCallout tone="success">{done}</GameCallout>}</div>
+    <div className="workspace-feedback" role="status" aria-live="polite">{error && <Callout heading={t.t('issue')} tone="danger">{error}</Callout>}{done && <Callout tone="success">{done}</Callout>}</div>
     {confirmation && <DeleteConfirmation count={confirmation.rows.length} accountNames={[confirmation.workspace.email]} source="cloud"
       state={confirmation.rows.every((row) => row.status === 'archived') ? 'archived' : confirmation.rows.every((row) => row.status !== 'archived') ? 'active' : 'mixed'} busy={busy} onClose={() => setConfirmation(undefined)} onDelete={() => void remove()} />}
   </section>;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { GameBadge, GameButton, GameCallout, GamePanel } from '@pieai/swimmer-ui-kit';
+import { Badge, Button, Callout, Panel as UIKitPanel } from '@pieai/swimmer-ui-kit';
 import { useTranslation } from './i18n';
 import type { TranslationKey } from './i18n';
 import type { AccountView, DesktopIdentityState, OperationPreview, SessionGroup, SessionView } from '../shared/contracts';
@@ -13,15 +13,15 @@ export const groupLabels: Record<SessionGroup, TranslationKey> = {
 };
 
 export function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
-  return <GamePanel className={className}><h2 className="panel-heading">{title}</h2>{children}</GamePanel>;
+  return <UIKitPanel className={className}><h2 className="panel-heading">{title}</h2>{children}</UIKitPanel>;
 }
 
 export function SkippedEntriesNotice({ paths }: { paths: string[] }) {
   const t = useTranslation();
   if (!paths.length) return null;
-  return <div className="skipped-entries" role="status"><GameCallout heading={t.t('attention')} tone="warning">
+  return <div className="skipped-entries" role="status"><Callout heading={t.t('attention')} tone="warning">
     <ul>{paths.map((path) => <li key={path}>{t.t('skippedPath', { path })}</li>)}</ul>
-  </GameCallout></div>;
+  </Callout></div>;
 }
 
 export function Modal({ title, children, onClose, busy = false }: { title: string; children: ReactNode; onClose(): void; busy?: boolean }) {
@@ -49,8 +49,8 @@ export function DeleteConfirmation({ count, accountNames, state, group, source =
     {source === 'local' && <p className="panel-intro">{t.t('scopedWriteCheck')}</p>}
     <p className="panel-intro">{t.t(source === 'local' && group === 'oldOrganization' ? 'oldDeleteAdvice' : state === 'archived' ? 'deleteArchivedAdvice' : state === 'mixed' ? 'deleteMixedAdvice' : 'deleteActiveAdvice')}</p>
     {blocked && <p className="operation-warning">{t.t('waiting')}</p>}
-    <div className="dialog-actions"><GameButton variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</GameButton>
-      <GameButton variant="danger" disabled={busy || blocked || count === 0} onClick={onDelete}>{t.t(busy ? 'deleting' : 'confirmDelete')}</GameButton>
+    <div className="dialog-actions"><Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</Button>
+      <Button variant="danger" disabled={busy || blocked || count === 0} onClick={onDelete}>{t.t(busy ? 'deleting' : 'confirmDelete')}</Button>
     </div>
   </Modal>;
 }
@@ -71,7 +71,7 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
   return <aside className="account-sidebar">
     <div className="sidebar-heading"><h2>{t.t('accounts')}</h2><span>{accounts.length}</span></div>
     <div className="sidebar-scope"><span>{t.t('sessions')}</span><TermTip term="code" /></div>
-    <GameButton variant="ghost" className={`all-accounts ${currentFilter === 'all' ? 'is-active' : ''}`} onClick={() => onFilter('all')}>{t.t('allAccounts')}</GameButton>
+    <Button variant="ghost" className={`all-accounts ${currentFilter === 'all' ? 'is-active' : ''}`} onClick={() => onFilter('all')}>{t.t('allAccounts')}</Button>
     <ul className="account-list">{accounts.map((account) => <li key={account.id} className={`${currentFilter === account.id ? 'is-active' : ''} ${included.has(account.id) ? '' : 'is-excluded'}`}>
       <input type="checkbox" aria-label={`${t.t('includeAccount')} ${accountName(account, t)}`} checked={included.has(account.id)} disabled={busy}
         onChange={(event) => onInclude(account.id, event.target.checked)} />
@@ -84,7 +84,7 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
           ['archived', 'archivedCountLabel', account.archived], ['scheduled', 'scheduledCountLabel', account.scheduled],
           ['oldOrganization', 'oldCountLabel', account.oldCopies],
         ] as const).map(([term, label, count]) => <div className="count-with-tip" key={term}><span>{t.t(label)} {count}</span><TermTip term={term} /></div>)}</div>
-        {account.current && <GameBadge tone="neutral">{t.t('current')}</GameBadge>}
+        {account.current && <Badge tone="neutral">{t.t('current')}</Badge>}
       </div>
     </li>)}</ul>
     {identityState && identityState !== 'verified' && <p className="identity-tip" role="status">{t.t(identityState === 'changed' ? 'identityChanged' : identityState === 'unsupported' ? 'identityUnsupported' : 'identityUnavailable')}</p>}
@@ -125,7 +125,7 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
           </div>)}
         </div></details>
       </div>
-      <GameBadge tone={!active ? 'neutral' : eligible ? 'success' : 'warning'}>{t.t(selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? 'syncable' : 'blocked')}</GameBadge>
+      <Badge tone={!active ? 'neutral' : eligible ? 'success' : 'warning'}>{t.t(selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? 'syncable' : 'blocked')}</Badge>
     </li>;
   })}</ul>;
 }
@@ -171,13 +171,13 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
     {preview.fileCount === 0 ? <p>{t.t(preview.progressConflicts?.some((item) => !item.resolved) ? 'chooseVersion' : 'noChanges')}</p> : <div className="review-changes">
       <h3>{t.t('planned')}</h3><ul>{preview.changes.map((item, index) => <li key={`${item.accountId}-${item.sessionId}-${item.action}-${index}`}>
         <span><strong>{item.title || t.t('untitled')}</strong><small>{accountName(accounts.find((account) => account.id === item.accountId), t)}</small></span>
-        <GameBadge tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</GameBadge>
+        <Badge tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</Badge>
       </li>)}</ul>
     </div>}
     {preview.skipped.length > 0 && <details className="review-skipped"><summary>{t.t('skipped')} ({preview.skipped.length})</summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>：{reasonText(item.reason, t)}</p>)}</details>}
     {blocked && <p className="operation-warning">{t.t('waiting')}</p>}
-    <div className="dialog-actions"><GameButton variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</GameButton>
-      <GameButton variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0 || preview.progressConflicts?.some((item) => !item.resolved)} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</GameButton>
+    <div className="dialog-actions"><Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</Button>
+      <Button variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0 || preview.progressConflicts?.some((item) => !item.resolved)} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</Button>
     </div>
   </Modal>;
 }

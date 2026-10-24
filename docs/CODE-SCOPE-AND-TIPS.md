@@ -15,7 +15,7 @@ Thus the supported scope is **Code sessions**, not regular Claude Chat or Cowork
 
 `src/term-copy.ts` holds nine short explanations in Chinese, English, Japanese, Spanish and Brazilian Portuguese. Each is at most two sentences. `Code sessions` names the product; `regular sessions` names the main subgroup. Old-organization copies do not prove that a user moved organizations, and an unverified binding blocks sync destinations, not every explicit local cleanup operation. The two tips say exactly that.
 
-`src/renderer/TermTip.tsx` uses UIKit **GameHelpTip**, not a new tooltip implementation. Its installed contract is `@pieai/swimmer-ui-kit@3.2.1/dist/index.d.ts:750-761`; implementation is `dist/index.js:224-303`. It supplies a native non-submitting button, localized accessible name, focus/click/hover, Escape dismissal and floating placement.
+`src/renderer/TermTip.tsx` uses UIKit **HelpTip**, not a new tooltip implementation. Its installed contract is the exact `@pieai/swimmer-ui-kit@4.0.0-alpha.4` package; it supplies a native non-submitting button, localized accessible name, focus/click/hover, Escape dismissal and floating placement.
 
 Account checkboxes, account navigation buttons, disclosure summaries and help buttons are separate controls. Right-hand tips stay visible when their group is collapsed. Required write-blocking messages and destructive confirmations stay visible; optional long explanations are replaced by tips. Synthetic UI smoke checks keyboard/click behavior, unchanged selections, hit targets and overflow in all five languages. Screenshots and local delivery receipts live only under ignored `.devspace-reports/`.
 

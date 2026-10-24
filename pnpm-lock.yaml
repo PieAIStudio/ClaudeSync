@@ -12,8 +12,8 @@ importers:
         specifier: 0.2.0
         version: 0.2.0(react@19.2.8)
       '@pieai/swimmer-ui-kit':
-        specifier: 3.2.1
-        version: 3.2.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 4.0.0-alpha.4
+        version: 4.0.0-alpha.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -134,11 +134,6 @@ packages:
   '@electron-internal/extract-zip@1.0.5':
     resolution: {integrity: sha512-+bqFCP98pLI0Tt0XQo1TmlXtwjWchISndDOxCkEcIuUgXWpBnLyRI+2DU+mesvnMMX6L1XDqYNA0lXNDHd/yiA==}
     engines: {node: '>=22.12.0'}
-
-  '@electron/asar@3.2.1':
-    resolution: {integrity: sha512-hE2cQMZ5+4o7+6T2lUaVbxIzrOjZZfX7dB02xuapyYFJZEAiWTelq6J3mMoxzd0iONDvYLPVKecB5tyjIoVDVA==}
-    engines: {node: '>=10.12.0'}
-    hasBin: true
 
   '@electron/asar@3.4.1':
     resolution: {integrity: sha512-i4/rNPRS84t0vSRa2HorerGRXWyF4vThfHesw0dmcWHp+cspK743UanA0suA5Q5y8kzY2y6YKrvbIUn69BCAiA==}
@@ -438,8 +433,8 @@ packages:
       react:
         optional: true
 
-  '@pieai/swimmer-ui-kit@3.2.1':
-    resolution: {integrity: sha512-725MGXbMxsA5qbKpROnyh4JRRrQjb4CvIOXo2mMmyLiKVN2hujnjfTgtgxXAPo1PzlIP4oFHRz+BQ2GSGR4gng==}
+  '@pieai/swimmer-ui-kit@4.0.0-alpha.4':
+    resolution: {integrity: sha512-xY6RDFXvaqipIDipgLF15PQI6tcBFe+GrNiHF2vuwLlLIH0sHGDKPd78OdwDwOE3+bBm5bFEifHBfGiT0kuDfg==}
     engines: {node: '>=24 <25'}
     hasBin: true
     peerDependencies:
@@ -574,18 +569,11 @@ packages:
   '@types/fs-extra@9.0.13':
     resolution: {integrity: sha512-nEnwB++1u5lVDM2UI4c1+5R+FYaKfaAzS4OococimjVm3nQw3TuzH5UNsocrcTBbhnerblyHj4A49qXbIiZdpA==}
 
-  '@types/glob@7.2.0':
-    resolution: {integrity: sha512-ZUxbzKl0IfJILTS6t7ip5fQQM/J3TJYubDm3nMbgubNNYS62eXeUpoLUC8/7fJNiFYHTrGPQn7hspDUzIHX3UA==}
-
   '@types/http-cache-semantics@4.2.0':
     resolution: {integrity: sha512-L3LgimLHXtGkWikKnsPg0/VFx9OGZaC+eN1u4r+OB1XRqH3meBIAVC2zr1WdMH+RHmnRkqliQAOHNJ/E0j/e0Q==}
 
   '@types/keyv@3.1.4':
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
-
-  '@types/minimatch@6.0.0':
-    resolution: {integrity: sha512-zmPitbQ8+6zNutpwgcQuLcsEpn/Cj54Kbn7L5pX0Os5kdWplB7xPgEh/g+SWOB/qmows2gpuCaPyduq8ZZRnxA==}
-    deprecated: This is a stub types definition. minimatch provides its own type definitions, so you do not need this installed.
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
@@ -664,10 +652,6 @@ packages:
   abbrev@4.0.0:
     resolution: {integrity: sha512-a1wflyaL0tHtJSmLSOVybYhy22vRih4eduhhrkcjgrWGnRfrZtovJ2FRjxuTtkkj47O/baf0R86QU5OuYpz8fA==}
     engines: {node: ^20.17.0 || >=22.9.0}
-
-  agent-base@7.0.2:
-    resolution: {integrity: sha512-k2/tQ1+8Zf50dEUJWklUP80LcE/+Ph+OJ6cf2Ff2fD/c/TtCe6ofnCoNMz9UnyxOQYlaAALZtEWETzn+1JjfHg==}
-    engines: {node: '>= 14'}
 
   agent-base@7.1.0:
     resolution: {integrity: sha512-o/zjMZRhJxny7OyEF+Op8X+efiELC7k7yOjMzgfzVqOzXqkBkWI79YoTdOtsuWd5BWhAGAuOY/Xa6xpiaWXiNg==}
@@ -797,14 +781,6 @@ packages:
   chai@6.3.0:
     resolution: {integrity: sha512-XWAtwJ6OHO+tj0EKCs0Y2UamnyOxseZWltU4x2U2wh8g4AigdjwvtUjvLP2tqkA/avxHEtzxNaqGq/YGNwckKg==}
     engines: {node: '>=18'}
-
-  chalk@4.1.0:
-    resolution: {integrity: sha512-qwx12AxXe2Q5xQ43Ac//I6v5aXTipYrSESdOgzrN+9XjgEpyjpKuvSGaN4qE93f7TQTlerQQ8S+EQ0EyDoVL1A==}
-    engines: {node: '>=10'}
-
-  chalk@4.1.1:
-    resolution: {integrity: sha512-diHzdDKxcU+bAsUboHLPEDQiw0qEe0qd7SYUn3HgcFlWgbDcfLGswOHYeGrHKzG9z6UYf01d9VFMfZxPM1xZSg==}
-    engines: {node: '>=10'}
 
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
@@ -1077,10 +1053,6 @@ packages:
   fs-extra@8.1.0:
     resolution: {integrity: sha512-yhlQgA6mnOJUKOsRUFsgJdQCvkKhcz8tlZG5HBQfReYZy46OwLcY+Zia0mtdHsOo9y/hP+CxMN0TU9QxoOtG4g==}
     engines: {node: '>=6 <7 || >=8'}
-
-  fs-extra@9.0.0:
-    resolution: {integrity: sha512-pmEYSk3vYsG/bF651KPUXZ+hvjpgWYw/Gc7W9NFUe3ZVLczKKWIij3IKpOrQcdw4TILtibFslZ0UmR8Vvzig4g==}
-    engines: {node: '>=10'}
 
   fs-extra@9.0.1:
     resolution: {integrity: sha512-h2iAoN838FqAFJY2/qVpzFXy+EBxfVE220PalAqQLDVsFOHLJrZvut5puAbCdNv6WJk+B8ihI+k0c7JK5erwqQ==}
@@ -1616,10 +1588,6 @@ packages:
     resolution: {integrity: sha512-4SJ3dm0WAwWy/NVeioZh5AntkdJoWKxHxcmyP622fOkgHa4z3R0TdBJICINyaSDE6uNwVc8gZr+ZinwZAH4xIA==}
     hasBin: true
 
-  semver@6.2.0:
-    resolution: {integrity: sha512-jdFC1VdUGT/2Scgbimf7FSx9iJLXoqfglSF+gJeuNWVpiE37OIbc1jywR/GJyFdz3mnkz2/id0L0J/cr0izR5A==}
-    hasBin: true
-
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
@@ -2046,15 +2014,6 @@ snapshots:
 
   '@electron-internal/extract-zip@1.0.5': {}
 
-  '@electron/asar@3.2.1':
-    dependencies:
-      chromium-pickle-js: 0.2.0
-      commander: 5.0.0
-      glob: 7.2.0
-      minimatch: 3.1.5
-    optionalDependencies:
-      '@types/glob': 7.2.0
-
   '@electron/asar@3.4.1':
     dependencies:
       commander: 5.0.0
@@ -2063,7 +2022,7 @@ snapshots:
 
   '@electron/fuses@1.8.0':
     dependencies:
-      chalk: 4.1.1
+      chalk: 4.1.2
       fs-extra: 9.0.1
       minimist: 1.2.8
 
@@ -2074,7 +2033,7 @@ snapshots:
       fs-extra: 8.1.0
       got: 11.8.5
       progress: 2.0.3
-      semver: 6.2.0
+      semver: 6.3.1
       sumchecker: 3.0.1(supports-color@7.1.0)
     optionalDependencies:
       global-agent: 3.0.0
@@ -2296,7 +2255,7 @@ snapshots:
   '@malept/flatpak-bundler@0.4.0(supports-color@7.1.0)':
     dependencies:
       debug: 4.4.3(supports-color@7.1.0)
-      fs-extra: 9.0.0
+      fs-extra: 9.0.1
       lodash: 4.18.1
       tmp-promise: 3.0.3
     transitivePeerDependencies:
@@ -2340,7 +2299,7 @@ snapshots:
     optionalDependencies:
       react: 19.2.8
 
-  '@pieai/swimmer-ui-kit@3.2.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@pieai/swimmer-ui-kit@4.0.0-alpha.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@floating-ui/react': 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
@@ -2425,22 +2384,11 @@ snapshots:
     dependencies:
       '@types/node': 24.13.2
 
-  '@types/glob@7.2.0':
-    dependencies:
-      '@types/minimatch': 6.0.0
-      '@types/node': 24.13.2
-    optional: true
-
   '@types/http-cache-semantics@4.2.0': {}
 
   '@types/keyv@3.1.4':
     dependencies:
       '@types/node': 24.13.2
-
-  '@types/minimatch@6.0.0':
-    dependencies:
-      minimatch: 3.1.5
-    optional: true
 
   '@types/ms@2.1.0': {}
 
@@ -2515,12 +2463,6 @@ snapshots:
   '@xmldom/xmldom@0.9.12': {}
 
   abbrev@4.0.0: {}
-
-  agent-base@7.0.2(supports-color@7.1.0):
-    dependencies:
-      debug: 4.4.3(supports-color@7.1.0)
-    transitivePeerDependencies:
-      - supports-color
 
   agent-base@7.1.0(supports-color@7.1.0):
     dependencies:
@@ -2699,16 +2641,6 @@ snapshots:
   caniuse-lite@1.0.30001815: {}
 
   chai@6.3.0: {}
-
-  chalk@4.1.0:
-    dependencies:
-      ansi-styles: 4.1.0
-      supports-color: 7.1.0
-
-  chalk@4.1.1:
-    dependencies:
-      ansi-styles: 4.1.0
-      supports-color: 7.1.0
 
   chalk@4.1.2:
     dependencies:
@@ -2890,7 +2822,7 @@ snapshots:
 
   electron-winstaller@5.4.0(supports-color@7.1.0):
     dependencies:
-      '@electron/asar': 3.2.1
+      '@electron/asar': 3.4.1
       debug: 4.4.3(supports-color@7.1.0)
       fs-extra: 7.0.1
       lodash: 4.18.1
@@ -3034,13 +2966,6 @@ snapshots:
       jsonfile: 4.0.0
       universalify: 0.1.2
 
-  fs-extra@9.0.0:
-    dependencies:
-      at-least-node: 1.0.0
-      graceful-fs: 4.2.11
-      jsonfile: 6.2.1
-      universalify: 1.0.0
-
   fs-extra@9.0.1:
     dependencies:
       at-least-node: 1.0.0
@@ -3096,7 +3021,7 @@ snapshots:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.3
-      semver: 7.7.4
+      semver: 7.8.5
       serialize-error: 7.0.1
     optional: true
 
@@ -3161,7 +3086,7 @@ snapshots:
 
   https-proxy-agent@7.0.0(supports-color@7.1.0):
     dependencies:
-      agent-base: 7.0.2(supports-color@7.1.0)
+      agent-base: 7.1.0(supports-color@7.1.0)
       debug: 4.4.3(supports-color@7.1.0)
     transitivePeerDependencies:
       - supports-color
@@ -3195,7 +3120,7 @@ snapshots:
   jake@10.8.5:
     dependencies:
       async: 3.2.6
-      chalk: 4.1.0
+      chalk: 4.1.2
       filelist: 1.0.6
       minimatch: 3.1.5
 
@@ -3354,11 +3279,11 @@ snapshots:
 
   node-abi@4.37.0:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   node-api-version@0.2.1:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   node-gyp@12.4.0:
     dependencies:
@@ -3367,7 +3292,7 @@ snapshots:
       graceful-fs: 4.2.11
       nopt: 9.0.0
       proc-log: 6.0.0
-      semver: 7.7.4
+      semver: 7.8.5
       tar: 7.5.22
       tinyglobby: 0.2.17
       undici: 6.29.0
@@ -3561,8 +3486,6 @@ snapshots:
     optional: true
 
   semver@5.5.0: {}
-
-  semver@6.2.0: {}
 
   semver@6.3.1: {}
 

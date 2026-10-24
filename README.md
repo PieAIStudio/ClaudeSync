@@ -47,6 +47,10 @@ Cloud deletion affects only the selected session IDs in the verified current acc
 
 Settings, identity/organization cache and backups from non-delete operations live in the OS ClaudeSync application-data directory. Credentials stay in main-process memory and never enter IPC, logs or backups. Core local management works offline; optional first-party profile/cloud requests are a documented maintenance exception to the small-tool default. There is no backend, inference request, telemetry or payment SDK. Never attach private state, reports or real-session screenshots to public issues.
 
+## Materials
+
+The UIKit 4.0 preview uses the six local PNGs copied byte-for-byte from the approved synthetic `MatrixAPPs/design/claudesync-v2.7/assets/` set: two relay states and four result-group marks. They contain no real account or chat data and are bundled locally; no remote image request is made.
+
 ## Development
 
 Use Node 24 and the locked pnpm version. For a fresh checkout, run `pnpm install --frozen-lockfile`.

@@ -1,4 +1,4 @@
-import { GameButton } from '@pieai/swimmer-ui-kit';
+import { Button } from '@pieai/swimmer-ui-kit';
 import type { OldCleanupPreview } from '../shared/contracts';
 import { TermTip } from './TermTip';
 import { Modal } from './components';
@@ -25,10 +25,10 @@ export function OldCleanupDialog({ preview, busy, blocked, onClose, onConfirm }:
     </li>)}</ul>
     {blocked && <p className="operation-warning">{t.t('cleanupNeedQuit')}</p>}
     <div className="dialog-actions">
-      <GameButton variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</GameButton>
-      <GameButton variant="danger" disabled={busy || blocked || !preview.token} onClick={onConfirm}>
+      <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</Button>
+      <Button variant="danger" disabled={busy || blocked || !preview.token} onClick={onConfirm}>
         {t.t('cleanupOldConfirm', { count: preview.trashCount })}
-      </GameButton>
+      </Button>
     </div>
   </Modal>;
 }

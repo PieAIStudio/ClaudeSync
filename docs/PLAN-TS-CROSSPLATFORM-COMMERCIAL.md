@@ -59,7 +59,7 @@
 目标：替换 Tk 和 Python 内嵌 HTML，形成可复用的品牌 Web UI。
 
 - [x] 用 React/Vite 重建设置、检查、冲突选择、报告和确认流程。
-- [x] 固定精确版本 `@pieai/swimmer-ui-kit@3.2.1` 与 `@pieai/swimmer-i18n-kit@0.2.0`。
+- [x] 固定精确版本 `@pieai/swimmer-ui-kit@4.0.0-alpha.4` 与 `@pieai/swimmer-i18n-kit@0.2.0`；4.0 预览使用 npm `next`，不跟随 `latest`。
 - [x] 显式引入 UIKit 样式；产品文案和状态由宿主管理。
 - [x] 保留中文、英文、日文、西班牙文、葡萄牙文。
 - [x] 修正标题级别并检查键盘可访问性；320/390 像素窄屏无横向滚动。
