@@ -102,6 +102,10 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
     const eligible = presence.some((item) => item.eligible);
     const reasons = [...new Set(presence.flatMap((item) => item.reasons))];
     const selectedRestore = session.manageable && reasons.some((reason) => reason.includes('删除标记') || reason.includes('曾被删除'));
+    const projectName = session.project.split(/[\\/]/u).filter(Boolean).at(-1) || '—';
+    const projectMissing = presence.some((item) => item.reasons.some((reason) => reason.includes('工作目录')))
+      || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu.test(projectName);
+    const status = selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? 'syncable' : 'blocked';
     return <li key={session.id} className={`session-row ${selected.has(session.id) ? 'is-selected' : ''}`}>
       <input id={`${idPrefix}-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !session.manageable || !session.presence.some((item) => included.has(item.accountId))}
         onChange={(event) => onToggle(session.id, event.target.checked)} />
@@ -109,23 +113,22 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
         <label className="session-title" htmlFor={`${idPrefix}-${session.id}`}>
           {session.starred && <span className="star-mark" aria-label={t.t('starred')}>★</span>}{session.title || t.t('untitled')}
         </label>
-        <div className="session-meta"><span title={session.project}>{session.project.split(/[\\/]/u).filter(Boolean).at(-1) || '—'}</span>
-          <span>{t.t('inAccounts', { count: session.presence.length })}</span>
+        <div className="session-meta"><span title={projectMissing ? t.t('projectMissing') : session.project}>{projectMissing ? t.t('projectMissing') : projectName}</span>
           {session.updatedAt && <time dateTime={session.updatedAt}>{t.date(session.updatedAt, { dateStyle: 'medium' })}</time>}
         </div>
-        {reasons.length > 0 && <p className="session-reason">{reasonText(reasons[0]!, t)}</p>}
-        <details className="session-details"><summary>{t.t('details')}</summary><div>
-          <p>{t.t('project')}：{session.project || '—'}</p><p>ID：{session.id}</p>
-          {!session.manageable && <p>{t.t('unsupported')}</p>}
-          {session.presence.map((item) => <div className="presence-detail" key={item.accountId}>
-            <strong>{accountName(accounts.find((account) => account.id === item.accountId), t)}</strong>
-            <span>{t.t(item.active ? 'active' : 'archived')} · {t.t('copies', { count: item.copies })}</span>
-            <p>{t.t('titleVariants')}：{item.titles.filter(Boolean).join(' / ') || t.t('untitled')}</p>
-            {item.reasons.map((reason) => <p key={reason}>{reasonText(reason, t)}</p>)}
-          </div>)}
-        </div></details>
       </div>
-      <Badge tone={!active ? 'neutral' : eligible ? 'success' : 'warning'}>{t.t(selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? 'syncable' : 'blocked')}</Badge>
+      <span className={`session-status session-status--${status}`}>{t.t(status)}</span>
+      <details className="session-details"><summary><span>{t.t('rowDetails')}</span><span aria-hidden="true">›</span></summary><div>
+        {reasons.length > 0 && <p className="session-detail-reason">{reasons.map((reason) => <span key={reason}>{reasonText(reason, t)}</span>)}</p>}
+        <p>{t.t('project')}：{session.project || '—'}</p><p>ID：{session.id}</p>
+        {!session.manageable && <p>{t.t('unsupported')}</p>}
+        {session.presence.map((item) => <div className="presence-detail" key={item.accountId}>
+          <strong>{accountName(accounts.find((account) => account.id === item.accountId), t)}</strong>
+          <span>{t.t(item.active ? 'active' : 'archived')} · {t.t('copies', { count: item.copies })}</span>
+          <p>{t.t('titleVariants')}：{item.titles.filter(Boolean).join(' / ') || t.t('untitled')}</p>
+          {item.reasons.map((reason) => <p key={reason}>{reasonText(reason, t)}</p>)}
+        </div>)}
+      </div></details>
     </li>;
   })}</ul>;
 }

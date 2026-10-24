@@ -62,6 +62,15 @@ const categoryVisuals: Record<Exclude<ReviewCategory, 'all'>, GroupVisual> = {
   recent: 'recent', older: 'older', attention: 'attention', aligned: 'aligned',
 };
 
+function homeAccountLabel(index: number, t: ReturnType<typeof useTranslation>): string {
+  return index === 0 ? t.t('personalAccount') : index === 1 ? t.t('workAccount') : t.t('accountNumber', { count: index + 1 });
+}
+
+function homeAccountLabels(ids: Iterable<string>, t: ReturnType<typeof useTranslation>): string {
+  const labels = [...ids].map((_, index) => homeAccountLabel(index, t));
+  return labels.join(t.locale === 'zh-CN' ? '、' : ', ');
+}
+
 const navItems: Array<{ stage: Stage; label: TranslationKey; icon: IconName }> = [
   { stage: 'home', label: 'overview', icon: 'home' },
   { stage: 'results', label: 'localSessions', icon: 'scroll' },
@@ -119,6 +128,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   const [platform, setPlatform] = useState<Platform>(readPlatform);
   const [compact, setCompact] = useState(() => readBoolean(compactKey));
   const [reducedMotion, setReducedMotion] = useState(() => readBoolean(reducedMotionKey));
+  const [hasChecked, setHasChecked] = useState(false);
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudRefresh, setCloudRefresh] = useState(0);
   const [cleanupBusy, setCleanupBusy] = useState(false);
@@ -170,8 +180,6 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   const syncableCount = categories.recent.sessions.length + categories.older.sessions.length;
   const targetsVerified = workspace?.accounts.filter((account) => included.has(account.id)).every((account) => account.organizationVerified) ?? false;
   const canAct = selected.size > 0 && included.size > 0 && !busy;
-  const operationTitle = accountFilter === 'all' ? t.t('sessions') : accountName(workspace?.accounts.find((account) => account.id === accountFilter), t);
-
   useEffect(() => {
     setSelected((current) => new Set([...current].filter((id) => scopedGroups[selectionGroup].some((session) => session.id === id && session.presence.some((item) => included.has(item.accountId))))));
   }, [scopedGroups, selectionGroup, included]);
@@ -188,6 +196,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   }
 
   async function startCheck() {
+    setHasChecked(true);
     setStage('scan');
     await model.refresh();
     setStage('results');
@@ -196,7 +205,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   function openReview(category: ReviewCategory, preselect = false) {
     setReviewCategory(category);
     setSelectionGroup('visible');
-    const ids = category === 'all' ? categories.all.sessions : categories[category].sessions;
+    const ids = category === 'all' ? [...categories.recent.sessions, ...categories.older.sessions] : categories[category].sessions;
     setSelected(preselect ? new Set(ids.filter((session) => session.manageable && session.presence.some((item) => included.has(item.accountId) && item.eligible)).map((session) => session.id)) : new Set());
     setStage('review');
   }
@@ -307,15 +316,16 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
 
   function renderHome() {
     const configured = Boolean(info?.configured);
-    return <PageSurface className="stage-surface stage-surface--home" title={t.t('heroTitle')} description={t.t('heroBody')}>
+    const heroTitle = t.t('heroTitle').replace(/([,，、])\s*/u, '$1\n');
+    return <PageSurface className="stage-surface stage-surface--home" title={heroTitle} description={t.t('heroBody')}>
       <div className="home-stage">
         <div className="home-art"><RelayArt state="ready" /></div>
         <ul className="home-scope-list">
-          <li><Icon icon="scroll" /><span><strong>{t.t('localSessions')} · {t.t('cloudSessions')}</strong><small>{t.t('cloudBody')}</small></span></li>
-          <li><Icon icon="user" /><span><strong>{[...included].map((id) => accountName(workspace?.accounts.find((account) => account.id === id), t)).join('、') || t.t('unverifiedCount')}</strong><Button variant="ghost" static className="inline-action" onClick={() => navigate('settings')}>{t.t('viewScope')}</Button></span></li>
-          <li><Icon icon="lock" /><span><strong>{t.t('localOnly')}</strong></span></li>
+          <li><Icon icon="scroll" /><span><strong>{t.t('localSessions')} · {t.t('cloudSessions')}</strong><small>{t.t('homeLocalBody')}</small></span></li>
+          <li><Icon icon="user" /><span><strong>{homeAccountLabels(included, t) || t.t('unverifiedCount')}</strong><button type="button" className="inline-action" onClick={() => navigate('settings')}>{t.t('viewScope')}</button></span></li>
+          <li><Icon icon="lock" /><span><strong>{t.t('homeSafety')}</strong></span></li>
         </ul>
-        <div className="hero-actions"><Button variant="primary" disabled={busy} onClick={() => configured ? void startCheck() : navigate('settings')}><Icon icon={configured ? 'search' : 'scroll'} />{configured ? t.t('checkAgain') : t.t('noDesktopAction')}</Button><small>{t.t('firstCheckHint')}</small></div>
+        <div className="hero-actions"><Button variant="primary" disabled={busy} onClick={() => configured ? void startCheck() : navigate('settings')}><Icon icon={configured ? 'search' : 'scroll'} />{configured ? (hasChecked ? t.t('checkAgain') : t.t('checkChats')) : t.t('noDesktopAction')}</Button><small>{t.t('firstCheckHint')}</small></div>
       </div>
     </PageSurface>;
   }
@@ -332,7 +342,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
     const resultBody = t.t('resultsBody', { count: syncableCount });
     const firstAction = syncableCount ? <Button variant="primary" disabled={busy || included.size < 2 || !targetsVerified} onClick={() => openReview('all', true)}>全部同步</Button>
       : <Button variant="primary" onClick={() => openReview(categories.attention.sessions.length ? 'attention' : 'aligned')}>{categories.attention.sessions.length ? t.t('categoryAttention') : t.t('categoryAligned')}</Button>;
-    return <PageSurface className="stage-surface stage-surface--results" title={resultTitle} description={resultBody} primaryAction={firstAction} header={<Button variant="ghost" static onClick={() => navigate('settings')}>{t.t('viewScope')}</Button>}>
+    return <PageSurface className="stage-surface stage-surface--results" title={resultTitle} description={resultBody} primaryAction={firstAction} header={<button type="button" className="plain-action" onClick={() => navigate('settings')}>{t.t('viewScope')}</button>}>
       <div className="results-body">
         <div className="summary-grid">
           {(['recent', 'older', 'attention', 'aligned'] as const).map((kind) => <ResultCard key={kind} kind={kind} title={t.t(categoryLabels[kind])} count={categories[kind].sessions.length}
@@ -350,13 +360,15 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
 
   function renderReview() {
     if (!workspace) return renderResults();
-    const categoryItems: ReviewCategory[] = ['recent', 'older', 'attention', 'aligned', 'all'];
-    const reviewTitle = reviewCategory === 'all' ? operationTitle : t.t(categoryLabels[reviewCategory]);
+    const categoryItems: Array<Exclude<ReviewCategory, 'all'>> = ['recent', 'older', 'attention', 'aligned'];
+    const reviewTitle = reviewCategory === 'all' ? '' : t.t(categoryLabels[reviewCategory]);
     const allSelected = reviewSessions.length > 0 && eligibleToSelect.length > 0 && eligibleToSelect.every((session) => selected.has(session.id));
     const someSelected = eligibleToSelect.some((session) => selected.has(session.id));
+    const selectedAccountCount = new Set(scopedGroups[selectionGroup].filter((session) => selected.has(session.id)).flatMap((session) => session.presence.filter((item) => included.has(item.accountId)).map((item) => item.accountId))).size;
+    const selectedSyncableCount = eligibleToSelect.filter((session) => selected.has(session.id)).length;
     const reviewActions = <div className="review-footer-actions">
-      <div className="selection-summary"><strong>{t.t('selectedCount', { count: selected.size })}</strong><span>{hiddenSelected > 0 ? t.t('hiddenSelected', { count: hiddenSelected }) : `${t.t('targets')}：${[...included].map((id) => accountName(workspace.accounts.find((account) => account.id === id), t)).join('、') || '—'}`}</span></div>
-      <div className="action-buttons"><Button variant="secondary" static disabled={!canAct || included.size < 2 || !targetsVerified} onClick={() => void action('sync')}>{t.t('sync')}</Button>
+      <div className="selection-summary"><strong>{t.t('selectionSummary', { count: selected.size, accounts: selectedAccountCount })}</strong><span>{hiddenSelected > 0 ? t.t('hiddenSelected', { count: hiddenSelected }) : t.t('selectedCanSync', { count: selectedSyncableCount })}</span></div>
+      <div className="action-buttons"><Button variant="primary" static disabled={!canAct || included.size < 2 || !targetsVerified} onClick={() => void action('sync')}>{t.t('syncNow')}</Button>
         <details className="more-actions"><summary><Icon icon="menu" />{t.t('more')}</summary><div>
           <Button variant="ghost" static disabled={!canAct || included.size < 2 || !targetsVerified} onClick={() => void action('keep')}>{t.t('keep')}</Button>
           <Button variant="ghost" static disabled={!canAct} onClick={() => void action('archive')}>{t.t('archive')}</Button>
@@ -370,13 +382,13 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       </div>
     </div>;
     return <PageSurface className="stage-surface stage-surface--review" title={t.t('reviewTitle')} description={t.t('reviewBody', { count: listCount, syncable: syncableCount })} layout="split" aside={<aside className="review-aside">
-      <div className="review-category-heading"><strong>{t.t('categoryAll')}</strong><Badge tone="neutral">{listCount}</Badge></div>
-      <div className="review-categories">{categoryItems.map((category) => <Button key={category} variant="ghost" static className={`review-category ${reviewCategory === category ? 'is-active' : ''}`} onClick={() => { setReviewCategory(category); setSelectionGroup('visible'); }}><span>{t.t(categoryLabels[category])}</span><Badge tone={category === 'attention' ? 'warning' : category === 'aligned' ? 'success' : 'neutral'}>{category === 'all' ? listCount : categories[category].sessions.length}</Badge></Button>)}</div>
+      <div className="review-category-heading"><strong>{t.t('categoryAll')}</strong><span className="review-total">{listCount}</span></div>
+      <div className="review-categories">{categoryItems.map((category) => <button type="button" key={category} className={`review-category ${reviewCategory === category ? 'is-active' : ''}`} aria-pressed={reviewCategory === category} onClick={() => { setReviewCategory(category); setSelectionGroup('visible'); }}><span>{t.t(categoryLabels[category])}</span><span className="review-category-count">{categories[category].sessions.length}</span></button>)}</div>
       <div className="review-scope"><details><summary>{t.t('viewScope')}</summary><AccountSidebar accounts={workspace.accounts} included={included} currentFilter={accountFilter} onInclude={includeAccount} onFilter={(id) => { setAccountFilter(id); setSelected(new Set()); setSelectionGroup('visible'); }} busy={busy} identityState={workspace.identityState} /></details></div>
     </aside>} footer={reviewActions}>
       <section className="review-main">
         <SkippedEntriesNotice paths={workspace.skippedPaths} />
-        <div className="review-toolbar"><div><h2>{reviewTitle}</h2><small>{reviewSessions.length} 条</small></div><div className="review-tools"><Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={search} onChange={(event) => setSearch(event.target.value)} /><details className="filter-drawer"><summary><Icon icon="search" />{t.t('filter')}</summary><div><label>{t.t('filter')}<Select aria-label={t.t('filter')} value={filter} onChange={(event) => setFilter(event.target.value as SessionFilter)}>{(['active', 'all', 'syncable', 'blocked', 'starred'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</Select></label><label>{t.t('sort')}<Select aria-label={t.t('sort')} value={sort} onChange={(event) => setSort(event.target.value as 'updated' | 'title')}><option value="updated">{t.t('sortUpdated')}</option><option value="title">{t.t('sortTitle')}</option></Select></label></div></details></div></div>
+        <div className="review-toolbar"><div>{reviewTitle && <><h2>{reviewTitle}</h2><small>{reviewSessions.length} 条</small></>}</div><div className="review-tools"><Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={search} onChange={(event) => setSearch(event.target.value)} /><details className="filter-drawer"><summary><Icon icon="search" />{t.t('filter')}</summary><div><label>{t.t('filter')}<Select aria-label={t.t('filter')} value={filter} onChange={(event) => setFilter(event.target.value as SessionFilter)}>{(['active', 'all', 'syncable', 'blocked', 'starred'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</Select></label><label>{t.t('sort')}<Select aria-label={t.t('sort')} value={sort} onChange={(event) => setSort(event.target.value as 'updated' | 'title')}><option value="updated">{t.t('sortUpdated')}</option><option value="title">{t.t('sortTitle')}</option></Select></label></div></details></div></div>
         <div className="select-line"><label><input type="checkbox" checked={allSelected} disabled={busy || !eligibleToSelect.length} ref={(element) => { if (element) element.indeterminate = someSelected && !allSelected; }} onChange={(event) => { const value = event.target.checked; setSelected((current) => { const next = selectionGroup === 'visible' ? new Set(current) : new Set<string>(); for (const session of eligibleToSelect) { if (value) next.add(session.id); else next.delete(session.id); } return next; }); setSelectionGroup('visible'); }} />{t.t('selectVisible')}</label><details className="selection-menu"><summary><Icon icon="menu" />选择</summary><div><Button variant="ghost" static disabled={busy} onClick={() => { setSelectionGroup('visible'); setSelected(new Set(eligibleToSelect.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 10).map((session) => session.id))); }}>{t.t('selectTen')}</Button>{selected.size > 0 && <Button variant="ghost" static disabled={busy} onClick={() => setSelected(new Set())}>{t.t('clearSelection')}</Button>}</div></details></div>
         <div className="review-list-wrap"><SessionRows sessions={reviewSessions} accounts={workspace.accounts} selected={selectionGroup === 'visible' ? selected : new Set()} filterId={accountFilter} included={included} onToggle={(id, value) => toggle('visible', id, value)} busy={busy} />
           {(['archived', 'scheduled', 'oldOrganization', 'deleted', 'unverified'] as const).map((group) => <CollapsedSessionGroup key={`${accountFilter}-${group}`} group={group} sessions={grouped[group]} accounts={workspace.accounts} selected={selectionGroup === group ? selected : new Set()} filterId={accountFilter} included={included} onToggle={(id, value) => toggle(group, id, value)} onCollapse={() => { if (selectionGroup === group) setSelected(new Set()); }} busy={busy} markerCount={markerCount} />)}
@@ -395,11 +407,11 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
 
   function renderComplete() {
     const failed = Boolean(model.error);
-    const title = failed ? t.t('issue') : model.deleted ? t.t('deleteComplete') : t.t('operationCompleteTitle');
+    const title = failed ? t.t('issue') : model.deleted ? t.t('deleteComplete') : lastPreview?.kind === 'sync' ? t.t('syncCompleteCount', { count: lastPreview.selected.length }) : t.t('operationCompleteTitle');
     const description = failed ? model.error : model.deleted ? t.t('deleteComplete') : t.t('operationCompleteBody');
     const completedItems = lastPreview?.selected.length ? lastPreview.selected.map((item) => ({
       title: item.title || t.t('untitled'),
-      targets: [...new Set(lastPreview.changes.filter((change) => change.sessionId === item.id).map((change) => accountName(workspace?.accounts.find((account) => account.id === change.accountId), t)))].join('、') || lastPreview.accountIds.map((id) => accountName(workspace?.accounts.find((account) => account.id === id), t)).join('、'),
+      targets: [...new Set(lastPreview.changes.filter((change) => change.sessionId === item.id).map((change) => homeAccountLabel([...included].indexOf(change.accountId), t)))].join('、') || lastPreview.accountIds.map((id) => homeAccountLabel([...included].indexOf(id), t)).join('、'),
     })) : [];
     return <PageSurface className="stage-surface stage-surface--complete" title={title} description={description}>
       <div className="complete-layout"><aside className="complete-art"><RelayArt state={failed ? 'attention' : 'complete'} celebrate={celebrate} /></aside><section className="complete-card">

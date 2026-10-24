@@ -352,3 +352,59 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Round 7: quiet review navigation, one visible next step, and v2.7 home copy. */
+.stage-surface--home .game-ui-page-surface-heading h1 { white-space: pre-line; text-wrap: wrap; font-size: var(--swimmer-tool-font-display); line-height: 1.16; }
+.stage-surface--home .home-scope-list small { max-width: 32ch; }
+.home-scope-list .inline-action { width: max-content; min-height: 32px; padding: 0; border: 0; border-radius: 0; color: var(--swimmer-accent-ink); background: transparent; box-shadow: none; font-size: var(--swimmer-tool-font-meta); text-align: left; }
+.home-scope-list .inline-action:hover { background: transparent; text-decoration: underline; }
+.claudesync-shell .game-ui-shell-sidebar > small { margin-top: var(--swimmer-space-5); padding: 0 var(--swimmer-space-3); }
+.claudesync-shell .shell-sidebar-bottom { margin-top: auto; }
+.review-category-heading { padding-block: 4px var(--swimmer-space-5); }
+.review-total { color: var(--swimmer-text-muted); font-size: var(--swimmer-tool-font-meta); }
+.review-category { display: flex; align-items: center; justify-content: space-between; gap: var(--swimmer-space-3); width: 100%; min-height: 44px; padding: 10px 8px; border: 0; border-radius: var(--swimmer-radius-small); color: var(--swimmer-text-muted); background: transparent; font: inherit; text-align: left; }
+.review-category:hover { color: var(--swimmer-text); background: var(--swimmer-row-hover); }
+.review-category.is-active { color: var(--swimmer-accent-ink); background: var(--swimmer-selection); font-weight: 750; }
+.review-category-count { min-width: 2ch; color: var(--swimmer-text-muted); font-size: var(--swimmer-tool-font-meta); font-variant-numeric: tabular-nums; text-align: right; }
+.review-category.is-active .review-category-count { color: inherit; }
+.stage-surface--review { height: calc(100dvh - var(--swimmer-topbar-height) - var(--swimmer-space-12)); min-height: 0; }
+.stage-surface--review .game-ui-page-surface-content { height: auto; min-height: 0; }
+.stage-surface--review .game-ui-page-surface-footer { position: static; z-index: 6; padding-top: var(--swimmer-space-4); background: var(--swimmer-surface-raised); box-shadow: 0 -12px 24px color-mix(in srgb, var(--swimmer-surface-raised) 80%, transparent); }
+.review-main { min-height: 0; }
+.review-list-wrap { min-height: 0; overflow: auto; }
+.session-row { align-items: center; }
+.session-status { flex: none; color: var(--swimmer-text-muted); font-size: var(--swimmer-tool-font-meta); white-space: nowrap; }
+.session-status--syncable { color: var(--swimmer-success); }
+.session-status--blocked, .session-status--reviewToRestore { color: var(--swimmer-warning); }
+.session-details { position: relative; flex: none; margin: 0; color: var(--swimmer-accent-ink); font-size: var(--swimmer-tool-font-meta); }
+.session-details > summary { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 8px 4px; border-radius: var(--swimmer-radius-small); color: inherit; cursor: pointer; list-style: none; }
+.session-details > summary::-webkit-details-marker { display: none; }
+.session-details[open] > summary { background: var(--swimmer-selection); }
+.session-details > div { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; width: min(460px, calc(100vw - 64px)); max-height: min(48vh, 420px); overflow: auto; padding: var(--swimmer-space-4); border-radius: var(--swimmer-radius-control); color: var(--swimmer-text); background: var(--swimmer-surface-raised); box-shadow: var(--swimmer-shadow-raised); line-height: 1.6; }
+.session-details p { margin: 0 0 5px; overflow-wrap: anywhere; }
+.session-detail-reason { display: grid; gap: 4px; color: var(--swimmer-warning); }
+.session-details .presence-detail { display: grid; gap: 3px; margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--swimmer-text-muted) 18%, transparent); }
+.session-details .presence-detail strong { color: var(--swimmer-text); }
+.session-row.is-selected { background: var(--swimmer-selection); }
+
+@media (min-width: 901px) {
+  .stage-surface--home .game-ui-page-surface-header { top: 16%; right: auto; left: 53%; width: min(440px, 42%); }
+  .hero-actions { grid-column: 1 / -1; }
+  .stage-surface--review .review-list-wrap { max-height: min(52dvh, 500px); }
+}
+
+@media (max-width: 900px) {
+  .stage-surface--review { height: auto; min-height: 0; }
+  .stage-surface--review .game-ui-page-surface-content { height: auto; }
+  .stage-surface--review .game-ui-page-surface-footer { position: static; }
+}
+
+@media (max-width: 560px) {
+  .session-status { display: none; }
+  .session-details > div { width: calc(100vw - 48px); }
+}
+
+/* Round 8: keep secondary scope navigation quiet across result and shell surfaces. */
+.plain-action { min-height: 44px; padding: 8px 10px; border: 0; border-radius: var(--swimmer-radius-small); color: var(--swimmer-accent-ink); background: transparent; font: inherit; }
+.plain-action:hover { background: var(--swimmer-row-hover); }
+.claudesync-shell .game-ui-shell-sidebar nav button[data-current="true"] { border-radius: var(--swimmer-radius-small); }

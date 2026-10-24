@@ -139,9 +139,9 @@ async function shot(name) {
   screenshots.push(name + '.png');
 }
 async function refresh() {
-  const hasTextButton = await js(`Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='重新检查'&&!b.disabled))`);
+  const hasTextButton = await js(`Boolean([...document.querySelectorAll('button')].find(b=>['检查聊天','重新检查'].includes(b.textContent.trim())&&!b.disabled))`);
   if (hasTextButton) {
-    await js(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='重新检查'&&!b.disabled);b.click()})()`);
+    await js(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>['检查聊天','重新检查'].includes(b.textContent.trim())&&!b.disabled);b.click()})()`);
   } else {
     await clickButton('概览');
     await waitFor(`document.body.innerText.includes('换个账号')`, 'refresh home');
@@ -199,7 +199,7 @@ async function runSkippedEntries() {
   for (const name of view.skippedPaths) assert(text.includes(`${name}：已跳过，未改动`));
   await shot('01-skipped-notice-and-sessions');
   await selectSession(CHAT_B);
-  await clickButton('同步所选');
+  await clickButton('同步', true);
   await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'known-session sync review');
   await clickButton('确认执行');
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('整理完成')`, 'known-session sync complete');
@@ -225,8 +225,8 @@ async function run() {
   window.setSize(1240, 1000);
   window.webContents.setBackgroundThrottling(false);
   await js('document.fonts.ready.then(() => true)');
-  await waitFor(`Boolean([...document.querySelectorAll('button')].find(b => b.textContent.trim() === '重新检查' && !b.disabled))`, 'home check action');
-  await clickButton('重新检查');
+  await waitFor(`Boolean([...document.querySelectorAll('button')].find(b => ['检查聊天','重新检查'].includes(b.textContent.trim()) && !b.disabled))`, 'home check action');
+  await clickButton('检查聊天');
   await waitFor(`document.body.innerText.includes('桌面版里')`, 'scan results');
   await clickButton('查看');
   await waitFor(`document.body.innerText.includes('挑好聊天')`, 'review loaded');
@@ -235,7 +235,7 @@ async function run() {
   if (skippedEntriesScenario) return runSkippedEntries();
   // 1: already-present session advances through real UI -> preload -> IPC -> disk.
   await selectSession(CHAT_A);
-  await clickButton('同步所选');
+  await clickButton('同步', true);
   await waitFor(`Boolean(document.querySelector('dialog[open]')) && document.body.innerText.includes('比目标多 1 轮')`, 'source/target progress review');
   await shot('01-progress-preview');
   await clickButton('确认执行');
@@ -257,7 +257,7 @@ async function run() {
   await clickButton('回到聊天');
   await clickButton('account-b@fixture.invalid', true);
   await selectSession(CHAT_A);
-  await clickButton('同步所选');
+  await clickButton('同步', true);
   await waitFor(`Boolean(document.querySelector('dialog[open]')) && document.body.innerText.includes('解除这条会话的删除记录')`, 'restore review');
   assert(!(await js('document.body.innerText')).includes('恢复这个备份'));
   await shot('02-selected-restore-preview');
