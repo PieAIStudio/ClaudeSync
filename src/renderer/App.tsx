@@ -457,7 +457,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   }
 
   return <div className={`claudesync-app theme-${theme}`} data-stage={stage} data-game-ui-theme={theme} data-game-ui-style="outline">
-    <Shell title="ClaudeSync" className="claudesync-shell" platform={platform} density={compact ? 'dense' : 'comfortable'} reducedMotion={reducedMotion} layout="auto" sidebar={sidebar()} sidebarLabel={t.t('sources')} mobileNav={mobileNav()} windowBar={windowBar()} overlay={feedback}>
+    <Shell title="ClaudeSync" className="claudesync-shell" look="aura" platform={platform} density={compact ? 'dense' : 'comfortable'} reducedMotion={reducedMotion} layout="auto" sidebar={sidebar()} sidebarLabel={t.t('sources')} mobileNav={mobileNav()} windowBar={windowBar()} overlay={feedback}>
       {renderStage()}
     </Shell>
     {model.review && workspace && <OperationReview preview={model.review} choices={model.request?.titleSelections} contentChoices={model.request?.contentSelections} accounts={workspace.accounts} busy={busy} blocked={workspace.blockers.length > 0} onClose={model.closeReview} onApply={() => void applyOperation()}
