@@ -26,8 +26,13 @@ export function SkippedEntriesNotice({ paths }: { paths: string[] }) {
 
 export function Modal({ title, children, onClose, busy = false }: { title: string; children: ReactNode; onClose(): void; busy?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => { const element = dialog.current; element?.showModal(); return () => element?.close(); }, []);
-  return <dialog className="review-dialog" ref={dialog} aria-label={title} onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
+  useEffect(() => {
+    const element = dialog.current; element?.showModal();
+    // Open on the sheet itself, not its first toggle, so no focus ring shows before the user moves; text fields keep their focus.
+    if (!(document.activeElement instanceof HTMLInputElement)) element?.focus();
+    return () => element?.close();
+  }, []);
+  return <dialog className="review-dialog" ref={dialog} tabIndex={-1} aria-label={title} onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
     <Panel title={title}>{children}</Panel>
   </dialog>;
 }

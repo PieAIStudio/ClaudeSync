@@ -7,7 +7,7 @@ import { errorMessage } from './errors';
 import { TermTip } from './TermTip';
 import { HelpTip } from '@pieai/swimmer-ui-kit';
 
-export function CloudSessions({ refreshKey, onBusy }: { refreshKey: number; onBusy(value: boolean): void }) {
+export function CloudSessions({ refreshKey, onBusy, onRetry }: { refreshKey: number; onBusy(value: boolean): void; onRetry?(): void }) {
   const t = useTranslation();
   const api = window.claudeSync;
   const [workspace, setWorkspace] = useState<CloudWorkspaceView>();
@@ -84,6 +84,7 @@ export function CloudSessions({ refreshKey, onBusy }: { refreshKey: number; onBu
       </section>
     </>}
     <div className="workspace-feedback" role="status" aria-live="polite">{error && <Callout heading={t.t('issue')} tone="danger">{error}</Callout>}{done && <Callout tone="success">{done}</Callout>}</div>
+    {error && !workspace && !busy && onRetry && <Button variant="secondary" static className="cloud-retry" onClick={onRetry}>{t.t('checkAgain')}</Button>}
     {confirmation && <DeleteConfirmation count={confirmation.rows.length} accountNames={[confirmation.workspace.email]} source="cloud"
       state={confirmation.rows.every((row) => row.status === 'archived') ? 'archived' : confirmation.rows.every((row) => row.status !== 'archived') ? 'active' : 'mixed'} busy={busy} onClose={() => setConfirmation(undefined)} onDelete={() => void remove()} />}
   </section>;

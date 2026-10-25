@@ -29,7 +29,6 @@ const excludedKey = 'claudesync.excluded-account-ids';
 const themeKey = 'claudesync.theme';
 const compactKey = 'claudesync.compact';
 const reducedMotionKey = 'claudesync.reduced-motion';
-const platformKey = 'claudesync.platform';
 
 function readExcluded(): string[] {
   try {
@@ -50,8 +49,9 @@ function readBoolean(key: string): boolean {
   try { return localStorage.getItem(key) === 'true'; } catch { return false; }
 }
 
-function readPlatform(): Platform {
-  try { return localStorage.getItem(platformKey) === 'windows' ? 'windows' : 'mac'; } catch { return 'mac'; }
+// The window follows the system: Mac gets the translucent sidebar, Windows the plain one.
+function systemPlatform(): Platform {
+  return typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent) ? 'windows' : 'mac';
 }
 
 const categoryLabels: Record<ReviewCategory, TranslationKey> = {
@@ -109,13 +109,14 @@ function ResultCard({ kind, title, count, copy, canSync, onView, onSync }: {
   kind: Exclude<ReviewCategory, 'all'>; title: string; count: number; copy: string; canSync: boolean;
   onView(): void; onSync(): void;
 }) {
-  return <article className={`summary-card summary-card--${kind}`}>
-    <div className="summary-card-heading"><GroupArt kind={categoryVisuals[kind]} /><h2>{title}</h2><strong>{count}<span> 条</span></strong></div>
-    <p>{copy}</p>
-    <div className="summary-card-actions">
-      <Button variant="secondary" static onClick={onView}>{kind === 'attention' ? '查看原因' : '查看'}</Button>
-      {canSync && count > 0 && <Button variant="secondary" static className="summary-sync" onClick={onSync}>同步</Button>}
-    </div>
+  const t = useTranslation();
+  return <article className={`summary-card summary-card--${kind}`} data-empty={count === 0 || undefined}>
+    <button type="button" className="summary-card-main" onClick={onView} aria-label={`${title} · ${t.t(kind === 'attention' ? 'viewReasons' : 'viewGroup')}`}>
+      <GroupArt kind={categoryVisuals[kind]} />
+      <span className="summary-card-copy"><strong>{title}</strong><span>{copy}</span></span>
+      <span className="summary-card-count">{count}</span>
+    </button>
+    {canSync && count > 0 && <button type="button" className="summary-card-sync" onClick={onSync}>{t.t('syncCount', { count })}<Icon icon="arrow-right" /></button>}
   </article>;
 }
 
@@ -125,7 +126,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   const { info, workspace } = model;
   const [stage, setStage] = useState<Stage>('home');
   const [theme, setTheme] = useState<Theme>(readTheme);
-  const [platform, setPlatform] = useState<Platform>(readPlatform);
+  const platform = systemPlatform();
   const [compact, setCompact] = useState(() => readBoolean(compactKey));
   const [reducedMotion, setReducedMotion] = useState(() => readBoolean(reducedMotionKey));
   const [hasChecked, setHasChecked] = useState(false);
@@ -157,7 +158,6 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   useEffect(() => { try { localStorage.setItem(themeKey, theme); } catch { /* best effort */ } }, [theme]);
   useEffect(() => { try { localStorage.setItem(compactKey, String(compact)); } catch { /* best effort */ } }, [compact]);
   useEffect(() => { try { localStorage.setItem(reducedMotionKey, String(reducedMotion)); } catch { /* best effort */ } }, [reducedMotion]);
-  useEffect(() => { try { localStorage.setItem(platformKey, platform); } catch { /* best effort */ } }, [platform]);
 
   const included = useMemo(() => new Set(workspace?.accounts.filter((account) => !excluded.includes(account.id)).map((account) => account.id) ?? []), [workspace, excluded]);
   const scopedGroups = useMemo(() => Object.fromEntries(SESSION_GROUPS.map((group) =>
@@ -284,7 +284,6 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
 
   function sidebar() {
     return <>
-      <div className="window-dots" aria-hidden="true"><i /><i /><i /></div>
       <div className="shell-brand"><span className="shell-brand-mark"><Icon icon="check" /></span><strong>ClaudeSync</strong></div>
       <nav aria-label={t.t('sources')}>
         {navItems.map((item) => <button key={item.stage} type="button" data-current={stage === item.stage || (item.stage === 'results' && stage === 'review')} onClick={() => navigate(item.stage)}>
@@ -295,7 +294,6 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
         <button type="button" data-current={stage === 'backups'} onClick={() => void openBackups()} disabled={!workspace || busy}><Icon icon="history" /><span>{t.t('backupTitle')}</span></button>
         <button type="button" data-current={stage === 'settings'} onClick={() => navigate('settings')}><Icon icon="settings" /><span>{t.t('settings')}</span></button>
       </nav>
-      <small>{t.t('offlineSample')}</small>
     </>;
   }
 
@@ -308,7 +306,6 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   function windowBar() {
     const stageLabel = stage === 'home' ? t.t('overview') : stage === 'review' ? t.t('reviewTitle') : stage === 'results' ? t.t('localSessions') : stage === 'settings' ? t.t('settings') : stage === 'backups' ? t.t('backupTitle') : stage === 'cloud' ? t.t('cloudSessions') : t.t('checking');
     return <><span className="shell-window-title">{stageLabel}</span><span className="shell-window-actions">
-      <IconButton label={t.t('overview')} onClick={() => navigate('home')}><Icon icon="menu" /></IconButton>
       {stage === 'cloud' && <IconButton label={t.t('checkAgain')} onClick={() => setCloudRefresh((value) => value + 1)} disabled={busy}><Icon icon="redo" /></IconButton>}
       <IconButton label={theme === 'dark' ? 'Light mode' : 'Dark mode'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><Icon icon={theme === 'dark' ? 'sun' : 'moon'} /></IconButton>
     </span></>;
@@ -340,19 +337,20 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
     if (!workspace) return <PageSurface className="stage-surface" layout="centered" title={t.t('noCheck')} description={t.t('heroBody')} primaryAction={<Button variant="primary" onClick={() => void startCheck()}>{t.t('checkAgain')}</Button>}><div className="empty-state">{t.t('noCheck')}</div></PageSurface>;
     const resultTitle = listCount ? t.t('resultsTitle', { count: listCount }) : t.t('noSessions');
     const resultBody = t.t('resultsBody', { count: syncableCount });
-    const firstAction = syncableCount ? <Button variant="primary" disabled={busy || included.size < 2 || !targetsVerified} onClick={() => openReview('all', true)}>全部同步</Button>
+    const otherCount = scopedGroups.archived.length + scopedGroups.scheduled.length + scopedGroups.oldOrganization.length;
+    const firstAction = syncableCount ? <Button variant="primary" disabled={busy || included.size < 2 || !targetsVerified} onClick={() => openReview('all', true)}>{t.t('syncCount', { count: syncableCount })}</Button>
       : <Button variant="primary" onClick={() => openReview(categories.attention.sessions.length ? 'attention' : 'aligned')}>{categories.attention.sessions.length ? t.t('categoryAttention') : t.t('categoryAligned')}</Button>;
-    return <PageSurface className="stage-surface stage-surface--results" title={resultTitle} description={resultBody} primaryAction={firstAction} header={<button type="button" className="plain-action" onClick={() => navigate('settings')}>{t.t('viewScope')}</button>}>
+    return <PageSurface className="stage-surface stage-surface--results" title={resultTitle} description={resultBody} header={<button type="button" className="plain-action" onClick={() => navigate('settings')}>{t.t('viewScope')}</button>}>
       <div className="results-body">
         <div className="summary-grid">
           {(['recent', 'older', 'attention', 'aligned'] as const).map((kind) => <ResultCard key={kind} kind={kind} title={t.t(categoryLabels[kind])} count={categories[kind].sessions.length}
             copy={kind === 'recent' ? t.t('categoryRecentCopy') : kind === 'older' ? t.t('categoryOlderCopy') : kind === 'attention' ? t.t('categoryAttentionCopy') : t.t('categoryAlignedCopy')}
             canSync={kind === 'recent' || kind === 'older'} onView={() => openReview(kind)} onSync={() => openReview(kind, true)} />)}
         </div>
-        <p className="summary-note">{listVerified ? t.t('visibleCount', { shown: grouped.visible.length, total: scopedGroups.visible.length }) : t.t('unverifiedCount')} · {t.t('localOnly')}</p>
-        <details className="other-records"><summary><Icon icon="arrow-right" />另有 {scopedGroups.archived.length + scopedGroups.scheduled.length + scopedGroups.oldOrganization.length} 条不算在内</summary><div className="other-records-grid">
+        <div className="results-cta">{firstAction}<small>{listVerified ? t.t('visibleCount', { shown: grouped.visible.length, total: scopedGroups.visible.length }) : t.t('unverifiedCount')} · {t.t('localOnly')}</small></div>
+        {otherCount > 0 && <details className="other-records"><summary><Icon icon="arrow-right" />{t.t('otherRecords', { count: otherCount })}</summary><div className="other-records-grid">
           {(['archived', 'scheduled', 'oldOrganization'] as const).map((group) => <div key={group}><strong>{t.t(groupLabels[group])}</strong><Badge tone="neutral">{scopedGroups[group].length}</Badge></div>)}
-        </div></details>
+        </div></details>}
         {workspace.skippedPaths.length > 0 && <SkippedEntriesNotice paths={workspace.skippedPaths} />}
       </div>
     </PageSurface>;
@@ -368,8 +366,8 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
     const selectedSyncableCount = eligibleToSelect.filter((session) => selected.has(session.id)).length;
     const reviewActions = <div className="review-footer-actions">
       <div className="selection-summary"><strong>{t.t('selectionSummary', { count: selected.size, accounts: selectedAccountCount })}</strong><span>{hiddenSelected > 0 ? t.t('hiddenSelected', { count: hiddenSelected }) : t.t('selectedCanSync', { count: selectedSyncableCount })}</span></div>
-      <div className="action-buttons"><Button variant="primary" static disabled={!canAct || included.size < 2 || !targetsVerified} onClick={() => void action('sync')}>{t.t('syncNow')}</Button>
-        <details className="more-actions"><summary><Icon icon="menu" />{t.t('more')}</summary><div>
+      <div className="action-buttons"><Button variant="primary" disabled={!canAct || included.size < 2 || !targetsVerified} onClick={() => void action('sync')}>{selectedSyncableCount ? t.t('syncCount', { count: selectedSyncableCount }) : t.t('syncNow')}</Button>
+        <details className="more-actions"><summary>{t.t('more')}</summary><div>
           <Button variant="ghost" static disabled={!canAct || included.size < 2 || !targetsVerified} onClick={() => void action('keep')}>{t.t('keep')}</Button>
           <Button variant="ghost" static disabled={!canAct} onClick={() => void action('archive')}>{t.t('archive')}</Button>
           <Button variant="ghost" static disabled={!canAct} onClick={() => void action('unarchive')}>{t.t('unarchive')}</Button>
@@ -388,8 +386,8 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
     </aside>} footer={reviewActions}>
       <section className="review-main">
         <SkippedEntriesNotice paths={workspace.skippedPaths} />
-        <div className="review-toolbar"><div>{reviewTitle && <><h2>{reviewTitle}</h2><small>{reviewSessions.length} 条</small></>}</div><div className="review-tools"><Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={search} onChange={(event) => setSearch(event.target.value)} /><details className="filter-drawer"><summary><Icon icon="search" />{t.t('filter')}</summary><div><label>{t.t('filter')}<Select aria-label={t.t('filter')} value={filter} onChange={(event) => setFilter(event.target.value as SessionFilter)}>{(['active', 'all', 'syncable', 'blocked', 'starred'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</Select></label><label>{t.t('sort')}<Select aria-label={t.t('sort')} value={sort} onChange={(event) => setSort(event.target.value as 'updated' | 'title')}><option value="updated">{t.t('sortUpdated')}</option><option value="title">{t.t('sortTitle')}</option></Select></label></div></details></div></div>
-        <div className="select-line"><label><input type="checkbox" checked={allSelected} disabled={busy || !eligibleToSelect.length} ref={(element) => { if (element) element.indeterminate = someSelected && !allSelected; }} onChange={(event) => { const value = event.target.checked; setSelected((current) => { const next = selectionGroup === 'visible' ? new Set(current) : new Set<string>(); for (const session of eligibleToSelect) { if (value) next.add(session.id); else next.delete(session.id); } return next; }); setSelectionGroup('visible'); }} />{t.t('selectVisible')}</label><details className="selection-menu"><summary><Icon icon="menu" />选择</summary><div><Button variant="ghost" static disabled={busy} onClick={() => { setSelectionGroup('visible'); setSelected(new Set(eligibleToSelect.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 10).map((session) => session.id))); }}>{t.t('selectTen')}</Button>{selected.size > 0 && <Button variant="ghost" static disabled={busy} onClick={() => setSelected(new Set())}>{t.t('clearSelection')}</Button>}</div></details></div>
+        <div className="review-toolbar"><div>{reviewTitle && <><h2>{reviewTitle}</h2><small>{reviewSessions.length} 条</small></>}</div><div className="review-tools"><Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={search} onChange={(event) => setSearch(event.target.value)} /><details className="filter-drawer"><summary>{t.t('filter')}</summary><div><label>{t.t('filter')}<Select aria-label={t.t('filter')} value={filter} onChange={(event) => setFilter(event.target.value as SessionFilter)}>{(['active', 'all', 'syncable', 'blocked', 'starred'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</Select></label><label>{t.t('sort')}<Select aria-label={t.t('sort')} value={sort} onChange={(event) => setSort(event.target.value as 'updated' | 'title')}><option value="updated">{t.t('sortUpdated')}</option><option value="title">{t.t('sortTitle')}</option></Select></label></div></details></div></div>
+        <div className="select-line"><label><input type="checkbox" checked={allSelected} disabled={busy || !eligibleToSelect.length} ref={(element) => { if (element) element.indeterminate = someSelected && !allSelected; }} onChange={(event) => { const value = event.target.checked; setSelected((current) => { const next = selectionGroup === 'visible' ? new Set(current) : new Set<string>(); for (const session of eligibleToSelect) { if (value) next.add(session.id); else next.delete(session.id); } return next; }); setSelectionGroup('visible'); }} />{t.t('selectVisible')}</label><details className="selection-menu"><summary>{t.t('selectMenu')}</summary><div><Button variant="ghost" static disabled={busy} onClick={() => { setSelectionGroup('visible'); setSelected(new Set(eligibleToSelect.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 10).map((session) => session.id))); }}>{t.t('selectTen')}</Button>{selected.size > 0 && <Button variant="ghost" static disabled={busy} onClick={() => setSelected(new Set())}>{t.t('clearSelection')}</Button>}</div></details></div>
         <div className="review-list-wrap"><SessionRows sessions={reviewSessions} accounts={workspace.accounts} selected={selectionGroup === 'visible' ? selected : new Set()} filterId={accountFilter} included={included} onToggle={(id, value) => toggle('visible', id, value)} busy={busy} />
           {(['archived', 'scheduled', 'oldOrganization', 'deleted', 'unverified'] as const).map((group) => <CollapsedSessionGroup key={`${accountFilter}-${group}`} group={group} sessions={grouped[group]} accounts={workspace.accounts} selected={selectionGroup === group ? selected : new Set()} filterId={accountFilter} included={included} onToggle={(id, value) => toggle(group, id, value)} onCollapse={() => { if (selectionGroup === group) setSelected(new Set()); }} busy={busy} markerCount={markerCount} />)}
         </div>
@@ -424,24 +422,24 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   }
 
   function renderSettings() {
-    return <PageSurface className="stage-surface stage-surface--settings" layout="centered" title={t.t('settings')} description={t.t('heroBody')} primaryAction={<Button variant="primary" disabled={busy || !sessionRoot || !projectsRoot} onClick={() => void saveFolders()}>{t.t('saveFolders')}</Button>}>
+    return <PageSurface className="stage-surface stage-surface--settings" layout="centered" title={t.t('settings')} primaryAction={<Button variant="primary" disabled={busy || !sessionRoot || !projectsRoot} onClick={() => void saveFolders()}>{t.t('saveFolders')}</Button>}>
       {!model.api && <Callout tone="warning">{t.t('needDesktop')}</Callout>}
       <div className="settings-grid">
-        <Panel title={t.t('settings')} className="settings-card"><label><span>{t.t('language')}</span><Select value={locale} onChange={(event) => onLocale(event.target.value as AppLocale)}>{locales.map((code) => <option key={code} value={code}>{languageNames[code]}</option>)}</Select></label><label><span>{t.t('windowStyle')}</span><Select value={platform} onChange={(event) => setPlatform(event.target.value as Platform)}><option value="mac">{t.t('macWindow')}</option><option value="windows">{t.t('windowsWindow')}</option></Select></label><Toggle checked={compact} label={t.t('compactList')} onClick={() => setCompact((value) => !value)} /><Toggle checked={reducedMotion} label={t.t('reduceMotion')} onClick={() => setReducedMotion((value) => !value)} /></Panel>
-        <Panel title={t.t('foldersTitle')} className="settings-card"><label><span>{t.t('indexFolder')}</span><Input value={sessionRoot} readOnly /></label><Button variant="secondary" static disabled={busy} onClick={() => void model.chooseDirectory().then((path) => { if (path) setSessionRoot(path); })}>{t.t('chooseFolder')}</Button><label><span>{t.t('transcriptFolder')}</span><Input value={projectsRoot} readOnly /></label><Button variant="secondary" static disabled={busy} onClick={() => void model.chooseDirectory().then((path) => { if (path) setProjectsRoot(path); })}>{t.t('chooseFolder')}</Button><p className="settings-note">{t.t('localOnly')}</p></Panel>
-        <Panel title={t.t('caption')} className="settings-card"><p>{t.t('offlineSample')}</p><p>{t.t('cloudBody')}</p><p>{info?.version ? `ClaudeSync ${info.version}` : 'ClaudeSync'}</p></Panel>
+        <Panel title={t.t('preferences')} className="settings-card"><label><span>{t.t('language')}</span><Select value={locale} onChange={(event) => onLocale(event.target.value as AppLocale)}>{locales.map((code) => <option key={code} value={code}>{languageNames[code]}</option>)}</Select></label><Toggle checked={compact} label={t.t('compactList')} onClick={() => setCompact((value) => !value)} /><Toggle checked={reducedMotion} label={t.t('reduceMotion')} onClick={() => setReducedMotion((value) => !value)} /></Panel>
+        <Panel title={t.t('foldersTitle')} className="settings-card"><div className="settings-path"><span>{t.t('indexFolder')}</span><code>{sessionRoot}</code></div><Button variant="secondary" static disabled={busy} onClick={() => void model.chooseDirectory().then((path) => { if (path) setSessionRoot(path); })}>{t.t('chooseFolder')}</Button><div className="settings-path"><span>{t.t('transcriptFolder')}</span><code>{projectsRoot}</code></div><Button variant="secondary" static disabled={busy} onClick={() => void model.chooseDirectory().then((path) => { if (path) setProjectsRoot(path); })}>{t.t('chooseFolder')}</Button><p className="settings-note">{t.t('localOnly')}</p></Panel>
+        <Panel title={t.t('about')} className="settings-card settings-card--about"><p><strong>{t.t('caption')}</strong> · {t.t('offlineSample')}</p><p>{t.t('cloudBody')}</p><p>{info?.version ? `ClaudeSync ${info.version}` : 'ClaudeSync'}</p></Panel>
       </div>
     </PageSurface>;
   }
 
   function renderBackups() {
     return <PageSurface className="stage-surface stage-surface--backups" layout="centered" title={t.t('backupTitle')} description={t.t('backupBody')}>
-      <div className="backups-page">{model.backups.length === 0 ? <p className="empty-state">{t.t('noBackups')}</p> : <ul className="backup-list">{model.backups.map((backup) => <li key={backup.id}><div><strong>{t.date(backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</strong><small>{t.t(backup.operation)}{backup.state !== 'verified' && ` · ${t.t('interrupted')}`}</small></div><Button variant="secondary" static disabled={busy} onClick={() => { void model.restore(backup.id); }}>{t.t('restore')}</Button></li>)}</ul>}<Button variant="ghost" static onClick={() => void model.openBackups()}>{t.t('openBackups')}</Button><p className="settings-note">{t.t('backupBody')}</p></div>
+      <div className="backups-page">{model.backups.length === 0 ? <p className="empty-state">{t.t('noBackups')}</p> : <ul className="backup-list">{model.backups.map((backup) => <li key={backup.id}><div><strong>{t.date(backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</strong><small>{t.t(backup.operation)}{backup.state !== 'verified' && ` · ${t.t('interrupted')}`}</small></div><Button variant="secondary" static disabled={busy} onClick={() => { void model.restore(backup.id); }}>{t.t('restore')}</Button></li>)}</ul>}<Button variant="secondary" static className="backups-open" onClick={() => void model.openBackups()}>{t.t('openBackups')}</Button></div>
     </PageSurface>;
   }
 
   function renderCloud() {
-    return <PageSurface className="stage-surface stage-surface--cloud" title={t.t('cloudSessions')} description={t.t('cloudBody')}><CloudSessions refreshKey={cloudRefresh} onBusy={onCloudBusy} /></PageSurface>;
+    return <PageSurface className="stage-surface stage-surface--cloud" title={t.t('cloudSessions')} description={t.t('cloudBody')}><CloudSessions refreshKey={cloudRefresh} onBusy={onCloudBusy} onRetry={() => setCloudRefresh((value) => value + 1)} /></PageSurface>;
   }
 
   function renderStage(): ReactNode {

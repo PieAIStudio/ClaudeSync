@@ -32,9 +32,6 @@ const messages = {
   viewScope: ['查看范围', 'View scope', '範囲を確認', 'Ver alcance', 'Ver escopo'],
   reduceMotion: ['减少动态', 'Reduce motion', '動きを減らす', 'Reducir movimiento', 'Reduzir movimento'],
   compactList: ['紧凑列表', 'Compact list', 'コンパクト一覧', 'Lista compacta', 'Lista compacta'],
-  windowStyle: ['窗口样式', 'Window style', 'ウィンドウ表示', 'Estilo de ventana', 'Estilo da janela'],
-  macWindow: ['Mac 半透明窗口', 'Mac translucent window', 'Mac 半透明ウィンドウ', 'Ventana translúcida de Mac', 'Janela translúcida do Mac'],
-  windowsWindow: ['Windows 普通窗口', 'Windows standard window', 'Windows 標準ウィンドウ', 'Ventana estándar de Windows', 'Janela padrão do Windows'],
   operationInProgress: ['正在处理聊天。', 'Working on your chats.', 'チャットを処理中です。', 'Procesando tus chats.', 'Processando seus chats.'],
   operationInProgressBody: ['已确认的改动会保留；完成后再显示结果。', 'Confirmed changes stay safe; the result appears when this is finished.', '確認済みの変更は保持され、完了後に結果を表示します。', 'Los cambios confirmados se conservan; el resultado aparece al terminar.', 'As alterações confirmadas ficam seguras; o resultado aparece ao terminar.'],
   operationCompleteTitle: ['整理好了。', 'All set.', '整理が完了しました。', 'Listo.', 'Tudo pronto.'],
@@ -199,6 +196,13 @@ const messages = {
   missingTranscript: ['Code 会话正文或历史分支缺失', 'Code transcript or history is missing', 'Code の本文または履歴が不足', 'Falta conversación o historial de Code', 'Falta conversa ou histórico de Code'],
   deletedReason: ['这条会话曾被删除；要带回来，请勾选后点“同步所选”。', 'This session was deleted; select it and Sync selected to bring it back.', '削除済みです。戻すには選択して同期してください。', 'Esta sesión se borró; selecciónala y sincroniza para recuperarla.', 'Esta sessão foi excluída; selecione e sincronize para trazê-la de volta.'],
   unsupported: ['远程、云端或定时任务请在 Claude 内管理', 'Manage remote, cloud, or scheduled Code sessions in Claude', 'リモート・クラウド・定期実行の Code セッションは Claude で管理', 'Gestiona sesiones de Code remotas o programadas en Claude', 'Gerencie sessões de Code remotas ou agendadas no Claude'],
+  preferences: ['偏好', 'Preferences', '環境設定', 'Preferencias', 'Preferências'],
+  about: ['关于', 'About', 'このアプリについて', 'Acerca de', 'Sobre'],
+  syncCount: ['同步 {count} 条', 'Sync {count}', '{count} 件を同期', 'Sincronizar {count}', 'Sincronizar {count}'],
+  viewGroup: ['查看', 'View', '表示', 'Ver', 'Ver'],
+  viewReasons: ['查看原因', 'See why', '理由を見る', 'Ver motivo', 'Ver motivo'],
+  otherRecords: ['另有 {count} 条不算在内', '{count} more not counted', 'ほかに {count} 件は対象外', '{count} más no incluidas', 'Mais {count} não incluídas'],
+  selectMenu: ['选择', 'Select', '選択', 'Elegir', 'Selecionar'],
   checkedAt: ['检查于 {time}', 'Checked at {time}', '確認：{time}', 'Comprobado a las {time}', 'Verificado às {time}'],
 } as const satisfies Record<string, readonly [string, string, string, string, string]>;
 
