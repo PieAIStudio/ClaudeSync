@@ -69,6 +69,9 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
   --cs-select: color-mix(in srgb, var(--swimmer-accent) 22%, transparent);
   --cs-shadow: 0 1px 2px rgb(0 0 0 / 18%), 0 18px 40px rgb(0 0 0 / 34%);
 }
+/* Working pages (lists, settings) keep the light in one corner so the content stays readable. */
+.claudesync-app:is([data-stage="review"], [data-stage="cloud"], [data-stage="backups"], [data-stage="settings"]) { --cs-aura: radial-gradient(26% 40% at 6% 84%, rgb(176 107 255 / 30%), transparent 70%), radial-gradient(22% 32% at 0% 100%, rgb(255 122 200 / 26%), transparent 70%); }
+.claudesync-app.theme-dark:is([data-stage="review"], [data-stage="cloud"], [data-stage="backups"], [data-stage="settings"]) { --cs-aura: radial-gradient(26% 40% at 6% 84%, rgb(122 53 232 / 34%), transparent 70%), radial-gradient(22% 32% at 0% 100%, rgb(224 64 154 / 26%), transparent 70%); }
 .claudesync-app .game-ui-shell, .claudesync-app .game-ui-shell *, .claudesync-app .game-ui-page-surface, .claudesync-app .game-ui-page-surface * { font-family: inherit; }
 
 /* Quiet control voice: every Kit control paints a soft tint with no outline. */
@@ -362,7 +365,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .settings-card .panel-heading { margin: 0 0 2px; font-size: 13px; font-weight: 650; color: var(--cs-faint); letter-spacing: .02em; }
 .settings-card label { display: grid; grid-template-columns: minmax(120px, .4fr) minmax(0, 1fr); align-items: center; gap: 16px; color: var(--swimmer-text); font-size: 15px; }
 .settings-path { display: grid; grid-template-columns: minmax(120px, .4fr) minmax(0, 1fr); align-items: center; gap: 16px; font-size: 15px; }
-.settings-path code { padding: 10px 14px; border-radius: 12px; color: var(--cs-muted); background: var(--cs-tint); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; user-select: text; }
+.settings-path code { padding: 10px 14px; border-radius: 12px; color: var(--swimmer-text); background: var(--cs-tint); font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; user-select: text; }
 .settings-card input, .settings-card select { width: 100%; min-height: 38px; border-radius: 10px; font-size: 14px; }
 .settings-card input[readonly] { color: var(--cs-muted); font-size: 13px; }
 .settings-card .game-ui-button { justify-self: end; width: auto; min-width: 120px; margin-top: -6px; }
@@ -454,6 +457,14 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
   .summary-grid { grid-template-columns: 1fr; gap: 12px; }
   .summary-card-main { min-height: 104px; padding: 18px 20px; gap: 14px; grid-template-columns: 48px minmax(0, 1fr) auto; }
   .summary-card-count { font-size: 36px; }
+  /* Phone: four square tiles in two rows, so the main button stays on the first screen. */
+  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .summary-card-main { grid-template-columns: 40px minmax(0, 1fr); grid-template-areas: "art count" "copy copy"; align-items: start; gap: 10px 8px; min-height: 0; padding: 16px; }
+  .summary-card-main > .group-art { grid-area: art; width: 40px; height: 40px; }
+  .summary-card-copy { grid-area: copy; }
+  .summary-card-copy strong { font-size: 16px; }
+  .summary-card-count { grid-area: count; justify-self: end; font-size: 32px; }
+  .summary-card-sync { right: 10px; bottom: 8px; }
   .group-art { width: 48px; height: 48px; }
   .other-records-grid { grid-template-columns: 1fr; }
   .complete-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; justify-items: center; }
