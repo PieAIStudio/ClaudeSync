@@ -1,6 +1,5 @@
 import { Icon, type IconName } from '@pieai/swimmer-ui-kit';
-import relayDark from './assets/relay-dark.png';
-import relayLight from './assets/relay-light.png';
+import relay from './assets/relay.png';
 import groupAligned from './assets/group-aligned.png';
 import groupAttention from './assets/group-attention.png';
 import groupCarry from './assets/group-carry.png';
@@ -30,8 +29,7 @@ export function RelayArt({ state = 'ready', celebrate = false, compact = false }
   compact?: boolean;
 }) {
   return <div className={`relay-art ${compact ? 'relay-art--compact' : ''}`} data-relay-state={state} data-celebrate={celebrate} aria-hidden="true">
-    <img className="relay-render relay-light" src={relayLight} alt="" />
-    <img className="relay-render relay-dark" src={relayDark} alt="" />
+    <img className="relay-render" src={relay} alt="" />
     <span className="relay-badge"><Icon icon={relayIcons[state]} size={compact ? 'md' : 'lg'} /></span>
   </div>;
 }

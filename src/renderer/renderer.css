@@ -6,7 +6,7 @@
   color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   color: var(--swimmer-text, #19353c);
-  background: #dff3ef;
+  background: #f7f7fb;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -14,35 +14,60 @@
 
 * { box-sizing: border-box; }
 html, body, #root { min-width: 320px; height: 100%; margin: 0; }
-body { overflow: hidden; background: #dff3ef; }
+body { overflow: hidden; background: #f7f7fb; }
 button, input, select { font: inherit; }
 button, summary, input[type="checkbox"] { cursor: pointer; }
 button:disabled, input:disabled, select:disabled { cursor: default; }
 :focus-visible { outline: 3px solid var(--swimmer-focus); outline-offset: 3px; }
 input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--swimmer-accent); }
 
+/* Intelligent aura (Owner pick, 2026-10-25): a neutral canvas; colour lives in a
+ * spectral light behind the art. The aura is static gradients with no filter, so
+ * an idle window costs nothing to repaint; only progress turns the art's ring. */
 .claudesync-app {
+  --swimmer-text: #14141c; --swimmer-game-text: #14141c;
+  --swimmer-text-muted: #45455a; --swimmer-game-text-muted: #45455a;
+  --swimmer-accent: #8a5cff; --swimmer-game-accent: #8a5cff;
+  --swimmer-accent-ink: #5f38d6; --swimmer-game-accent-ink: #5f38d6;
+  --swimmer-focus: #7c4dff;
+  --swimmer-surface: #fbfbfe; --swimmer-surface-raised: #fff;
+  --swimmer-cta-from: #8a5cff; --swimmer-game-cta-from: #8a5cff;
+  --swimmer-cta-to: #f0508f; --swimmer-game-cta-to: #f0508f;
+  --swimmer-cta-text: #fff; --swimmer-game-cta-text: #fff;
+  --cs-bg: #f7f7fb;
+  --cs-aura: radial-gradient(38% 48% at 30% 52%, rgb(106 216 255 / 62%), transparent 70%), radial-gradient(34% 44% at 42% 40%, rgb(176 107 255 / 55%), transparent 70%), radial-gradient(28% 38% at 24% 66%, rgb(255 122 200 / 50%), transparent 70%), radial-gradient(60% 18% at 50% 100%, rgb(255 176 90 / 42%), transparent 80%);
+  --cs-spectrum: #6ad8ff, #b06bff, #ff7ac8, #ffb05a, #6ad8ff;
   --cs-muted: color-mix(in srgb, var(--swimmer-text) 66%, transparent);
   --cs-faint: color-mix(in srgb, var(--swimmer-text) 46%, transparent);
-  --cs-glass: color-mix(in srgb, var(--swimmer-surface-raised) 72%, transparent);
-  --cs-card: color-mix(in srgb, var(--swimmer-surface-raised) 90%, transparent);
+  --cs-glass: rgb(255 255 255 / 76%);
+  --cs-card: rgb(255 255 255 / 90%);
+  --cs-pill: rgb(255 255 255 / 85%);
   --cs-tint: color-mix(in srgb, var(--swimmer-accent-ink) 7%, transparent);
   --cs-tint-strong: color-mix(in srgb, var(--swimmer-accent-ink) 12%, transparent);
   --cs-select: color-mix(in srgb, var(--swimmer-accent) 13%, transparent);
   --cs-hairline: color-mix(in srgb, var(--swimmer-text) 8%, transparent);
-  --cs-shadow: 0 1px 2px rgb(16 58 70 / 5%), 0 14px 36px rgb(16 58 70 / 9%);
+  --cs-shadow: 0 1px 2px rgb(30 26 60 / 5%), 0 14px 36px rgb(30 26 60 / 9%);
   --cs-radius: 24px;
   height: 100%;
   color: var(--swimmer-text);
-  background: var(--swimmer-module-local);
+  background: var(--cs-bg);
 }
 .claudesync-app.theme-dark {
-  --cs-glass: color-mix(in srgb, var(--swimmer-surface-raised) 62%, transparent);
-  --cs-card: color-mix(in srgb, var(--swimmer-surface) 92%, transparent);
+  --swimmer-text: #f4f4fa; --swimmer-game-text: #f4f4fa;
+  --swimmer-text-muted: #bcbcd0; --swimmer-game-text-muted: #bcbcd0;
+  --swimmer-accent: #a98bff; --swimmer-game-accent: #a98bff;
+  --swimmer-accent-ink: #cdbdff; --swimmer-game-accent-ink: #cdbdff;
+  --swimmer-focus: #cdbdff;
+  --swimmer-surface: #14141c; --swimmer-surface-raised: #1c1c27;
+  --cs-bg: #0b0b10;
+  --cs-aura: radial-gradient(38% 48% at 30% 52%, rgb(26 168 230 / 50%), transparent 70%), radial-gradient(34% 44% at 42% 40%, rgb(122 53 232 / 55%), transparent 70%), radial-gradient(28% 38% at 24% 66%, rgb(224 64 154 / 45%), transparent 70%), radial-gradient(60% 18% at 50% 100%, rgb(224 122 32 / 38%), transparent 80%);
+  --cs-glass: rgb(255 255 255 / 7%);
+  --cs-card: rgb(28 28 39 / 92%);
+  --cs-pill: rgb(255 255 255 / 10%);
   --cs-tint: color-mix(in srgb, var(--swimmer-accent-ink) 10%, transparent);
   --cs-tint-strong: color-mix(in srgb, var(--swimmer-accent-ink) 16%, transparent);
   --cs-select: color-mix(in srgb, var(--swimmer-accent) 22%, transparent);
-  --cs-shadow: 0 1px 2px rgb(0 0 0 / 18%), 0 18px 40px rgb(0 0 0 / 24%);
+  --cs-shadow: 0 1px 2px rgb(0 0 0 / 18%), 0 18px 40px rgb(0 0 0 / 34%);
 }
 .claudesync-app .game-ui-shell, .claudesync-app .game-ui-shell *, .claudesync-app .game-ui-page-surface, .claudesync-app .game-ui-page-surface * { font-family: inherit; }
 
@@ -68,20 +93,25 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .claudesync-app .game-ui-button--ghost { --swimmer-paint-fill: transparent; color: var(--swimmer-accent-ink); }
 .claudesync-app .game-ui-button--ghost:hover:not(:disabled) { --swimmer-paint-fill: var(--cs-tint); }
 
-/* Shell: the app window is the shell; the sidebar is frosted glass. */
-.claudesync-shell.game-ui-shell[data-tool-shell="true"] { height: 100%; min-height: 0; border-radius: 0; box-shadow: none; }
-.claudesync-shell .game-ui-shell-main { min-height: 0; }
-.claudesync-shell .game-ui-shell-sidebar { gap: 0; padding: 46px 14px 18px; -webkit-app-region: drag; }
+/* Shell: one canvas under sidebar and page, so the aura crosses the seam. */
+.claudesync-shell.game-ui-shell[data-tool-shell="true"] { height: 100%; min-height: 0; border-radius: 0; box-shadow: none; background: var(--cs-aura), var(--cs-bg); }
+.claudesync-shell .game-ui-shell-main { min-height: 0; background: transparent; }
+.claudesync-shell .game-ui-shell-sidebar { gap: 0; padding: 46px 14px 18px; background: transparent; backdrop-filter: none; -webkit-app-region: drag; }
 .claudesync-shell .game-ui-shell-sidebar :is(button, a, summary) { -webkit-app-region: no-drag; }
 .claudesync-shell .game-ui-shell-sidebar nav { display: grid; gap: 2px; width: 100%; }
 .claudesync-shell .game-ui-shell-sidebar nav > button { min-height: 40px; padding: 8px 12px; border-radius: 10px; color: var(--cs-muted); font-size: 15px; font-weight: 500; }
-.claudesync-shell .game-ui-shell-sidebar nav > button .game-ui-icon { width: 18px; height: 18px; }
 .claudesync-shell .game-ui-shell-sidebar nav > button:hover { color: var(--swimmer-text); background: var(--cs-tint); }
-.claudesync-shell .game-ui-shell-sidebar nav > button[data-current="true"] { color: var(--swimmer-text); background: var(--cs-glass); box-shadow: 0 1px 2px rgb(16 58 70 / 6%); font-weight: 650; }
+.claudesync-shell .game-ui-shell-sidebar nav > button[data-current="true"] { color: var(--swimmer-text); background: var(--cs-pill); box-shadow: 0 4px 14px rgb(30 26 60 / 8%); font-weight: 650; }
 .claudesync-shell .game-ui-shell-sidebar nav > button:disabled { opacity: .5; }
+/* Glossy tiles: each icon is a small lit object in one stop of the spectrum. */
+.claudesync-shell .game-ui-shell-sidebar nav > button .game-ui-icon, .home-scope-list li > .game-ui-icon, .mobile-nav-links button .game-ui-icon { --a: #7be4ff; --b: #8a5cff; box-sizing: border-box; width: 26px; height: 26px; padding: 5px; border-radius: 8px; color: #fff; background: linear-gradient(150deg, var(--a), var(--b)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%), inset 0 -2px 4px rgb(0 0 0 / 16%), 0 3px 8px color-mix(in srgb, var(--b) 35%, transparent); }
+.claudesync-shell .game-ui-shell-sidebar nav > button:nth-child(2) .game-ui-icon, .home-scope-list li:nth-child(2) > .game-ui-icon, .mobile-nav-links button:nth-child(2) .game-ui-icon { --a: #c08bff; --b: #f0508f; }
+.claudesync-shell .game-ui-shell-sidebar nav > button:nth-child(3) .game-ui-icon, .home-scope-list li:nth-child(3) > .game-ui-icon, .mobile-nav-links button:nth-child(3) .game-ui-icon { --a: #ffc06a; --b: #ff6a9e; }
+.claudesync-shell .shell-sidebar-bottom > button:nth-child(1) .game-ui-icon { --a: #ffd08a; --b: #ff8a5a; }
+.claudesync-shell .shell-sidebar-bottom > button:nth-child(2) .game-ui-icon { --a: #b8b8cc; --b: #6c6c84; }
 .shell-brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 26px; }
 .shell-brand strong { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
-.shell-brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: #fff; background: linear-gradient(145deg, #2fd3c9, #149f9d); box-shadow: inset 0 1px 0 rgb(255 255 255 / 35%); }
+.shell-brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: #fff; background: linear-gradient(150deg, #7be4ff, #9b6bff 55%, #ff6ac0); box-shadow: inset 0 1px 0 rgb(255 255 255 / 50%), 0 3px 10px rgb(155 107 255 / 35%); }
 .shell-brand-mark .game-ui-icon { width: 16px; height: 16px; }
 .shell-sidebar-bottom { margin-top: auto; }
 .claudesync-shell .game-ui-shell-window-bar { flex-basis: 52px; padding: 0 20px; -webkit-app-region: drag; }
@@ -115,7 +145,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .home-art .relay-art { width: min(500px, 100%); }
 .home-scope-list { grid-area: list; display: grid; gap: 18px; margin: 34px 0 0; padding: 0; list-style: none; }
 .home-scope-list li { display: flex; align-items: flex-start; gap: 14px; }
-.home-scope-list li > .game-ui-icon { width: 20px; height: 20px; margin-top: 1px; color: var(--swimmer-accent-ink); opacity: .8; flex: none; }
+.home-scope-list li > .game-ui-icon { width: 32px; height: 32px; padding: 7px; border-radius: 10px; margin-top: -4px; flex: none; }
 .home-scope-list li > span { display: grid; gap: 2px; min-width: 0; }
 .home-scope-list strong { font-size: 15px; font-weight: 600; }
 .home-scope-list small { max-width: 34ch; color: var(--cs-muted); font-size: 14px; line-height: 1.5; }
@@ -126,24 +156,30 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .hero-actions .game-ui-button .game-ui-icon { width: 22px; height: 22px; }
 .hero-actions small, .results-cta small { color: var(--cs-muted); font-size: 14px; }
 
-.relay-art { position: relative; isolation: isolate; width: 600px; max-width: 100%; aspect-ratio: 1; margin: 0 auto; filter: drop-shadow(0 24px 22px var(--swimmer-art-shadow, #21667a22)); }
-.relay-art::before { position: absolute; z-index: -2; content: ""; inset: 10% -7% 4%; border-radius: 50%; background: radial-gradient(ellipse at 50% 55%, var(--swimmer-art-halo, #2dd4bf40), transparent 66%); filter: blur(22px); }
-.relay-art::after { position: absolute; z-index: -1; content: ""; right: 14%; bottom: 2%; left: 22%; height: 6%; border-radius: 50%; background: var(--swimmer-art-shadow, #21667a22); filter: blur(17px); }
+/* The art sits in a soft spectral ring drawn with a mask, not a blur filter.
+ * Idle it is still; checking and syncing turn it (transform only); done pulls it in once. */
+.relay-art { position: relative; isolation: isolate; width: 600px; max-width: 100%; aspect-ratio: 1; margin: 0 auto; }
+.relay-art::before { position: absolute; z-index: -2; content: ""; inset: 2%; border-radius: 50%; background: conic-gradient(from 210deg, var(--cs-spectrum)); -webkit-mask: radial-gradient(closest-side, transparent 52%, #000 66%, rgb(0 0 0 / 35%) 82%, transparent 100%); mask: radial-gradient(closest-side, transparent 52%, #000 66%, rgb(0 0 0 / 35%) 82%, transparent 100%); opacity: .5; }
+.relay-art::after { position: absolute; z-index: -1; content: ""; right: 18%; bottom: 3%; left: 18%; height: 8%; border-radius: 50%; background: radial-gradient(closest-side, rgb(60 30 120 / 18%), transparent); }
+.theme-dark .relay-art::before { opacity: .62; }
+.theme-dark .relay-art::after { background: radial-gradient(closest-side, rgb(0 0 0 / 45%), transparent); }
 .relay-render { display: block; width: 100%; height: 100%; object-fit: contain; }
-.relay-dark { display: none; }
-[data-game-ui-theme="dark"] .relay-light { display: none; }
-[data-game-ui-theme="dark"] .relay-dark { display: block; }
-.relay-badge { position: absolute; right: 12%; bottom: 12%; display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid #ecfffa9c; border-radius: 24px; color: #085345; background: linear-gradient(145deg, #e2fffa, #68ded0); box-shadow: 0 8px 16px #053e6240, inset 0 2px 2px #fff9; transform: rotate(-7deg); }
+.relay-badge { position: absolute; right: 12%; bottom: 12%; display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid rgb(255 255 255 / 90%); border-radius: 24px; color: var(--swimmer-accent-ink); background: rgb(255 255 255 / 80%); box-shadow: 0 10px 24px rgb(90 60 200 / 22%), inset 0 2px 2px #fff; transform: rotate(-7deg); }
+.theme-dark .relay-badge { border-color: rgb(255 255 255 / 18%); background: rgb(40 36 60 / 82%); box-shadow: 0 10px 24px rgb(0 0 0 / 40%), inset 0 1px 0 rgb(255 255 255 / 18%); }
 .relay-badge .game-ui-icon { width: 36px; height: 36px; stroke-width: 2; }
-.relay-art[data-relay-state="complete"] .relay-badge { color: #073e35; background: linear-gradient(145deg, #b0f5d2, #29c799); }
-.relay-art[data-relay-state="attention"] .relay-badge { color: #694206; background: linear-gradient(145deg, #ffe6b5, #f2b84c); }
-.relay-art[data-relay-state="scanning"] .relay-badge .game-ui-icon,
-.relay-art[data-relay-state="syncing"] .relay-badge .game-ui-icon { animation: relay-turn 3s linear infinite; }
+/* Idle needs no status chip: the art alone says what the app is. */
+.relay-art[data-relay-state="ready"] .relay-badge { display: none; }
+.relay-art[data-relay-state="complete"] .relay-badge { color: var(--swimmer-success); }
+.relay-art[data-relay-state="attention"] .relay-badge { color: var(--swimmer-warning); }
+.relay-art:is([data-relay-state="scanning"], [data-relay-state="syncing"])::before { opacity: .8; animation: relay-turn 6s linear infinite; }
+.relay-art:is([data-relay-state="scanning"], [data-relay-state="syncing"]) .relay-badge .game-ui-icon { animation: relay-turn 3s linear infinite; }
+.relay-art[data-relay-state="complete"]::before { animation: relay-gather var(--swimmer-motion-settle) ease-out 1; }
 .relay-art[data-celebrate="true"] { animation: relay-settle var(--swimmer-motion-settle) ease-out 1; }
 .relay-art--compact { width: 260px; }
 .relay-art--compact .relay-badge { width: 54px; height: 54px; border-radius: 18px; }
 .relay-art--compact .relay-badge .game-ui-icon { width: 28px; height: 28px; }
 @keyframes relay-turn { to { transform: rotate(360deg); } }
+@keyframes relay-gather { from { opacity: .9; transform: scale(1.18); } }
 @keyframes relay-settle { 0% { transform: scale(.86) rotate(-4deg); } 70% { transform: scale(1.02); } 100% { transform: scale(1); } }
 
 /* Results: four calm tiles, one big action under them. */
@@ -153,7 +189,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .stage-surface--results .game-ui-page-surface-content { align-content: center; padding-bottom: 6vh; }
 .results-body { display: grid; gap: 28px; }
 .summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.summary-card { position: relative; display: flex; flex-direction: column; border-radius: var(--cs-radius); background: var(--cs-glass); box-shadow: var(--cs-shadow); backdrop-filter: blur(18px); transition: transform var(--swimmer-motion-fast) ease, background var(--swimmer-motion-fast) ease; }
+.summary-card { position: relative; display: flex; flex-direction: column; border-radius: var(--cs-radius); background: var(--cs-glass); box-shadow: var(--cs-shadow); transition: transform var(--swimmer-motion-fast) ease, background var(--swimmer-motion-fast) ease; }
 .summary-card:hover { background: var(--cs-card); }
 .summary-card-main { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 18px; width: 100%; min-height: 128px; padding: 24px 28px; border: 0; border-radius: inherit; color: inherit; background: transparent; text-align: left; }
 .summary-card-copy { display: grid; gap: 6px; min-width: 0; }
@@ -186,7 +222,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .state-stage > p { max-width: 50ch; margin: 0; color: var(--cs-muted); font-size: 16px; }
 .state-stage > small { margin-top: 10px; color: var(--cs-faint); font-size: 13px; }
 .liquid-progress { position: relative; width: min(340px, 82vw); height: 8px; margin: 10px 0 18px; overflow: hidden; border-radius: 999px; background: var(--cs-tint-strong); }
-.liquid-progress span { display: block; width: 42%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--swimmer-cta-from), var(--swimmer-cta-to)); animation: progress-tide var(--swimmer-motion-progress) ease-in-out infinite; }
+.liquid-progress span { display: block; width: 42%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6ad8ff, #b06bff, #ff7ac8, #ffb05a); animation: progress-tide var(--swimmer-motion-progress) ease-in-out infinite; }
 .liquid-progress--wide { width: min(420px, 82vw); }
 @keyframes progress-tide { 50% { transform: translateX(138%); } }
 
@@ -248,7 +284,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .more-actions > summary::after { transform: translateY(2px) rotate(-135deg); }
 .filter-drawer > summary::-webkit-details-marker, .selection-menu > summary::-webkit-details-marker, .more-actions > summary::-webkit-details-marker { display: none; }
 .filter-drawer > summary:hover, .selection-menu > summary:hover, .more-actions > summary:hover, .filter-drawer[open] > summary, .selection-menu[open] > summary, .more-actions[open] > summary { background: var(--cs-tint); }
-.filter-drawer > div, .selection-menu > div, .more-actions > div { position: absolute; z-index: 20; display: grid; gap: 2px; padding: 8px; border-radius: 16px; background: var(--swimmer-surface-raised); box-shadow: 0 2px 6px rgb(16 58 70 / 8%), 0 20px 48px rgb(16 58 70 / 18%); }
+.filter-drawer > div, .selection-menu > div, .more-actions > div { position: absolute; z-index: 20; display: grid; gap: 2px; padding: 8px; border-radius: 16px; background: var(--swimmer-surface-raised); box-shadow: 0 2px 6px rgb(30 26 60 / 8%), 0 20px 48px rgb(30 26 60 / 18%); }
 .filter-drawer > div { top: calc(100% + 6px); right: 0; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 330px; padding: 14px; }
 .selection-menu > div { top: calc(100% + 6px); left: 0; min-width: 220px; }
 .more-actions > div { right: 0; bottom: calc(100% + 10px); min-width: 200px; }
@@ -275,7 +311,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .session-details > summary { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 6px 8px; border-radius: 10px; list-style: none; }
 .session-details > summary::-webkit-details-marker { display: none; }
 .session-details > summary:hover, .session-details[open] > summary { color: var(--swimmer-accent-ink); background: var(--cs-tint); }
-.session-details > div { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; width: min(440px, calc(100vw - 64px)); max-height: min(48vh, 420px); overflow: auto; padding: 16px; border-radius: 16px; color: var(--swimmer-text); background: var(--swimmer-surface-raised); box-shadow: 0 2px 6px rgb(16 58 70 / 8%), 0 20px 48px rgb(16 58 70 / 18%); line-height: 1.6; }
+.session-details > div { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; width: min(440px, calc(100vw - 64px)); max-height: min(48vh, 420px); overflow: auto; padding: 16px; border-radius: 16px; color: var(--swimmer-text); background: var(--swimmer-surface-raised); box-shadow: 0 2px 6px rgb(30 26 60 / 8%), 0 20px 48px rgb(30 26 60 / 18%); line-height: 1.6; }
 .session-details p { margin: 0 0 5px; overflow-wrap: anywhere; }
 .session-detail-reason { display: grid; gap: 4px; color: var(--swimmer-warning); }
 .presence-detail { display: grid; gap: 3px; margin-top: 10px; padding-top: 10px; box-shadow: 0 -1px 0 var(--cs-hairline); }
@@ -369,9 +405,9 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .claudesync-app .game-ui-callout > .game-ui-droplet { display: none; }
 
 /* Dialogs. */
-.review-dialog { width: min(720px, calc(100% - 32px)); max-height: 86vh; padding: 0; border: 0; border-radius: 26px; overflow: auto; color: var(--swimmer-text); background: var(--swimmer-surface-raised); box-shadow: 0 30px 80px rgb(10 40 50 / 28%); }
+.review-dialog { width: min(720px, calc(100% - 32px)); max-height: 86vh; padding: 0; border: 0; border-radius: 26px; overflow: auto; color: var(--swimmer-text); background: var(--swimmer-surface-raised); box-shadow: 0 30px 80px rgb(20 16 40 / 28%); }
 .review-dialog:focus { outline: none; }
-.review-dialog::backdrop { background: color-mix(in srgb, #0d2a30 28%, transparent); backdrop-filter: blur(6px); }
+.review-dialog::backdrop { background: color-mix(in srgb, #14121f 28%, transparent); backdrop-filter: blur(6px); }
 .review-dialog > .game-ui-panel { gap: 4px; padding: 28px 30px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .panel-heading { margin: 0 0 10px; font-size: 22px; font-weight: 750; letter-spacing: -.01em; }
 .panel-intro { margin: 0 0 16px; color: var(--cs-muted); font-size: 14px; line-height: 1.7; }

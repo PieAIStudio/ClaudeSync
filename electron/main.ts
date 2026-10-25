@@ -49,7 +49,7 @@ function registerIpc(): void {
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1240, height: 860, minWidth: 740, minHeight: 600, show: false,
-    backgroundColor: '#dff3ef', title: 'ClaudeSync',
+    backgroundColor: '#f7f7fb', title: 'ClaudeSync',
     // The frosted sidebar runs under the traffic lights, like native Mac tools.
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 18, y: 18 } } : {}),
     webPreferences: { preload: join(__dirname, '../preload/index.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
