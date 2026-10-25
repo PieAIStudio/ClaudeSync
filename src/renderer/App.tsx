@@ -5,7 +5,7 @@ import { I18nProvider, getInitialLocale, locales, useTranslation } from './i18n'
 import type { AppLocale, TranslationKey } from './i18n';
 import { SESSION_GROUPS, type OldCleanupPreview, type OperationPreview, type OperationRequest, type SessionGroup, type SessionView } from '../shared/contracts';
 import { sessionsInGroup } from './session-groups';
-import { AccountSidebar, CollapsedSessionGroup, DeleteConfirmation, Modal, OperationReview, Panel, SessionRows, SkippedEntriesNotice, accountName, groupLabels } from './components';
+import { AccountSidebar, CollapsedSessionGroup, DeleteConfirmation, FolderSetting, Modal, OperationReview, Panel, SessionRows, SkippedEntriesNotice, accountName, groupLabels } from './components';
 import { filterSessions, type SessionFilter } from './session-selection';
 import { useWorkspace } from './useWorkspace';
 import { deletionSelection, type DeleteSelection } from './deletion-selection';
@@ -426,7 +426,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       {!model.api && <Callout tone="warning">{t.t('needDesktop')}</Callout>}
       <div className="settings-grid">
         <Panel title={t.t('preferences')} className="settings-card"><label><span>{t.t('language')}</span><Select value={locale} onChange={(event) => onLocale(event.target.value as AppLocale)}>{locales.map((code) => <option key={code} value={code}>{languageNames[code]}</option>)}</Select></label><Toggle checked={compact} label={t.t('compactList')} onClick={() => setCompact((value) => !value)} /><Toggle checked={reducedMotion} label={t.t('reduceMotion')} onClick={() => setReducedMotion((value) => !value)} /></Panel>
-        <Panel title={t.t('foldersTitle')} className="settings-card"><div className="settings-path"><span>{t.t('indexFolder')}</span><code>{sessionRoot}</code></div><Button variant="secondary" static disabled={busy} onClick={() => void model.chooseDirectory().then((path) => { if (path) setSessionRoot(path); })}>{t.t('chooseFolder')}</Button><div className="settings-path"><span>{t.t('transcriptFolder')}</span><code>{projectsRoot}</code></div><Button variant="secondary" static disabled={busy} onClick={() => void model.chooseDirectory().then((path) => { if (path) setProjectsRoot(path); })}>{t.t('chooseFolder')}</Button><p className="settings-note">{t.t('localOnly')}</p></Panel>
+        <Panel title={t.t('foldersTitle')} className="settings-card"><FolderSetting label={t.t('indexFolder')} path={sessionRoot} busy={busy} onChoose={() => void model.chooseDirectory().then((path) => { if (path) setSessionRoot(path); })} /><FolderSetting label={t.t('transcriptFolder')} path={projectsRoot} busy={busy} onChoose={() => void model.chooseDirectory().then((path) => { if (path) setProjectsRoot(path); })} /><p className="settings-note">{t.t('localOnly')}</p></Panel>
         <Panel title={t.t('about')} className="settings-card settings-card--about"><p><strong>{t.t('caption')}</strong> · {t.t('offlineSample')}</p><p>{t.t('cloudBody')}</p><p>{info?.version ? `ClaudeSync ${info.version}` : 'ClaudeSync'}</p></Panel>
       </div>
     </PageSurface>;

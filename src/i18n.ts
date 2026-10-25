@@ -75,6 +75,7 @@ const messages = {
   foldersTitle: ['找到 Code 会话', 'Find your Code sessions', 'Code セッションを探す', 'Encuentra tus sesiones de Code', 'Encontre suas sessões de Code'],
   indexFolder: ['Code 会话列表文件夹', 'Code session list folder', 'Code セッション一覧フォルダー', 'Carpeta de listas de Code', 'Pasta das listas de Code'],
   transcriptFolder: ['Code 会话正文文件夹', 'Code transcript folder', 'Code 会話本文フォルダー', 'Carpeta de conversaciones de Code', 'Pasta das conversas de Code'],
+  notSet: ['还没选', 'Not chosen yet', '未選択', 'Sin elegir', 'Ainda não escolhida'],
   chooseFolder: ['选择文件夹', 'Choose folder', '選択', 'Elegir carpeta', 'Escolher pasta'],
   saveFolders: ['保存并检查', 'Save and check', '保存して確認', 'Guardar y comprobar', 'Salvar e verificar'],
   accounts: ['账号', 'Accounts', 'アカウント', 'Cuentas', 'Contas'],

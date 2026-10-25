@@ -364,11 +364,13 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .settings-card.game-ui-panel { display: grid; gap: 14px; padding: 22px 24px; border: 0; border-radius: 20px; background: var(--cs-card); box-shadow: var(--cs-shadow); }
 .settings-card .panel-heading { margin: 0 0 2px; font-size: 13px; font-weight: 650; color: var(--cs-faint); letter-spacing: .02em; }
 .settings-card label { display: grid; grid-template-columns: minmax(120px, .4fr) minmax(0, 1fr); align-items: center; gap: 16px; color: var(--swimmer-text); font-size: 15px; }
-.settings-path { display: grid; grid-template-columns: minmax(120px, .4fr) minmax(0, 1fr); align-items: center; gap: 16px; font-size: 15px; }
-.settings-path code { padding: 10px 14px; border-radius: 12px; color: var(--swimmer-text); background: var(--cs-tint); font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; user-select: text; }
+.settings-path { display: grid; grid-template-columns: minmax(120px, .4fr) minmax(0, 1fr) auto; align-items: center; gap: 16px; font-size: 15px; }
+.settings-path-value { display: grid; gap: 2px; min-width: 0; padding: 10px 14px; border-radius: 12px; background: var(--cs-tint); }
+.settings-path-value strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.settings-path-value code { color: var(--cs-muted); font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; user-select: text; }
 .settings-card input, .settings-card select { width: 100%; min-height: 38px; border-radius: 10px; font-size: 14px; }
 .settings-card input[readonly] { color: var(--cs-muted); font-size: 13px; }
-.settings-card .game-ui-button { justify-self: end; width: auto; min-width: 120px; margin-top: -6px; }
+.settings-card .game-ui-button { justify-self: end; width: auto; min-width: 120px; }
 .settings-card .game-ui-toggle { --swimmer-paint-fill: transparent; justify-content: space-between; width: 100%; min-height: 38px; padding: 0; color: var(--swimmer-text); font-size: 15px; font-weight: 400; }
 .settings-card .game-ui-toggle-track { width: 40px; height: 24px; border: 0; background: var(--cs-tint-strong); transition: background var(--swimmer-motion-fast) ease; }
 .settings-card .game-ui-toggle[aria-checked="true"] .game-ui-toggle-track { background: var(--swimmer-accent); }
@@ -485,6 +487,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
   .review-tools input { width: 100%; }
   .review-footer-actions { flex-wrap: wrap; }
   .settings-card label, .settings-path { grid-template-columns: 1fr; gap: 6px; }
+  .settings-path .game-ui-button { justify-self: start; }
 }
 
 @media (max-width: 560px) {

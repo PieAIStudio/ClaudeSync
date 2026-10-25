@@ -42,6 +42,17 @@ export function Modal({ title, lead, actions, children, onClose, busy = false }:
   </dialog>;
 }
 
+/** One folder per row: its name first, the full path under it, and the chooser beside it. */
+export function FolderSetting({ label, path, busy, onChoose }: { label: string; path: string; busy: boolean; onChoose(): void }) {
+  const t = useTranslation();
+  const name = path.split(/[\\/]/).filter(Boolean).at(-1);
+  return <div className="settings-path">
+    <span>{label}</span>
+    <div className="settings-path-value">{path ? <><strong>{name ?? path}</strong><code title={path}>{path}</code></> : <strong>{t.t('notSet')}</strong>}</div>
+    <Button variant="secondary" static disabled={busy} onClick={onChoose}>{t.t('chooseFolder')}</Button>
+  </div>;
+}
+
 export function accountName(account: AccountView | undefined, t: ReturnType<typeof useTranslation>): string {
   return account?.email ?? t.t('unknown', { id: account?.id.slice(0, 8) ?? '?' });
 }
