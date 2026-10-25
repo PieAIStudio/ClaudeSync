@@ -182,6 +182,7 @@ const messages = {
   backupTitle: ['备份与恢复', 'Backups and recovery', 'バックアップと復元', 'Copias y recuperación', 'Backups e recuperação'],
   backupBody: ['恢复前也会预览并备份。Code 会话后来又改过时，会停下来，避免盖掉新内容。', 'Restores also have a preview and backup. Later edits block restoration to protect new content.', '復元も事前確認とバックアップ。後の変更は上書きしません。', 'La recuperación también tiene revisión y copia. Si hubo cambios posteriores, se detiene.', 'A recuperação também tem revisão e backup. Edições posteriores bloqueiam a restauração.'],
   noBackups: ['还没有新版操作备份。旧备份可在文件夹中查看。', 'No new operation backups yet. Older backups remain in the folder.', '新版のバックアップなし。旧版はフォルダー内に保持。', 'Aún no hay copias nuevas. Las anteriores siguen en la carpeta.', 'Ainda não há backups novos. Os anteriores estão na pasta.'],
+  backupFiles: ['{count} 个文件', '{count} files', '{count} ファイル', '{count} archivos', '{count} arquivos'],
   restore: ['恢复这个备份', 'Restore this backup', 'このバックアップを復元', 'Recuperar esta copia', 'Recuperar este backup'],
   openBackups: ['打开备份文件夹', 'Open backup folder', 'フォルダーを開く', 'Abrir carpeta de copias', 'Abrir pasta de backups'],
   interrupted: ['未完成，可恢复已改部分', 'Interrupted; changed files can be restored', '中断。変更済み分を復元可能', 'Interrumpida; cambios recuperables', 'Interrompido; mudanças recuperáveis'],
