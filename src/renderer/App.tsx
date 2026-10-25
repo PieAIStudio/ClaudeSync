@@ -427,7 +427,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       <div className="settings-grid">
         <Panel title={t.t('preferences')} className="settings-card"><label><span>{t.t('language')}</span><Select value={locale} onChange={(event) => onLocale(event.target.value as AppLocale)}>{locales.map((code) => <option key={code} value={code}>{languageNames[code]}</option>)}</Select></label><Toggle checked={compact} label={t.t('compactList')} onClick={() => setCompact((value) => !value)} /><Toggle checked={reducedMotion} label={t.t('reduceMotion')} onClick={() => setReducedMotion((value) => !value)} /></Panel>
         <Panel title={t.t('foldersTitle')} className="settings-card"><FolderSetting label={t.t('indexFolder')} path={sessionRoot} busy={busy} onChoose={() => void model.chooseDirectory().then((path) => { if (path) setSessionRoot(path); })} /><FolderSetting label={t.t('transcriptFolder')} path={projectsRoot} busy={busy} onChoose={() => void model.chooseDirectory().then((path) => { if (path) setProjectsRoot(path); })} /><p className="settings-note">{t.t('localOnly')}</p></Panel>
-        <Panel title={t.t('about')} className="settings-card settings-card--about"><p><strong>{t.t('caption')}</strong> · {t.t('offlineSample')}</p><p>{t.t('cloudBody')}</p><p>{info?.version ? `ClaudeSync ${info.version}` : 'ClaudeSync'}</p></Panel>
+        <Panel title={t.t('about')} className="settings-card settings-card--about"><p><strong>{t.t('caption')}</strong> · {t.t('offlineSample')}</p><p>{info?.version ? `ClaudeSync ${info.version}` : 'ClaudeSync'}</p></Panel>
       </div>
     </PageSurface>;
   }
