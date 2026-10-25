@@ -408,32 +408,38 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .claudesync-app .game-ui-callout > .game-ui-droplet { display: none; }
 
 /* Dialogs. */
-.review-dialog { width: min(720px, calc(100% - 32px)); max-height: 86vh; padding: 0; border: 0; border-radius: 26px; overflow: auto; color: var(--swimmer-text); background: var(--swimmer-surface-raised); box-shadow: 0 30px 80px rgb(20 16 40 / 28%); }
+.review-dialog { width: min(680px, calc(100% - 32px)); max-height: 86vh; padding: 0; border: 0; border-radius: 26px; color: var(--swimmer-text); background: var(--swimmer-surface-raised); box-shadow: 0 30px 80px rgb(20 16 40 / 28%); }
+/* Head and footer stay put; only the body scrolls. */
+.review-dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 .review-dialog:focus { outline: none; }
 .review-dialog::backdrop { background: color-mix(in srgb, #14121f 28%, transparent); backdrop-filter: blur(6px); }
-.review-dialog > .game-ui-panel { gap: 4px; padding: 28px 30px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.dialog-head { display: grid; gap: 6px; padding: 26px 30px 18px; }
+.dialog-head h2 { margin: 0; font-size: 22px; font-weight: 750; letter-spacing: -.01em; }
+.dialog-head p { margin: 0; color: var(--cs-muted); font-size: 14px; line-height: 1.6; }
+.dialog-body { display: flex; flex-direction: column; gap: 14px; min-height: 0; padding: 0 30px 20px; overflow: auto; font-size: 14px; }
+.dialog-body > * { margin: 0; }
 .panel-heading { margin: 0 0 10px; font-size: 22px; font-weight: 750; letter-spacing: -.01em; }
-.panel-intro { margin: 0 0 16px; color: var(--cs-muted); font-size: 14px; line-height: 1.7; }
-.operation-name { margin: 6px 0 4px; font-size: 16px; }
-.review-targets { display: grid; gap: 4px; margin: 12px 0; padding: 12px 16px; border-radius: 14px; background: var(--cs-tint); overflow-wrap: anywhere; font-size: 14px; }
-.review-targets > strong { margin-bottom: 2px; color: var(--cs-faint); font-size: 13px; font-weight: 600; }
-.review-selection { margin-top: 14px; font-size: 14px; }
-.review-selection > summary { color: var(--swimmer-accent-ink); font-weight: 600; }
-.review-selection > ul { max-height: 24vh; margin: 10px 0 0; padding: 0 12px; overflow: auto; list-style: none; }
-.review-selection li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 5px 0; }
-.review-selection strong { overflow-wrap: anywhere; }
-.review-selection small, .review-changes small { color: var(--cs-faint); }
-.review-changes h3, .title-conflicts h3 { margin: 20px 0 8px; color: var(--cs-faint); font-size: 13px; font-weight: 650; }
+.panel-intro { color: var(--cs-muted); line-height: 1.7; }
+.review-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 18px; padding: 14px 16px; border-radius: 14px; background: var(--cs-tint); }
+.review-facts dt { color: var(--cs-faint); font-weight: 600; }
+.review-facts dd { margin: 0; overflow-wrap: anywhere; }
+.review-accounts { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.review-changes h3, .title-conflicts h3 { margin: 0 0 8px; color: var(--cs-faint); font-size: 13px; font-weight: 650; }
 .review-changes ul, .cleanup-copy-list { margin: 0; padding: 0; list-style: none; }
 .review-changes li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; border-radius: 12px; }
 .review-changes li:nth-child(odd) { background: var(--cs-tint); }
 .review-changes li > span { display: grid; gap: 3px; min-width: 0; }
 .review-changes strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-.title-conflicts label { display: grid; gap: 6px; margin-bottom: 10px; font-size: 14px; }
+.review-changes small, .review-more small { color: var(--cs-faint); }
+.title-conflicts label { display: grid; gap: 6px; margin-bottom: 10px; }
 .title-conflicts select { width: 100%; }
-.review-skipped { margin-top: 14px; font-size: 14px; line-height: 1.7; }
-.dialog-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-.review-dialog .dialog-actions { position: sticky; bottom: 0; margin: 20px -30px 0; padding: 16px 30px 20px; background: var(--swimmer-surface-raised); box-shadow: 0 -1px 0 var(--cs-hairline); }
+.review-more { line-height: 1.7; }
+.review-more > summary { color: var(--swimmer-accent-ink); font-weight: 600; cursor: pointer; }
+.review-more > ul { margin: 8px 0 0; padding: 0 12px; list-style: none; }
+.review-more li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.review-more strong { overflow-wrap: anywhere; }
+.dialog-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 30px 20px; box-shadow: 0 -1px 0 var(--cs-hairline); }
+.dialog-actions .operation-warning { flex: 1; padding: 8px 12px; }
 .dialog-actions .game-ui-button { min-height: 46px; border-radius: 999px; }
 .rename-field { display: grid; gap: 10px; font-size: 14px; }
 .skipped-entries { margin-top: 12px; }
@@ -488,8 +494,10 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
   .summary-card-copy span { font-size: 13px; }
   .completion-list li { grid-template-columns: 22px minmax(0, 1fr); }
   .completion-list li > span { grid-column: 2; text-align: left; }
-  .review-dialog > .game-ui-panel { padding: 22px 20px 0; }
-  .review-dialog .dialog-actions { margin-inline: -20px; padding-inline: 20px; }
+  .dialog-head { padding: 22px 20px 14px; }
+  .dialog-body { padding-inline: 20px; }
+  .dialog-actions { flex-wrap: wrap; padding-inline: 20px; }
+  .dialog-actions .operation-warning { flex-basis: 100%; }
   .shell-feedback { right: 12px; bottom: 12px; width: calc(100vw - 24px); }
 }
 

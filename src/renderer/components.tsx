@@ -24,7 +24,10 @@ export function SkippedEntriesNotice({ paths }: { paths: string[] }) {
   </Callout></div>;
 }
 
-export function Modal({ title, children, onClose, busy = false }: { title: string; children: ReactNode; onClose(): void; busy?: boolean }) {
+/** A sheet with a fixed head and footer; only the body scrolls, so the actions and their warning never cover content. */
+export function Modal({ title, lead, actions, children, onClose, busy = false }: {
+  title: string; lead?: ReactNode; actions: ReactNode; children?: ReactNode; onClose(): void; busy?: boolean;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const element = dialog.current; element?.showModal();
@@ -33,7 +36,9 @@ export function Modal({ title, children, onClose, busy = false }: { title: strin
     return () => element?.close();
   }, []);
   return <dialog className="review-dialog" ref={dialog} tabIndex={-1} aria-label={title} onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
-    <Panel title={title}>{children}</Panel>
+    <header className="dialog-head"><h2>{title}</h2>{lead && <p>{lead}</p>}</header>
+    {children && <div className="dialog-body">{children}</div>}
+    <footer className="dialog-actions">{actions}</footer>
   </dialog>;
 }
 
@@ -46,18 +51,25 @@ export function DeleteConfirmation({ count, accountNames, state, group, source =
   busy: boolean; blocked?: boolean; onClose(): void; onDelete(): void;
 }) {
   const t = useTranslation();
-  return <Modal title={t.t('deleteConfirmTitle', { count })} onClose={onClose} busy={busy}>
-    <p className="panel-intro">{t.t(source === 'local' ? 'deleteLocalScope' : 'deleteCloudScope')}</p>
-    {group && <p>{t.t('groupScope', { group: t.t(groupLabels[group]) })}</p>}
-    <div className="review-targets"><strong>{t.t('targets')}</strong>{accountNames.map((name) => <span key={name}>{name}</span>)}</div>
+  return <Modal title={t.t('deleteConfirmTitle', { count })} lead={t.t(source === 'local' ? 'deleteLocalScope' : 'deleteCloudScope')} onClose={onClose} busy={busy}
+    actions={<>{blocked && <p className="operation-warning">{t.t('waiting')}</p>}
+      <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</Button>
+      <Button variant="danger" disabled={busy || blocked || count === 0} onClick={onDelete}>{t.t(busy ? 'deleting' : 'confirmDelete')}</Button></>}>
+    <ReviewFacts group={group} accountNames={accountNames} />
     <p className="operation-warning">{t.t('deleteNoRecovery')}</p>
     {source === 'local' && <p className="panel-intro">{t.t('scopedWriteCheck')}</p>}
     <p className="panel-intro">{t.t(source === 'local' && group === 'oldOrganization' ? 'oldDeleteAdvice' : state === 'archived' ? 'deleteArchivedAdvice' : state === 'mixed' ? 'deleteMixedAdvice' : 'deleteActiveAdvice')}</p>
-    {blocked && <p className="operation-warning">{t.t('waiting')}</p>}
-    <div className="dialog-actions"><Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</Button>
-      <Button variant="danger" disabled={busy || blocked || count === 0} onClick={onDelete}>{t.t(busy ? 'deleting' : 'confirmDelete')}</Button>
-    </div>
   </Modal>;
+}
+
+/** The scope of a write in one glance: action, group and every affected account. */
+function ReviewFacts({ action, group, accountNames }: { action?: string; group?: SessionGroup; accountNames: string[] }) {
+  const t = useTranslation();
+  return <dl className="review-facts">
+    {action && <><dt>{t.t('reviewAction')}</dt><dd>{action}</dd></>}
+    {group && <><dt>{t.t('reviewGroup')}</dt><dd>{t.t(groupLabels[group])}</dd></>}
+    <dt>{t.t('targets')}</dt><dd className="review-accounts">{accountNames.map((name) => <span key={name}>{name}</span>)}</dd>
+  </dl>;
 }
 
 export function reasonText(reason: string, t: ReturnType<typeof useTranslation>): string {
@@ -158,14 +170,12 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
 }) {
   const t = useTranslation();
   const actionKeys: Record<string, TranslationKey> = { update: 'update', add: 'add', title: 'title', archive: 'archive', unarchive: 'unarchive', delete: 'delete', star: 'star', unstar: 'unstar', restore: preview.kind === 'sync' ? 'clearDeletionNote' : 'restore' };
-  return <Modal title={t.t('previewTitle')} onClose={onClose} busy={busy}>
-    <p className="panel-intro">{t.t('previewBody')}</p>
-    <h3 className="operation-name">{t.t(preview.kind)}</h3>
-    {preview.group && <p>{t.t('groupScope', { group: t.t(groupLabels[preview.group]) })}</p>}
-    <div className="review-targets"><strong>{t.t('targets')}</strong>{preview.accountIds.map((id) => <span key={id}>{accountName(accounts.find((account) => account.id === id), t)}</span>)}</div>
-    {preview.selected.length > 0 && <details className="review-selection" open={preview.kind === 'keep'}><summary>{t.t('selectedCount', { count: preview.selected.length })}</summary>
-      <ul>{preview.selected.map((session) => <li key={session.id}><strong>{session.title || t.t('untitled')}</strong><small>{session.id.slice(0, 8)}</small></li>)}</ul>
-    </details>}
+  const unresolved = preview.progressConflicts?.some((item) => !item.resolved);
+  return <Modal title={t.t('previewTitle')} lead={t.t('previewBody')} onClose={onClose} busy={busy}
+    actions={<>{blocked && <p className="operation-warning">{t.t('waiting')}</p>}
+      <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</Button>
+      <Button variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0 || unresolved} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</Button></>}>
+    <ReviewFacts action={t.t(preview.kind)} group={preview.group} accountNames={preview.accountIds.map((id) => accountName(accounts.find((account) => account.id === id), t))} />
     {preview.kind === 'keep' && <p className="operation-warning">{t.t('keepWarning')}</p>}
     {preview.kind === 'sync' && <p className="panel-intro">{t.t('selectedSyncHelp')}</p>}
     <ProgressReview preview={preview} accounts={accounts} choices={contentChoices} busy={busy} onChoose={onChooseContent} />
@@ -176,16 +186,15 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
         </option>)}
       </select>
     </label>)}</section>}
-    {preview.fileCount === 0 ? <p>{t.t(preview.progressConflicts?.some((item) => !item.resolved) ? 'chooseVersion' : 'noChanges')}</p> : <div className="review-changes">
+    {preview.fileCount === 0 ? <p>{t.t(unresolved ? 'chooseVersion' : 'noChanges')}</p> : <section className="review-changes">
       <h3>{t.t('planned')}</h3><ul>{preview.changes.map((item, index) => <li key={`${item.accountId}-${item.sessionId}-${item.action}-${index}`}>
         <span><strong>{item.title || t.t('untitled')}</strong><small>{accountName(accounts.find((account) => account.id === item.accountId), t)}</small></span>
         <Badge tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</Badge>
       </li>)}</ul>
-    </div>}
-    {preview.skipped.length > 0 && <details className="review-skipped"><summary>{t.t('skipped')} ({preview.skipped.length})</summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>：{reasonText(item.reason, t)}</p>)}</details>}
-    {blocked && <p className="operation-warning">{t.t('waiting')}</p>}
-    <div className="dialog-actions"><Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</Button>
-      <Button variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0 || preview.progressConflicts?.some((item) => !item.resolved)} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</Button>
-    </div>
+    </section>}
+    {preview.selected.length > 0 && <details className="review-more" open={preview.kind === 'keep'}><summary>{t.t('selectedCount', { count: preview.selected.length })}</summary>
+      <ul>{preview.selected.map((session) => <li key={session.id}><strong>{session.title || t.t('untitled')}</strong><small>{session.id.slice(0, 8)}</small></li>)}</ul>
+    </details>}
+    {preview.skipped.length > 0 && <details className="review-more"><summary>{t.t('skipped')} ({preview.skipped.length})</summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>：{reasonText(item.reason, t)}</p>)}</details>}
   </Modal>;
 }

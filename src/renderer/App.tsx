@@ -466,7 +466,10 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
     {deleting && <DeleteConfirmation count={deleting.sessionIds.length} accountNames={deleting.names} state={deleting.state} group={deleting.group} busy={busy} onClose={() => setDeleting(undefined)}
       onDelete={() => { const request = deleting; setDeleting(undefined); void applyDeletion(request); }} />}
     {oldPreview && <OldCleanupDialog preview={oldPreview} busy={cleanupBusy} blocked={false} onClose={() => setOldPreview(undefined)} onConfirm={() => void confirmOldCopies()} />}
-    {renameOpen && <Modal title={t.t('rename')} onClose={() => setRenameOpen(false)} busy={busy}><label className="rename-field"><span>{t.t('titleInput')}</span><Input autoFocus value={newTitle} maxLength={500} onChange={(event) => setNewTitle(event.target.value)} /></label><div className="dialog-actions"><Button variant="secondary" static onClick={() => setRenameOpen(false)}>{t.t('back')}</Button><Button variant="primary" disabled={busy || !newTitle.trim()} onClick={() => { setRenameOpen(false); void action('rename', newTitle); }}>{t.t('previewRename')}</Button></div></Modal>}
+    {renameOpen && <Modal title={t.t('rename')} onClose={() => setRenameOpen(false)} busy={busy}
+      actions={<><Button variant="secondary" static onClick={() => setRenameOpen(false)}>{t.t('back')}</Button><Button variant="primary" disabled={busy || !newTitle.trim()} onClick={() => { setRenameOpen(false); void action('rename', newTitle); }}>{t.t('previewRename')}</Button></>}>
+      <label className="rename-field"><span>{t.t('titleInput')}</span><Input autoFocus value={newTitle} maxLength={500} onChange={(event) => setNewTitle(event.target.value)} /></label>
+    </Modal>}
   </div>;
 }
 
