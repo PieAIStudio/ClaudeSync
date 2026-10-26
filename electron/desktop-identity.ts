@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { app } from 'electron';
 import { isRecord, readRegularFile } from '../src/core/storage';
 import type { DesktopIdentityState } from '../src/shared/contracts';
+import { userError } from '../src/error-copy';
 
 export interface AccountIdentity { accountId: string; email: string; organizationId?: string }
 export interface DesktopIdentityCheck { state: DesktopIdentityState; identity?: AccountIdentity }
@@ -82,10 +83,10 @@ export interface SessionCredential {
 export function assertSessionCredential(credential: SessionCredential): void {
   const current = readLogin();
   if (!current || current.accountId !== credential.accountId || current.encryptedCache !== credential.login.encryptedCache
-    || credential.expiresAt <= Date.now()) throw new Error('Claude 当前登录或授权已变化，请重新检查云端 Code 会话。');
+    || credential.expiresAt <= Date.now()) throw userError('errorCredentialChanged');
 }
 export async function readSessionCredential(identity: AccountIdentity): Promise<SessionCredential> {
-  if (process.platform !== 'darwin' || !identity.organizationId) throw new Error('当前系统或登录资料暂不支持云端管理。');
+  if (process.platform !== 'darwin' || !identity.organizationId) throw userError('errorCloudUnsupported');
   try {
     const login = readLogin();
     if (!login || login.accountId !== identity.accountId) throw new Error('unavailable');
@@ -96,7 +97,7 @@ export async function readSessionCredential(identity: AccountIdentity): Promise<
     const credential = { ...selected, accountId: identity.accountId, login };
     assertSessionCredential(credential);
     return credential;
-  } catch { throw new Error('无法取得当前账号现有的 Code 云端授权。请在 Claude 登录后重新检查；程序不会创建或刷新授权。'); }
+  } catch { throw userError('errorCloudCredentialUnavailable'); }
 }
 
 // Read-only, one profile request. No token refresh, login flow, retries or credential writes.

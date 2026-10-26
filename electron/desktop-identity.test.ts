@@ -57,12 +57,12 @@ it('selects cloud session permission only for the verified account and organizat
   expect(mock.fetch).not.toHaveBeenCalled();
   expect(passwordBytes.every((byte) => byte === 0)).toBe(true);
   saveLogin({});
-  expect(() => assertSessionCredential(credential)).toThrow('已变化');
+  expect(() => assertSessionCredential(credential)).toThrow('claudesync-message:errorCredentialChanged');
 });
 
 it('refuses missing session scope and unknown wider permissions without credentials in its error', async () => {
   saveLogin({ [entryKey()]: validEntry(), [entryKey(ID_A, 'https://api.anthropic.com', 'user:profile user:sessions:claude_code user:admin')]: { ...validEntry(), token: 'fixture-secret-wider' } });
-  await expect(readSessionCredential({ accountId: ID_A, email: 'desktop@example.com', organizationId: ID_B })).rejects.toThrow('现有');
+  await expect(readSessionCredential({ accountId: ID_A, email: 'desktop@example.com', organizationId: ID_B })).rejects.toThrow('claudesync-message:errorCloudCredentialUnavailable');
   expect(mock.fetch).not.toHaveBeenCalled();
 });
 afterEach(() => { vi.unstubAllGlobals(); Object.defineProperty(process, 'platform', platform); rmSync(mock.root, { recursive: true, force: true }); });

@@ -4,6 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { configPath, configureFolders, savedRoots } from './accounts';
 import { applyOperation, availableBackups, checkWorkspace, cleanupOldCopies, deleteSelected, previewOldCopies, previewOperation, previewRestore } from './service';
 import { cloudSessions, deleteCloudSessions } from './cloud-sessions';
+import { userError } from '../src/error-copy';
 
 app.setName('ClaudeSync');
 if (!app.isPackaged && process.env.CLAUDESYNC_DATA_DIR) {
@@ -16,7 +17,7 @@ function registerIpc(): void {
   function handle(channel: string, handler: (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown) {
     ipcMain.handle(`claudesync:${channel}`, (event, ...args: unknown[]) => {
       const window = BrowserWindow.fromWebContents(event.sender);
-      if (!window || event.senderFrame !== event.sender.mainFrame) throw new Error('无效的窗口请求。');
+      if (!window || event.senderFrame !== event.sender.mainFrame) throw userError('errorInvalidWindow');
       return handler(event, ...args);
     });
   }

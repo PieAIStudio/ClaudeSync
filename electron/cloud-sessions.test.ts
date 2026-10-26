@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ID_A, ID_B, SCOPE_A } from '../tests/fixture';
 import type { AccountIdentity } from './desktop-identity';
+import { parseMessage } from '../src/error-copy';
 
 const state = vi.hoisted(() => ({ check: vi.fn(), credential: vi.fn(), assert: vi.fn(), fetch: vi.fn(), remember: vi.fn() }));
 vi.mock('./desktop-identity', () => ({ checkDesktopIdentity: state.check, readSessionCredential: state.credential, assertSessionCredential: state.assert }));
@@ -42,7 +43,7 @@ it('lists only the verified current account through fixed-origin read-only reque
 
 it('does not save an account or organization when the current profile cannot be verified', async () => {
   state.check.mockResolvedValue({ state: 'unavailable' });
-  await expect(cloudSessions()).rejects.toThrow('重新检查');
+  await expect(cloudSessions()).rejects.toThrow('claudesync-message:errorCloudLoginRequired');
   expect(state.remember).not.toHaveBeenCalled();
   expect(state.fetch).not.toHaveBeenCalled();
 });
@@ -58,7 +59,7 @@ it('deletes only confirmed IDs, verifies by independent readback, and consumes t
   expect(result).toMatchObject({ deleted: 2, requested: 2, workspace: { sessions: [{ id: C }] } });
   expect(result.issue).toBeUndefined();
   expect(mutations().map(([url]) => url)).toEqual([`https://api.anthropic.com/v1/code/sessions/${A}`, `https://api.anthropic.com/v1/code/sessions/${B}`]);
-  await expect(deleteCloudSessions([A], view.revision)).rejects.toThrow('过期');
+  await expect(deleteCloudSessions([A], view.revision)).rejects.toThrow('claudesync-message:errorCloudListExpired');
   expect(mutations()).toHaveLength(2);
 });
 
@@ -73,13 +74,13 @@ it.each(['account', 'organization', 'signed out'])('refuses cloud deletion after
 it('refuses changed titles/archive state, unknown IDs, running records and task templates before writing', async () => {
   const view = await cloudSessions();
   state.fetch.mockResolvedValueOnce(list([row(A, { title: 'newer title' })]));
-  await expect(deleteCloudSessions([A], view.revision)).rejects.toThrow('已经变化');
+  await expect(deleteCloudSessions([A], view.revision)).rejects.toThrow('claudesync-message:errorCloudSelectionChanged');
   const current = await cloudSessions();
-  await expect(deleteCloudSessions([B], current.revision)).rejects.toThrow('选择包含');
+  await expect(deleteCloudSessions([B], current.revision)).rejects.toThrow('claudesync-message:errorCloudSelectionUnsupported');
   state.fetch.mockResolvedValueOnce(list([row(A, { worker_status: 'running' }), row(B, { tags: ['trigger_session'] }), row(C, { relations: [{ type: 'task', id: 'fixture' }] })]));
   const blocked = await cloudSessions();
   expect(blocked.sessions.every((session) => !session.deletable)).toBe(true);
-  await expect(deleteCloudSessions([A], blocked.revision)).rejects.toThrow('选择包含');
+  await expect(deleteCloudSessions([A], blocked.revision)).rejects.toThrow('claudesync-message:errorCloudSelectionUnsupported');
   expect(mutations()).toEqual([]);
 });
 
@@ -103,7 +104,7 @@ it('does not resend an uncertain DELETE, but can confirm its result with readbac
   state.fetch.mockResolvedValueOnce(list()).mockRejectedValueOnce(new Error('fixture-secret-network-error')).mockResolvedValueOnce(list([]));
   const result = await deleteCloudSessions([A], view.revision);
   expect(result.deleted).toBe(1);
-  expect(result.issue).toContain('未自动重试');
+  expect(parseMessage(result.issue!)?.key).toBe('errorCloudDeleteUnconfirmed');
   expect(result.issue).not.toContain('fixture-secret');
   expect(mutations()).toHaveLength(1);
 });
@@ -111,8 +112,8 @@ it('does not resend an uncertain DELETE, but can confirm its result with readbac
 it('does not call an accepted deletion verified if it remains visible or readback fails', async () => {
   const view = await cloudSessions();
   state.fetch.mockResolvedValueOnce(list()).mockResolvedValueOnce(new Response(null, { status: 204 })).mockResolvedValueOnce(list());
-  expect(await deleteCloudSessions([A], view.revision)).toMatchObject({ deleted: 0, requested: 1, issue: expect.stringContaining('仍有记录') });
+  expect(parseMessage((await deleteCloudSessions([A], view.revision)).issue!)?.key).toBe('statusCloudPartialAccepted');
   const second = await cloudSessions();
   state.fetch.mockResolvedValueOnce(list()).mockResolvedValueOnce(new Response(null, { status: 204 })).mockRejectedValueOnce(new Error('fixture-network'));
-  expect(await deleteCloudSessions([A], second.revision)).toMatchObject({ deleted: 0, issue: expect.stringContaining('无法重新核实') });
+  expect(parseMessage((await deleteCloudSessions([A], second.revision)).issue!)?.key).toBe('statusCloudReadbackUnconfirmed');
 });

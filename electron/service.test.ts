@@ -84,7 +84,7 @@ it('previews every old duplicate, uses Trash only on confirm and reads back unch
   expect(result.result).toEqual({ trashed: 2, importedArchived: 0, mainUnchanged: true, oldCopiesRemaining: 0 });
   expect(result.workspace.accounts.find((a) => a.id === ID_A)).toMatchObject({ visible: 2, oldCopies: 0 });
   expect(readdirSync(trashFolder)).toHaveLength(2);
-  await expect(cleanupOldCopies(preview.token, async () => {})).rejects.toThrow('过期');
+  await expect(cleanupOldCopies(preview.token, async () => {})).rejects.toThrow('claudesync-message:errorOldCopyPreviewExpired');
 });
 it('does not trash anything when writers are running or the organization has changed', async () => {
   const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -106,10 +106,10 @@ it('rejects an organization change after preview without any backup or session w
   const preview = previewOperation({ kind: 'sync', group: 'visible', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision);
   const before = readFileSync(indexPath(environment.root, SCOPE_A, CHAT_B));
   rememberIdentities([], { accountId: ID_B, email: 'other@example.com', organizationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' });
-  await expect(applyOperation(preview.token)).rejects.toThrow('当前组织已改变');
+  await expect(applyOperation(preview.token)).rejects.toThrow('claudesync-message:errorOrganizationChanged');
   expect(readFileSync(indexPath(environment.root, SCOPE_A, CHAT_B))).toEqual(before);
   expect(availableBackups()).toHaveLength(0);
-  expect(() => previewOperation({ kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision)).toThrow('已经变化');
+  expect(() => previewOperation({ kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision)).toThrow('claudesync-message:errorWorkspaceRevisionChanged');
 });
 
 it('reports an email-only account as unverified and explains the blocked destination', async () => {
@@ -119,7 +119,7 @@ it('reports an email-only account as unverified and explains the blocked destina
   const view = await checkWorkspace();
   expect(view.accounts.find((account) => account.id === ID_B)).toMatchObject({ visible: null, organizationVerified: false });
   expect(() => previewOperation({ kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision)).toThrow('尚未核实');
-  expect(() => previewOperation({ kind: 'archive', group: 'invalid', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision)).toThrow('分组参数');
+  expect(() => previewOperation({ kind: 'archive', group: 'invalid', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision)).toThrow('claudesync-message:errorInvalidSessionGroup');
 });
 
 it('uses a single-use preview token and provides a restore preview through the application service', async () => {
@@ -128,7 +128,7 @@ it('uses a single-use preview token and provides a restore preview through the a
   expect(preview.changes).toHaveLength(2);
   const result = await applyOperation(preview.token);
   expect(result.result.verified).toBe(true);
-  await expect(applyOperation(preview.token)).rejects.toThrow('过期');
+  await expect(applyOperation(preview.token)).rejects.toThrow('claudesync-message:errorPreviewExpired');
   const restore = previewRestore(basename(result.result.backup!), result.workspace.revision);
   const restored = await applyOperation(restore.token);
   expect(restored.workspace.sessions.find((session) => session.id === CHAT_A)?.presence.every((presence) => presence.active)).toBe(true);
@@ -138,19 +138,19 @@ it('uses a single-use preview token and provides a restore preview through the a
 it('rejects stale requests and consumes a blocked token without changing session data', async () => {
   const initial = await checkWorkspace();
   editIndex(environment.root, SCOPE_A, CHAT_A, { title: 'New work' });
-  expect(() => previewOperation({ kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).toThrow('已经变化');
+  expect(() => previewOperation({ kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).toThrow('claudesync-message:errorWorkspaceRevisionChanged');
   const fresh = await checkWorkspace();
   const preview = previewOperation({ kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A] }, fresh.revision);
   environment.blocked = true;
   await expect(applyOperation(preview.token)).rejects.toThrow('Claude is running');
-  await expect(applyOperation(preview.token)).rejects.toThrow('过期');
+  await expect(applyOperation(preview.token)).rejects.toThrow('claudesync-message:errorPreviewExpired');
   expect((await checkWorkspace()).sessions.some((session) => session.id === CHAT_A)).toBe(true);
-  expect(() => previewOperation({ kind: 'unknown', sessionIds: [CHAT_A], accountIds: [ID_A] }, fresh.revision)).toThrow('参数');
+  expect(() => previewOperation({ kind: 'unknown', sessionIds: [CHAT_A], accountIds: [ID_A] }, fresh.revision)).toThrow('claudesync-message:errorInvalidOperationParams');
 });
 
 it('executes only the confirmed local deletion scope without a preview, backup or restore token', async () => {
   const initial = await checkWorkspace();
-  expect(() => previewOperation({ kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).toThrow('确认窗口');
+  expect(() => previewOperation({ kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).toThrow('claudesync-message:errorDeleteConfirmation');
   const result = await deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision);
   expect(result.result).toMatchObject({ verified: true });
   expect(result.result.backup).toBeUndefined();

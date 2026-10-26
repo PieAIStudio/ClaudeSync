@@ -6,6 +6,7 @@ import { accountIdForScope } from '../src/core/account-identity';
 import { isRecord, readRegularFile, writeOwnedFile } from '../src/core/storage';
 import type { Account } from '../src/core/types';
 import { desktopDataPath } from './desktop-identity';
+import { userError, userMessage } from '../src/error-copy';
 import type { AccountIdentity } from './desktop-identity';
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
@@ -115,7 +116,7 @@ function defaultRoots(): { sessionRoot: string; projectsRoot: string } {
 function discoverAccounts(sessionRoot: string, currentId?: string): Account[] {
   const root = resolve(sessionRoot);
   const rootInfo = lstatSync(root);
-  if (!rootInfo.isDirectory() || realpathSync(root) !== root) throw new Error('会话索引根目录必须是普通文件夹，不能通过符号链接。');
+  if (!rootInfo.isDirectory() || realpathSync(root) !== root) throw userError('errorSessionRootSymlink');
   const scopes: string[] = [];
   for (const account of readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     if (!account.isDirectory() || !UUID.test(account.name) || (currentId && account.name !== currentId)) continue;
@@ -128,12 +129,12 @@ function discoverAccounts(sessionRoot: string, currentId?: string): Account[] {
       scopes.push(`${account.name}/${organization.name}`);
     }
   }
-  return scopes.map((scope, index) => ({ label: `账号 ${index + 1}`, scope }));
+  return scopes.map((scope, index) => ({ label: userMessage('statusAccountNumber', { count: index + 1 }), scope }));
 }
 
 export function ensureConfiguredWorkspace(): ReturnType<typeof loadWorkspace> {
   const target = configPath();
-  if (!existsSync(target)) throw new Error('还没有设置会话文件夹和正文文件夹，请先完成设置。');
+  if (!existsSync(target)) throw userError('errorFoldersNotConfigured');
   return loadWorkspace(target);
 }
 
@@ -166,14 +167,14 @@ export function savedRoots(): { sessionRoot: string; projectsRoot: string } {
 
 
 export function configureFolders(sessionRootValue: unknown, projectsRootValue: unknown): void {
-  if (typeof sessionRootValue !== 'string' || typeof projectsRootValue !== 'string') throw new Error('请选择两个文件夹。');
+  if (typeof sessionRootValue !== 'string' || typeof projectsRootValue !== 'string') throw userError('errorChooseFolders');
   const sessionRoot = resolve(sessionRootValue);
   const projectsRoot = resolve(projectsRootValue);
   const accounts = accountsForConfiguration(sessionRoot, discoverAccounts(sessionRoot));
-  if (!accounts.length) throw new Error('没有找到 Claude 登录账号目录。');
-  if (accounts.length > 50) throw new Error('账号目录过多，请缩小范围。');
+  if (!accounts.length) throw userError('errorNoAccounts');
+  if (accounts.length > 50) throw userError('errorTooManyAccounts');
   const info = lstatSync(projectsRoot);
-  if (!info.isDirectory() || realpathSync(projectsRoot) !== projectsRoot) throw new Error('正文目录必须是普通文件夹。');
+  if (!info.isDirectory() || realpathSync(projectsRoot) !== projectsRoot) throw userError('errorTranscriptDirectory');
   if (existsSync(configPath())) {
     const previous = readRegularFile(configPath());
     writeOwnedFile(join(app.getPath('userData'), 'backups', `config-${Date.now()}.json`), previous);

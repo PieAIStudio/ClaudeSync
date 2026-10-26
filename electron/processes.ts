@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { isRecord } from '../src/core/storage';
+import { messageList, userMessage } from '../src/error-copy';
 
 export function classifyProcesses(rows: Array<{ command: string; args: string }>): { writers: number; automatic: boolean } {
   let writers = 0;
@@ -34,7 +35,7 @@ export function scopedWriterBlockers(rows: ProcessRow[], scope: WriteScope): str
   const blockers: string[] = [];
   for (const row of rows) {
     const result = classifyProcesses([row]);
-    if (result.automatic) blockers.push('旧自动同步程序仍在运行，请先退出，防止同时修改会话。');
+    if (result.automatic) blockers.push(userMessage('statusAutoSyncRunning'));
     if (!result.writers) continue;
     const args = row.args.replaceAll('\\', '/');
     const native = `${row.command} ${args.split(/\s/u)[0]}`.toLowerCase();
@@ -42,8 +43,8 @@ export function scopedWriterBlockers(rows: ProcessRow[], scope: WriteScope): str
     const identities = [...args.matchAll(/(?:^|\s)(?:--resume|--session-id|-r)(?:=|\s+)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=\s|$)/giu)].map((match) => match[1]!.toLowerCase());
     const switchesSession = /(?:^|\s)(?:--fork-session|--continue|-c)(?:\s|$)/u.test(args);
     if (!desktop && !switchesSession && identities.length === 1 && !scope.sessionIds.includes(identities[0]!)) continue;
-    const reason = identities.some((id) => scope.sessionIds.includes(id)) ? '正在处理这条会话' : '无法确认它与所选文件无关';
-    blockers.push(`“${scope.label}”：Claude 进程 ${row.pid ?? '未知'} ${reason}，请先保存并关闭对应窗口，再重新检查。`);
+    const reason = identities.some((id) => scope.sessionIds.includes(id)) ? userMessage('statusWriterProcessing') : userMessage('statusWriterUnknownRelation');
+    blockers.push(userMessage('statusWriterBlocked', { label: scope.label, pid: row.pid ?? userMessage('statusUnknownPid'), reason }));
   }
   return blockers;
 }
@@ -68,26 +69,26 @@ export function processBlockers(scope?: WriteScope): string[] {
     const result = classifyProcesses(rows);
     if (scope) blockers.push(...scopedWriterBlockers(rows, scope));
     else {
-      if (result.writers) blockers.push('请保存工作并完全退出 Claude 和 Claude Code，再执行操作。');
-      if (result.automatic) blockers.push('旧自动同步程序仍在运行，请先退出，防止同时修改会话。');
+      if (result.writers) blockers.push(userMessage('statusSaveAndQuit'));
+      if (result.automatic) blockers.push(userMessage('statusAutoSyncRunning'));
     }
     if (process.platform === 'darwin') {
       const label = 'local.claude-session-sync.on-exit';
-      if (existsSync(join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`))) blockers.push('旧自动同步自启配置仍存在，请先移除。');
+      if (existsSync(join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`))) blockers.push(userMessage('statusAutoSyncLaunchAgent'));
       const service = `gui/${process.getuid?.()}/${label}`;
-      try { execFileSync('/bin/launchctl', ['print', service], { encoding: 'utf8', timeout: 20000, stdio: 'pipe' }); blockers.push('旧自动同步服务仍已加载，请先停止。'); }
+      try { execFileSync('/bin/launchctl', ['print', service], { encoding: 'utf8', timeout: 20000, stdio: 'pipe' }); blockers.push(userMessage('statusAutoSyncServiceLoaded')); }
       catch (error) {
         const stderr = isRecord(error) ? String(error.stderr ?? '') : '';
         if (!stderr.includes('Could not find service')) throw new Error('无法确认旧自动同步服务已停止。');
       }
     }
   } catch {
-    blockers.push('无法确认 Claude 已停止，为保护 Code 会话文件，暂时不能写入。');
+    blockers.push(userMessage('statusCannotConfirmStopped'));
   }
   return blockers;
 }
 
 export function assertClaudeStopped(scope?: WriteScope): void {
   const blockers = processBlockers(scope);
-  if (blockers.length) throw new Error(blockers.join('\n'));
+  if (blockers.length) throw new Error(messageList(blockers));
 }

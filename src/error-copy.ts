@@ -9,6 +9,7 @@ const MULTIPLE_KEY = '__multiple__';
 export const errorMessages = {
   statusAccountNumber: ['账号 {count}', 'Account {count}', 'アカウント {count}', 'Cuenta {count}', 'Conta {count}'],
   statusSessionLabel: ['{title}（{id}）', '{title} ({id})', '{title}（{id}）', '{title} ({id})', '{title} ({id})'],
+  statusSessionList: ['{labels}', '{labels}', '{labels}', '{labels}', '{labels}'],
   statusUntitledSession: ['未命名会话', 'Untitled session', '無題のセッション', 'Sesión sin título', 'Sessão sem título'],
   statusSelectedSessionSharedBody: ['所选会话或其共享正文引用', 'the selected session or its shared transcript reference', '選択したセッションまたは共有本文の参照', 'la sesión elegida o su referencia de texto compartido', 'a sessão escolhida ou sua referência de histórico compartilhado'],
   statusUntitledCodeSession: ['未命名Code 会话', 'Untitled Code session', '無題の Code セッション', 'Sesión de Code sin título', 'Sessão de Code sem título'],

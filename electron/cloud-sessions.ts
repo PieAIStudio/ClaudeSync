@@ -4,6 +4,7 @@ import type { CloudDeleteResult, CloudSessionView, CloudWorkspaceView } from '..
 import { assertSessionCredential, checkDesktopIdentity, readSessionCredential } from './desktop-identity';
 import type { AccountIdentity, SessionCredential } from './desktop-identity';
 import { rememberIdentities } from './accounts';
+import { userError, userMessage } from '../src/error-copy';
 
 const ORIGIN = 'https://api.anthropic.com';
 const ID = /^cse_[A-Za-z0-9]{10,80}$/u;
@@ -14,7 +15,7 @@ const snapshots = new Map<string, Snapshot>();
 
 async function currentIdentity(): Promise<Snapshot['identity']> {
   const check = await checkDesktopIdentity();
-  if (check.state !== 'verified' || !check.identity?.organizationId) throw new Error('请先登录 Claude，再联网重新检查当前邮箱。');
+  if (check.state !== 'verified' || !check.identity?.organizationId) throw userError('errorCloudLoginRequired');
   rememberIdentities([], check.identity);
   return { ...check.identity, organizationId: check.identity.organizationId };
 }
@@ -28,11 +29,11 @@ async function request(credential: SessionCredential, path: string, method: 'GET
       'anthropic-beta': 'ccr-byoc-2025-07-29', 'anthropic-client-feature': 'ccr',
       'x-organization-uuid': credential.organizationId,
     }, redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(10000) });
-  } catch { throw new Error(method === 'DELETE' ? '删除请求的结果未能确认，已停止，未自动重试。请重新检查。' : '无法读取云端Code 会话，请检查网络后重新检查。'); }
+  } catch { throw userError(method === 'DELETE' ? 'errorCloudDeleteUnconfirmed' : 'errorCloudReadFailed'); }
   assertSessionCredential(credential);
   if (!response.ok) {
     await response.body?.cancel();
-    throw new Error(`Claude 云端返回 ${response.status}，已停止；没有自动重试或登记新设备。请在 Claude 核对登录与权限。`);
+    throw userError('errorCloudHttp', { status: response.status });
   }
   return response;
 }
@@ -40,14 +41,14 @@ async function request(credential: SessionCredential, path: string, method: 'GET
 async function readRows(credential: SessionCredential): Promise<Row[]> {
   const response = await request(credential, `/v1/code/sessions?limit=${LIMIT}&include_trigger_sessions=true`, 'GET');
   const raw = await response.text();
-  if (raw.length > 8 * 1024 * 1024) throw new Error('云端列表超过读取上限，暂不能安全处理。');
+  if (raw.length > 8 * 1024 * 1024) throw userError('errorCloudListTooLarge');
   let value: unknown;
-  try { value = JSON.parse(raw); } catch { throw new Error('Claude 云端列表格式改变，已停止处理。'); }
-  if (!isRecord(value) || !Array.isArray(value.data) || value.data.length > 5000) throw new Error('Claude 云端列表格式改变，已停止处理。');
+  try { value = JSON.parse(raw); } catch { throw userError('errorCloudListInvalid'); }
+  if (!isRecord(value) || !Array.isArray(value.data) || value.data.length > 5000) throw userError('errorCloudListInvalid');
   const ids = new Set<string>();
   return value.data.map((item): Row => {
     if (!isRecord(item) || typeof item.id !== 'string' || !ID.test(item.id) || ids.has(item.id)
-      || typeof item.title !== 'string' || item.title.length > 2000 || typeof item.status !== 'string') throw new Error('Claude 云端Code 会话结构无法识别，已停止处理。');
+      || typeof item.title !== 'string' || item.title.length > 2000 || typeof item.status !== 'string') throw userError('errorCloudSessionInvalid');
     ids.add(item.id);
     const status = ['active', 'archived', 'paused', 'failed'].includes(item.status) ? item.status as CloudSessionView['status'] : 'unknown';
     // Current Desktop's Remote Control records were verified live. Unknown formats
@@ -82,19 +83,19 @@ export async function cloudSessions(): Promise<CloudWorkspaceView> {
 
 export async function deleteCloudSessions(value: unknown, revision: unknown): Promise<CloudDeleteResult> {
   if (typeof revision !== 'string' || !Array.isArray(value) || value.length < 1 || value.length > LIMIT
-    || value.some((id) => typeof id !== 'string' || !ID.test(id))) throw new Error('请勾选云端Code 会话后再删除。');
+    || value.some((id) => typeof id !== 'string' || !ID.test(id))) throw userError('errorCloudSelectionRequired');
   const snapshot = snapshots.get(revision);
   snapshots.delete(revision); // Consume once, including failed or uncertain requests.
-  if (!snapshot || Date.now() - snapshot.at > 15 * 60 * 1000) throw new Error('云端列表已过期，请重新检查后选择。');
+  if (!snapshot || Date.now() - snapshot.at > 15 * 60 * 1000) throw userError('errorCloudListExpired');
   const selected = [...new Set(value as string[])];
-  if (selected.some((id) => !snapshot.rows.some((row) => row.view.id === id && row.view.deletable))) throw new Error('选择包含不在列表中、正在运行或暂不支持的云端Code 会话。');
+  if (selected.some((id) => !snapshot.rows.some((row) => row.view.id === id && row.view.deletable))) throw userError('errorCloudSelectionUnsupported');
   const identity = await currentIdentity();
   if (identity.accountId !== snapshot.identity.accountId || identity.organizationId !== snapshot.identity.organizationId
-    || identity.email !== snapshot.identity.email) throw new Error('Claude 登录账号已改变，尚未删除任何Code 会话。请重新检查。');
+    || identity.email !== snapshot.identity.email) throw userError('errorCloudIdentityChanged');
   const credential = await readSessionCredential(identity);
   const fresh = await readRows(credential);
   if (selected.some((id) => fresh.find((row) => row.view.id === id)?.fingerprint !== snapshot.rows.find((row) => row.view.id === id)?.fingerprint)) {
-    throw new Error('所选云端Code 会话的状态或内容已经变化，尚未删除。请重新检查后确认。');
+    throw userError('errorCloudSelectionChanged');
   }
   const accepted: string[] = [];
   const attempted: string[] = [];
@@ -105,15 +106,15 @@ export async function deleteCloudSessions(value: unknown, revision: unknown): Pr
       const response = await request(credential, `/v1/code/sessions/${encodeURIComponent(id)}`, 'DELETE');
       await response.body?.cancel();
       accepted.push(id);
-    } catch (error) { issue = error instanceof Error ? error.message : '云端删除中断，未自动重试。'; break; }
+    } catch (error) { issue = error instanceof Error ? error.message : userMessage('statusCloudDeleteInterrupted'); break; }
   }
   try {
     const after = await readRows(credential);
     const deleted = attempted.filter((id) => !after.some((row) => row.view.id === id)).length;
-    if (accepted.some((id) => after.some((row) => row.view.id === id))) issue = '服务器已接受部分删除，但重新读取后仍有记录。请在 Claude 核对；未自动重试。';
+    if (accepted.some((id) => after.some((row) => row.view.id === id))) issue = userMessage('statusCloudPartialAccepted');
     return { deleted, requested: selected.length, ...(issue ? { issue } : {}), workspace: saveView(identity, after) };
   } catch {
     return { deleted: 0, requested: selected.length,
-      issue: `${issue ? `${issue}\n` : ''}服务器已接受 ${accepted.length} 条删除请求，但结果暂时无法重新核实。请重新检查；未自动重试。` };
+      issue: userMessage('statusCloudReadbackUnconfirmed', { accepted: accepted.length }) };
   }
 }

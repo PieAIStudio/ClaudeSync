@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { parseMessage } from '../src/error-copy';
 
 const selectedId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const otherId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -8,7 +9,11 @@ it('does not block a positively identified unrelated CLI session', () => {
 });
 it('names the selected session and its process when a relevant CLI writer is active', () => {
   const blockers = scopedWriterBlockers([{ pid: 123, command: 'node', args: `/usr/bin/node /tools/@anthropic-ai/claude-code/cli.js --session-id ${selectedId}` }], scope);
-  expect(blockers.join(' ')).toMatch(/Selected old project.*123.*关闭/u);
+  const message = parseMessage(blockers[0]!);
+  expect(message?.key).toBe('statusWriterBlocked');
+  expect(message?.params).toMatchObject({ label: 'Selected old project', pid: 123 });
+  const reason = message && 'reason' in message.params ? message.params.reason : '';
+  expect(parseMessage(String(reason))?.key).toBe('statusWriterProcessing');
 });
 it('still blocks unidentifiable writers, Desktop, interactive selection and legacy automation', () => {
   for (const args of ['claude', 'claude --resume', 'claude --continue', `claude --resume ${otherId} --fork-session`]) {
