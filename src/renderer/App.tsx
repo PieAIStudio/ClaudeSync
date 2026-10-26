@@ -456,7 +456,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
     }
   }
 
-  return <div className={`claudesync-app theme-${theme}`} data-stage={stage} data-game-ui-theme={theme} data-game-ui-style="outline">
+  return <div className={`claudesync-app theme-${theme}`} data-stage={stage} data-game-ui-theme={theme} data-game-ui-style="quiet">
     <Shell title="ClaudeSync" className="claudesync-shell" look="aura" platform={platform} density={compact ? 'dense' : 'comfortable'} reducedMotion={reducedMotion} layout="auto" sidebar={sidebar()} sidebarLabel={t.t('sources')} mobileNav={mobileNav()} windowBar={windowBar()} overlay={feedback}>
       {renderStage()}
     </Shell>
