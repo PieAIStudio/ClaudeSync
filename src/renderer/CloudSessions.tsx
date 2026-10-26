@@ -3,7 +3,7 @@ import { Badge, Button, Callout, Input } from '@pieai/swimmer-ui-kit';
 import type { CloudSessionView, CloudWorkspaceView } from '../shared/contracts';
 import { DeleteConfirmation } from './components';
 import { useTranslation } from './i18n';
-import { errorMessage } from './errors';
+import { errorMessage, messageText } from './errors';
 import { TermTip } from './TermTip';
 import { HelpTip } from '@pieai/swimmer-ui-kit';
 
@@ -27,7 +27,7 @@ export function CloudSessions({ refreshKey, onBusy, onRetry }: { refreshKey: num
     running.current = true; setBusy(true); onBusy(true); setError(''); setDone(''); setWorkspace(undefined); setSelected(new Set());
     if (!load.current || load.current.key !== refreshKey) load.current = { key: refreshKey, promise: api.cloudSessions() };
     void load.current.promise.then((view) => { if (active) setWorkspace(view); })
-      .catch((reason: unknown) => { if (active) setError(errorMessage(reason)); })
+      .catch((reason: unknown) => { if (active) setError(errorMessage(reason, t.locale)); })
       .finally(() => { running.current = false; if (active) { setBusy(false); onBusy(false); } });
     return () => { active = false; onBusy(false); };
   }, [refreshKey, onBusy]);
@@ -46,9 +46,9 @@ export function CloudSessions({ refreshKey, onBusy, onRetry }: { refreshKey: num
       const result = await api.deleteCloudSessions(current.rows.map((row) => row.id), current.workspace.revision);
       setWorkspace(result.workspace); setSelected(new Set());
       if (result.deleted > 0) setDone(t.t('cloudDeletedCount', { deleted: result.deleted, requested: result.requested }));
-      if (result.issue) setError(result.issue);
+      if (result.issue) setError(messageText(result.issue, t.locale));
     } catch (reason) {
-      setError(errorMessage(reason)); setWorkspace(undefined); setSelected(new Set());
+      setError(errorMessage(reason, t.locale)); setWorkspace(undefined); setSelected(new Set());
     } finally { running.current = false; setBusy(false); onBusy(false); }
   }
 

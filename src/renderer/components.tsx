@@ -6,6 +6,8 @@ import type { AccountView, DesktopIdentityState, OperationPreview, SessionGroup,
 import type { DeleteState } from './deletion-selection';
 import { ProgressReview } from './ProgressReview';
 import { TermTip } from './TermTip';
+import { messageText } from './errors';
+import { parseMessage } from '../error-copy';
 
 export const groupLabels: Record<SessionGroup, TranslationKey> = {
   visible: 'visibleGroup', archived: 'archived', scheduled: 'scheduledGroup',
@@ -83,13 +85,25 @@ function ReviewFacts({ action, group, accountNames }: { action?: string; group?:
   </dl>;
 }
 
+const reasonKeys = {
+  deleted: new Set(['statusDeletedHistoryNotCopied', 'statusDeletedHistoryPreventsResurrection', 'statusDeletedEntryPreventsResurrection']),
+  archived: new Set(['statusArchivedNotCopied', 'statusTargetArchived']),
+  project: new Set(['statusWorkingDirectoryMissing', 'statusWorkingDirectoryNotFound']),
+  transcript: new Set(['statusTranscriptMissing', 'statusTranscriptDuplicate']),
+  unsupported: new Set(['statusRemoteNotCopied', 'statusScheduledNotCopied']),
+} as const;
+
+function hasReason(reason: string, keys: ReadonlySet<string>, legacy: string): boolean {
+  return keys.has(parseMessage(reason)?.key ?? '') || reason.includes(legacy);
+}
+
 export function reasonText(reason: string, t: ReturnType<typeof useTranslation>): string {
-  if (reason.includes('删除标记') || reason.includes('曾被删除')) return t.t('deletedReason');
-  if (reason.includes('归档')) return t.t('archivedReason');
-  if (reason.includes('工作目录')) return t.t('missingProject');
-  if (reason.includes('缺少会话正文')) return t.t('missingTranscript');
-  if (reason.includes('远程') || reason.includes('定时')) return t.t('unsupported');
-  return reason;
+  if (hasReason(reason, reasonKeys.deleted, '删除标记') || reason.includes('曾被删除')) return t.t('deletedReason');
+  if (hasReason(reason, reasonKeys.archived, '归档')) return t.t('archivedReason');
+  if (hasReason(reason, reasonKeys.project, '工作目录')) return t.t('missingProject');
+  if (hasReason(reason, reasonKeys.transcript, '缺少会话正文')) return t.t('missingTranscript');
+  if (hasReason(reason, reasonKeys.unsupported, '远程') || reason.includes('定时')) return t.t('unsupported');
+  return messageText(reason, t.locale);
 }
 
 export function AccountSidebar({ accounts, included, currentFilter, onInclude, onFilter, busy, identityState }: {
@@ -129,9 +143,9 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
     const active = presence.some((item) => item.active);
     const eligible = presence.some((item) => item.eligible);
     const reasons = [...new Set(presence.flatMap((item) => item.reasons))];
-    const selectedRestore = session.manageable && reasons.some((reason) => reason.includes('删除标记') || reason.includes('曾被删除'));
+    const selectedRestore = session.manageable && reasons.some((reason) => hasReason(reason, reasonKeys.deleted, '删除标记') || reason.includes('曾被删除'));
     const projectName = session.project.split(/[\\/]/u).filter(Boolean).at(-1) || '—';
-    const projectMissing = presence.some((item) => item.reasons.some((reason) => reason.includes('工作目录')))
+    const projectMissing = presence.some((item) => item.reasons.some((reason) => hasReason(reason, reasonKeys.project, '工作目录')))
       || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu.test(projectName);
     const status = selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? 'syncable' : 'blocked';
     return <li key={session.id} className={`session-row ${selected.has(session.id) ? 'is-selected' : ''}`}>

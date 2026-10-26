@@ -122,7 +122,7 @@ function ResultCard({ kind, title, count, copy, canSync, onView, onSync }: {
 
 function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: AppLocale): void }) {
   const t = useTranslation();
-  const model = useWorkspace();
+  const model = useWorkspace(locale);
   const { info, workspace } = model;
   const [stage, setStage] = useState<Stage>('home');
   const [theme, setTheme] = useState<Theme>(readTheme);
@@ -241,7 +241,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       const preview = await model.api.previewOldCopies(ids, workspace.revision);
       if (!preview.items.length) setCleanupFeedback(t.t('cleanupNone'));
       else setOldPreview(preview);
-    } catch (error) { setCleanupFeedback(errorMessage(error)); }
+    } catch (error) { setCleanupFeedback(errorMessage(error, t.locale)); }
     finally { setCleanupBusy(false); }
   }
 
@@ -256,7 +256,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       await model.refresh();
     } catch (error) {
       setOldPreview(undefined);
-      setCleanupFeedback(errorMessage(error));
+      setCleanupFeedback(errorMessage(error, t.locale));
       await model.refresh();
     } finally { setCleanupBusy(false); }
   }

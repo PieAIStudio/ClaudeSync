@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AppInfo, BackupView, DeleteRequest, OperationPreview, OperationRequest, WorkspaceView } from '../shared/contracts';
 import { errorMessage } from './errors';
+import type { AppLocale } from './i18n';
 
 const api = window.claudeSync;
 
-export function useWorkspace() {
+export function useWorkspace(locale: AppLocale = 'zh-CN') {
   const [info, setInfo] = useState<AppInfo>();
   const [workspace, setWorkspace] = useState<WorkspaceView>();
   const [review, setReview] = useState<OperationPreview>();
@@ -26,7 +27,7 @@ export function useWorkspace() {
         const view = await api.check();
         if (active) setWorkspace(view);
       }
-    }).catch((reason: unknown) => { if (active) setError(errorMessage(reason)); });
+    }).catch((reason: unknown) => { if (active) setError(errorMessage(reason, locale)); });
     return () => { active = false; };
   }, []);
 
@@ -35,7 +36,7 @@ export function useWorkspace() {
     running.current = true;
     setBusy(true); setError(''); setCompleted(false); setDeleted(false);
     try { await action(); return true; }
-    catch (reason) { setError(errorMessage(reason)); return false; }
+    catch (reason) { setError(errorMessage(reason, locale)); return false; }
     finally { running.current = false; setBusy(false); }
   }
 
@@ -87,7 +88,7 @@ export function useWorkspace() {
   async function chooseDirectory() {
     if (!api || running.current) return null;
     try { return await api.chooseDirectory(); }
-    catch (reason) { setError(errorMessage(reason)); return null; }
+    catch (reason) { setError(errorMessage(reason, locale)); return null; }
   }
   return { api, info, workspace, review, request, backups, busy, error, completed, deleted, refresh, configure, preview, apply, deleteSelected,
     loadBackups, restore, openBackups, chooseDirectory, closeReview: () => setReview(undefined) };

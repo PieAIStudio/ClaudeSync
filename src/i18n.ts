@@ -1,11 +1,13 @@
 import { createI18n, LANGUAGES } from '@pieai/swimmer-i18n-kit';
 import { termMessages } from './term-copy';
+import { errorMessages } from './error-copy';
 
 export const locales = ['zh-CN', 'en', 'ja', 'es', 'pt-BR'] as const;
 export type AppLocale = (typeof locales)[number];
 // One row per piece of product copy; all five languages stay together.
 const messages = {
   ...termMessages,
+  ...errorMessages,
   caption: ['Claude 桌面版 Code 会话整理', 'Claude Desktop Code session organizer', 'Claude デスクトップの Code セッション整理', 'Organiza sesiones de Code de Claude Desktop', 'Organize sessões de Code do Claude Desktop'],
   language: ['语言', 'Language', '言語', 'Idioma', 'Idioma'],
   heroTitle: ['换个账号，想法接着走。', 'Switch accounts, keep going.', 'アカウントを替えて、続きを話す。', 'Cambia de cuenta y sigue.', 'Troque de conta e continue.'],
