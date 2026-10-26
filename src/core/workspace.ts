@@ -13,6 +13,7 @@ import { historyIds, REMOTE_KEYS, validateSessionRecord } from './record';
 import { buildPlan } from './planner';
 import type { Account, SessionEntry, SessionRecord, SyncPlan } from './types';
 import type { VerifiedOrganizations } from './visibility';
+import { userError, userMessage } from '../error-copy';
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u;
 const ARCHIVE_INDEX = 'archived-sessions.idx';
@@ -50,7 +51,7 @@ function parseJson<T>(raw: Buffer, path: string): T {
   try {
     return JSON.parse(raw.toString('utf8')) as T;
   } catch (error) {
-    throw new Error(`JSON 格式无法识别：${path} / ${String(error)}`);
+    throw userError('errorJsonInvalid', { path, error: String(error) });
   }
 }
 
@@ -58,26 +59,26 @@ function loadConfig(configPath: string): { config: ConfigFile; raw: Buffer } {
   const raw = readRegularFile(configPath, MAX_INDEX_BYTES);
   const config = parseJson<ConfigFile>(raw, configPath);
   if (!isRecord(config) || !Array.isArray(config.accounts) || config.accounts.length < 1 || config.accounts.length > MAX_ACCOUNTS) {
-    throw new Error('config.json 必须包含 1 到 50 个账号目录。');
+    throw userError('errorConfigAccounts');
   }
-  if (config.version !== undefined && config.version !== 1) throw new Error('config.json 版本无法识别，请先备份后检查。');
+  if (config.version !== undefined && config.version !== 1) throw userError('errorConfigVersion');
   if (typeof config.session_root !== 'string' || !config.session_root.trim()
     || typeof config.projects_root !== 'string' || !config.projects_root.trim()) {
-    throw new Error('config.json 中的会话目录和正文目录必须是非空路径。');
+    throw userError('errorConfigPaths');
   }
   const scopes = new Set<string>();
   const labels = new Set<string>();
   for (const [index, account] of config.accounts.entries()) {
     if (!isRecord(account) || typeof account.label !== 'string' || typeof account.scope !== 'string') {
-      throw new Error(`第 ${index + 1} 个账号设置格式无法识别。`);
+      throw userError('errorConfigAccountInvalid', { index: index + 1 });
     }
     const parts = account.scope.split('/');
-    if (parts.length !== 2 || !parts.every((part) => UUID.test(part))) throw new Error(`账号目录格式错误：${account.scope}`);
+    if (parts.length !== 2 || !parts.every((part) => UUID.test(part))) throw userError('errorAccountScopeInvalid', { scope: account.scope });
     const scopeKey = account.scope.toLocaleLowerCase();
     const labelKey = account.label.trim().toLocaleLowerCase();
-    if (!labelKey) throw new Error('账号名称不能为空。');
-    if (scopes.has(scopeKey)) throw new Error(`账号目录不能重复：${account.scope}`);
-    if (labels.has(labelKey)) throw new Error(`账号名称不能重复：${account.label}`);
+    if (!labelKey) throw userError('errorAccountNameEmpty');
+    if (scopes.has(scopeKey)) throw userError('errorAccountScopeDuplicate', { scope: account.scope });
+    if (labels.has(labelKey)) throw userError('errorAccountNameDuplicate', { label: account.label });
     scopes.add(scopeKey);
     labels.add(labelKey);
   }
@@ -112,7 +113,7 @@ function archivedSessions(snapshot: WorkspaceSnapshot, accounts: Account[]): Map
       const value = parseJson<Record<string, unknown>>(raw, path);
       if (!isRecord(value) || value.v !== 1 || !Array.isArray(value.archived)
         || value.archived.some((item) => typeof item !== 'string')) {
-        throw new Error(`无法识别归档索引：${path}`);
+        throw userError('errorArchiveIndexInvalidAt', { path });
       }
       for (const id of value.archived) archived.add(id as string);
     }
@@ -140,20 +141,20 @@ export function entryEligibility(
   transcripts: Map<string, TranscriptCheck | TranscriptFailure>,
   ignoreArchive = false,
 ): string | undefined {
-  if (data.scheduledTaskId) return '定时任务记录不复制';
-  if (!ignoreArchive && (data.isArchived || (archived.get(account.scope)?.has(data.sessionId) || archived.get(account.scope)?.has(data.sessionId.slice(6))))) return '来源会话已归档';
-  if (REMOTE_KEYS.some((key) => Boolean(data[key]))) return '远程或云端会话不复制';
+  if (data.scheduledTaskId) return userMessage('statusScheduledNotCopied');
+  if (!ignoreArchive && (data.isArchived || (archived.get(account.scope)?.has(data.sessionId) || archived.get(account.scope)?.has(data.sessionId.slice(6))))) return userMessage('statusArchivedNotCopied');
+  if (REMOTE_KEYS.some((key) => Boolean(data[key]))) return userMessage('statusRemoteNotCopied');
   const ids = historyIds(data);
-  if ([...ids, data.sessionId, data.sessionId.slice(6)].some((id) => tombstones.has(id))) return '会话或历史分支有删除标记';
-  if (typeof data.cwd !== 'string') return '工作目录缺失';
+  if ([...ids, data.sessionId, data.sessionId.slice(6)].some((id) => tombstones.has(id))) return userMessage('statusDeletedHistoryNotCopied');
+  if (typeof data.cwd !== 'string') return userMessage('statusWorkingDirectoryMissing');
   try {
-    if (!statSync(data.cwd).isDirectory()) return '工作目录不存在';
+    if (!statSync(data.cwd).isDirectory()) return userMessage('statusWorkingDirectoryNotFound');
   } catch {
-    return '工作目录不存在';
+    return userMessage('statusWorkingDirectoryNotFound');
   }
   for (const id of ids) {
     const matches = transcriptIndex.get(id) ?? [];
-    if (matches.length !== 1) return matches.length === 0 ? '缺少会话正文或历史分支' : '多个项目目录含同一正文 ID';
+    if (matches.length !== 1) return matches.length === 0 ? userMessage('statusTranscriptMissing') : userMessage('statusTranscriptDuplicate');
     if (!transcripts.has(id)) {
       try {
         transcripts.set(id, inspectTranscript(matches[0]!));
@@ -189,7 +190,7 @@ export function loadWorkspace(configPath: string): Workspace {
       const data = validateSessionRecord(name, parseJson<unknown>(raw, path));
       const syncIssue = entryEligibility(account, data, archivedByAccount, tombstones, transcriptIndex, transcripts, true);
       const archived = Boolean(data.isArchived || (archivedByAccount.get(account.scope)?.has(data.sessionId) || archivedByAccount.get(account.scope)?.has(data.sessionId.slice(6))));
-      const reason = syncIssue ?? (archived ? '来源会话已归档' : undefined);
+      const reason = syncIssue ?? (archived ? userMessage('statusArchivedNotCopied') : undefined);
       entries.push({ account, path, data, raw, archived, syncIssue, eligible: !reason, ...(reason ? { reason } : {}) });
     }
   }

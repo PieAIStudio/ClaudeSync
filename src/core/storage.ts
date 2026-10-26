@@ -21,6 +21,7 @@ import {
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { Account } from './types';
 import { validateSessionRecord } from './record';
+import { userError } from '../error-copy';
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
 export const MAX_INDEX_BYTES = 10 * 1024 * 1024;
@@ -53,17 +54,17 @@ export function sha256(value: Buffer | string): string {
 
 export function readRegularFile(path: string, limit = MAX_INDEX_BYTES): Buffer {
   const info = lstatSync(path);
-  if (!info.isFile()) throw new Error(`不是普通文件，停止读取：${path}`);
-  if (info.size > limit) throw new Error(`文件超过检查上限，停止读取：${path}`);
+  if (!info.isFile()) throw userError('errorNotRegularFile', { path });
+  if (info.size > limit) throw userError('errorFileTooLarge', { path });
   const raw = readFileSync(path);
-  if (raw.length !== info.size) throw new Error(`读取期间文件大小发生变化：${path}`);
+  if (raw.length !== info.size) throw userError('errorFileSizeChanged', { path });
   return raw;
 }
 
 export function assertPlainDirectory(path: string): void {
   const info = lstatSync(path);
   if (!info.isDirectory() || realpathSync(path) !== resolve(path)) {
-    throw new Error(`目录不存在或包含符号链接：${path}`);
+    throw userError('errorDirectoryInvalid', { path });
   }
 }
 
@@ -78,9 +79,9 @@ export function fileFingerprint(path: string): FileFingerprint {
 }
 
 export function inspectTranscript(path: string): TranscriptCheck {
-  if (realpathSync(path) !== resolve(path)) throw new Error('正文路径包含符号链接');
+  if (realpathSync(path) !== resolve(path)) throw userError('errorTranscriptSymlink');
   const linkInfo = lstatSync(path);
-  if (!linkInfo.isFile() || linkInfo.size === 0) throw new Error('正文文件为空或不是普通文件');
+  if (!linkInfo.isFile() || linkInfo.size === 0) throw userError('errorTranscriptEmpty');
   const before = fileFingerprint(path);
   const fd = openSync(path, 'r');
   let prefix: Buffer;
@@ -88,7 +89,7 @@ export function inspectTranscript(path: string): TranscriptCheck {
   try {
     const openedInfo = fstatSync(fd, { bigint: true });
     if (openedInfo.dev.toString() !== before.device || openedInfo.ino.toString() !== before.inode) {
-      throw new Error('正文在检查期间被替换');
+      throw userError('errorTranscriptReplaced');
     }
     const prefixLength = Math.min(SAMPLE_BYTES, Number(openedInfo.size));
     prefix = Buffer.alloc(prefixLength);
@@ -104,16 +105,16 @@ export function inspectTranscript(path: string): TranscriptCheck {
   const parsed: Record<string, unknown>[] = [];
   for (const line of lines.filter(Boolean).slice(0, 32)) {
     const value: unknown = JSON.parse(line);
-    if (!isRecord(value)) throw new Error('JSONL 首部格式错误');
+    if (!isRecord(value)) throw userError('errorJsonlHeaderInvalid');
     parsed.push(value);
   }
-  if (parsed.length === 0) throw new Error('JSONL 首部为空或格式错误');
+  if (parsed.length === 0) throw userError('errorJsonlHeaderEmpty');
   const tailText = tail!.toString('utf8').replace(/[\r\n]+$/u, '');
   const ending = tailText.slice(tailText.lastIndexOf('\n') + 1);
   if (BigInt(before.bytes) <= BigInt(SAMPLE_BYTES) || tailText.includes('\n')) {
-    if (!isRecord(JSON.parse(ending))) throw new Error('JSONL 尾部格式错误');
+    if (!isRecord(JSON.parse(ending))) throw userError('errorJsonlTailInvalid');
   } else {
-    throw new Error('最后一行超过检查上限，无法可靠识别正文');
+    throw userError('errorJsonlLastLineTooLarge');
   }
   let summaryAtStart = false;
   for (const row of parsed) {
@@ -133,7 +134,7 @@ export function inspectTranscript(path: string): TranscriptCheck {
     }
   }
   const after = fileFingerprint(path);
-  if (!sameFingerprint(before, after)) throw new Error('正文正在变化；完全退出 Claude/Code 后重试');
+  if (!sameFingerprint(before, after)) throw userError('errorTranscriptChanging');
   return { path, bytes: Number(before.bytes), fingerprint: before, summaryAtStart };
 }
 
@@ -166,7 +167,7 @@ export function takeWorkspaceSnapshot(root: string, accounts: Account[]): Worksp
   }
   const organizations = [...new Set(accounts.map((account) => account.scope.split('/')[0]))].sort();
   for (const organization of organizations) {
-    if (!UUID.test(organization)) throw new Error(`账号目录格式错误：${organization}`);
+    if (!UUID.test(organization)) throw userError('errorOrganizationDirectoryInvalid', { organization });
     const accountsInOrganization = members(organization);
     if (!accountsInOrganization) continue;
     const plainAccounts: string[] = [];
@@ -205,7 +206,7 @@ export function takeWorkspaceSnapshot(root: string, accounts: Account[]): Worksp
           if (name === 'archived-sessions.idx') {
             const value: unknown = JSON.parse(raw.toString('utf8'));
             if (!isRecord(value) || value.v !== 1 || !Array.isArray(value.archived)
-              || value.archived.some((id) => typeof id !== 'string')) throw new Error('无法识别归档索引');
+              || value.archived.some((id) => typeof id !== 'string')) throw userError('errorArchiveIndexInvalid');
           }
         })) retained.push(name);
       }
@@ -227,7 +228,7 @@ export function takeDeletionSnapshot(root: string): WorkspaceSnapshot {
 export function assertTranscriptCurrent(check: TranscriptCheck): void {
   assertPlainDirectory(dirname(check.path));
   if (realpathSync(check.path) !== resolve(check.path) || !lstatSync(check.path).isFile()
-    || !sameFingerprint(fileFingerprint(check.path), check.fingerprint)) throw new Error('Code 会话正文在删除前发生变化，请重新检查。');
+    || !sameFingerprint(fileFingerprint(check.path), check.fingerprint)) throw userError('errorTranscriptChangedBeforeDelete');
 }
 
 export function removeTranscript(check: TranscriptCheck): void {
@@ -253,7 +254,7 @@ export function safeWorkspacePath(root: string, relativePath: string): string {
   const base = resolve(root);
   const target = resolve(base, relativePath);
   const escaped = relative(base, target);
-  if (escaped.startsWith('..') || isAbsolute(escaped)) throw new Error(`路径超出会话目录：${relativePath}`);
+  if (escaped.startsWith('..') || isAbsolute(escaped)) throw userError('errorPathOutsideWorkspace', { relativePath });
   return target;
 }
 
@@ -264,20 +265,20 @@ export function snapshotWithAdded(snapshot: WorkspaceSnapshot, relativePath: str
   const parent = dirname(relativePath).replaceAll('\\', '/');
   const name = relativePath.slice(relativePath.lastIndexOf('/') + 1);
   const members = directories.get(parent);
-  if (!members) throw new Error(`目标账号目录不在扫描快照中：${parent}`);
+  if (!members) throw userError('errorTargetDirectoryMissingSnapshot', { parent });
   directories.set(parent, [...members, name].sort());
   return { ...snapshot, files, directories };
 }
 
 export function snapshotWithReplaced(snapshot: WorkspaceSnapshot, relativePath: string, raw: Buffer): WorkspaceSnapshot {
-  if (!snapshot.files.has(relativePath)) throw new Error(`快照中没有标题目标：${relativePath}`);
+  if (!snapshot.files.has(relativePath)) throw userError('errorSnapshotMissingTitleTarget', { relativePath });
   const files = new Map(snapshot.files);
   files.set(relativePath, raw);
   return { ...snapshot, files, directories: new Map(snapshot.directories) };
 }
 
 export function snapshotWithRemoved(snapshot: WorkspaceSnapshot, relativePath: string): WorkspaceSnapshot {
-  if (!snapshot.files.has(relativePath)) throw new Error(`快照中没有待移除文件：${relativePath}`);
+  if (!snapshot.files.has(relativePath)) throw userError('errorSnapshotMissingRemovalTarget', { relativePath });
   const files = new Map(snapshot.files);
   files.delete(relativePath);
   const directories = new Map(snapshot.directories);
@@ -287,7 +288,7 @@ export function snapshotWithRemoved(snapshot: WorkspaceSnapshot, relativePath: s
 }
 
 export function removeRegularFile(path: string, expected: Buffer): void {
-  if (!readRegularFile(path).equals(expected)) throw new Error(`待移除文件在检查后发生变化：${path}`);
+  if (!readRegularFile(path).equals(expected)) throw userError('errorRemovalFileChanged', { path });
   unlinkSync(path);
   syncDirectory(dirname(path));
 }
@@ -311,7 +312,7 @@ export function publishNewFile(path: string, raw: Buffer): void {
 
 export function replaceRegularFile(path: string, raw: Buffer, expected: Buffer): void {
   const before = readRegularFile(path);
-  if (!before.equals(expected)) throw new Error(`目标会话在检查后发生变化，停止标题更新：${path}`);
+  if (!before.equals(expected)) throw userError('errorTitleTargetChanged', { path });
   const permissions = lstatSync(path).mode & 0o777;
   const temporary = join(dirname(path), `.claudesync-${randomBytes(8).toString('hex')}.tmp`);
   const fd = openSync(temporary, 'wx', 0o600);
@@ -355,12 +356,12 @@ export function acquireFileLock(path: string): () => void {
     const before = lstatSync(path);
     const raw = readRegularFile(path, 64);
     const value = raw.toString('utf8').trim();
-    if (!/^[1-9]\d*$/u.test(value) || !Number.isSafeInteger(Number(value))) throw new Error('同步锁格式异常，请先检查上一次操作。');
-    try { process.kill(Number(value), 0); throw new Error('另一个 ClaudeSync 操作正在运行。'); }
+    if (!/^[1-9]\d*$/u.test(value) || !Number.isSafeInteger(Number(value))) throw userError('errorLockInvalid');
+    try { process.kill(Number(value), 0); throw userError('errorOperationAlreadyRunning'); }
     catch (error) {
       if (!isRecord(error) || error.code !== 'ESRCH') throw error;
       const now = lstatSync(path);
-      if (now.dev !== before.dev || now.ino !== before.ino || !readRegularFile(path, 64).equals(raw)) throw new Error('同步锁正在变化，请稍后重试。');
+      if (now.dev !== before.dev || now.ino !== before.ino || !readRegularFile(path, 64).equals(raw)) throw userError('errorLockChanged');
       unlinkSync(path);
     }
   }

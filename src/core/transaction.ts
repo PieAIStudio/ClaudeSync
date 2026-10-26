@@ -13,6 +13,7 @@ import type { Workspace } from './workspace';
 import { collectTranscriptIndex } from './workspace';
 import { verifiedTargets } from './visibility';
 import type { ApplyResult, BackupView, ChangeKind, OperationKind } from '../shared/contracts';
+import { userError, userMessage } from '../error-copy';
 
 export interface FileChange {
   path: string;
@@ -63,11 +64,11 @@ export function workspaceRevision(workspace: Workspace): string {
 }
 
 function assertInputsCurrent(workspace: Workspace, removedTranscripts = new Set<string>(), dependencies?: DataDependencies): void {
-  if (!readRegularFile(workspace.configPath).equals(workspace.configRaw)) throw new Error('设置已改变，请重新检查。');
+  if (!readRegularFile(workspace.configPath).equals(workspace.configRaw)) throw userError('errorConfigChanged');
   for (const [id, transcript] of workspace.transcripts) {
     if ('error' in transcript || dependencies && !dependencies.ids.has(id) || removedTranscripts.has(transcript.path)) continue;
     try { assertTranscriptCurrent(transcript); }
-    catch { throw dependencies ? dependencyError(dependencies, id) : new Error('Code 会话正文在检查后发生变化，请完全退出 Claude 后重新检查。'); }
+    catch { throw dependencies ? dependencyError(dependencies, id) : userError('errorTranscriptChangedAfterCheck'); }
   }
 }
 
@@ -105,18 +106,18 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
     if (plan.changes.some((change) => !targets.has(change.path.split('/').slice(0, 2).join('/'))
       && !(plan.kind === 'sync' && change.action === 'restore' && !change.after && change.before
         && plan.restoredMarkerPaths?.includes(change.path) && /^[0-9a-f-]{36}\/[0-9a-f-]{36}\/deleted_[0-9a-f-]{36}$/u.test(change.path))))
-      throw new Error('同步计划包含未核实或旧组织目录，已停止。');
+      throw userError('errorUnverifiedPlan');
   }
   if (plan.changes.length === 0) return { filesChanged: 0, verified: true };
   const paths = new Set<string>();
   for (const change of plan.changes) {
     if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/(?:local_[0-9a-f-]{36}\.json|archived-sessions\.idx|deleted_[0-9a-f-]{36})$/u.test(change.path)) {
-      throw new Error('操作计划包含未管理的目标路径，已停止。');
+      throw userError('errorUnmanagedPath');
     }
-    if (paths.has(change.path)) throw new Error('操作计划包含重复文件。');
+    if (paths.has(change.path)) throw userError('errorDuplicatePlanPath');
     paths.add(change.path);
     const before = workspace.snapshot.files.get(change.path);
-    if (before ? !change.before?.equals(before) : Boolean(change.before)) throw new Error('操作计划与检查快照不一致。');
+    if (before ? !change.before?.equals(before) : Boolean(change.before)) throw userError('errorPlanSnapshotMismatch');
   }
   const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
   let backup: ReturnType<typeof createBackup> | undefined;
@@ -133,11 +134,11 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
     }
     const current = takeWorkspaceSnapshot(workspace.root, workspace.accounts);
     if (plan.dependencies) assertDependencySnapshot(expected, current, plan.dependencies);
-    else if (!sameSnapshot(expected, current)) throw new Error('检查后Code 会话数据发生变化，已停止修改。请重新检查。');
+    else if (!sameSnapshot(expected, current)) throw userError('errorWorkspaceChanged');
     if (deletionExpected) {
       const allAccounts = takeDeletionSnapshot(workspace.root);
       if (plan.dependencies) assertDependencySnapshot(deletionExpected, allAccounts, plan.dependencies);
-      else if (!sameSnapshot(deletionExpected, allAccounts)) throw new Error('其他账号的Code 会话发生变化，已停止删除。');
+      else if (!sameSnapshot(deletionExpected, allAccounts)) throw userError('errorOtherAccountChanged');
     }
     // A skipped entry must never be overwritten by an addition. Check all
     // destination parents/collisions before the first backup or write, including
@@ -148,12 +149,12 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
       if (expected.files.has(change.path)) continue;
       try { lstatSync(target); }
       catch (error) { if (isRecord(error) && error.code === 'ENOENT') continue; throw error; }
-      throw new Error(`目标路径已有未识别条目，未改动：${change.path}`);
+      throw userError('errorUnrecognizedTarget', { path: change.path });
     }
     if (deletionExpected) {
       const inventory = (index: Map<string, string[]>) => [...index].filter(([id]) => !plan.dependencies || plan.dependencies.ids.has(id)).map(([id, paths]) => [id, paths.filter((path) => !removedTranscripts.has(path))] as const)
         .filter(([, paths]) => paths.length).sort(([a], [b]) => a.localeCompare(b));
-      if (JSON.stringify(inventory(workspace.transcriptPaths)) !== JSON.stringify(inventory(collectTranscriptIndex(workspace.projectsRoot)))) throw new Error('Code 会话正文目录发生变化，请重新检查。');
+      if (JSON.stringify(inventory(workspace.transcriptPaths)) !== JSON.stringify(inventory(collectTranscriptIndex(workspace.projectsRoot)))) throw userError('errorTranscriptDirectoryChanged');
     }
   }
   try {
@@ -185,7 +186,7 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
       }
     }
     for (const transcript of plan.transcriptRemovals ?? []) {
-      if (plan.kind !== 'delete' || !deletionExpected) throw new Error('正文删除计划无效。');
+      if (plan.kind !== 'delete' || !deletionExpected) throw userError('errorInvalidDeletePlan');
       checkInputs();
       // Unknown stores may hold references we cannot inspect. Delete recognized
       // indexes normally, but retain shared bodies rather than guessing ownership.
@@ -205,9 +206,9 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
       backup.manifest.state = 'interrupted';
       backup.manifest.error = error instanceof Error ? error.message : String(error);
       try { writeOwnedFile(join(backup.path, 'manifest.json'), encodeJson(backup.manifest)); } catch { /* Preserve the original error. */ }
-      throw new Error(`${backup.manifest.error}\n可在“备份与恢复”撤销已完成的部分。备份：${backup.path}`);
+      throw userError('errorBackupInterrupted', { message: backup.manifest.error ?? userMessage('statusDeleteInterrupted'), path: backup.path });
     }
-    if (plan.kind === 'delete' && applied) throw new Error(`${error instanceof Error ? error.message : '删除中断。'}\n已完成 ${applied} 项文件修改，后续已停止。删除没有备份，无法恢复；请重新检查列表。`);
+    if (plan.kind === 'delete' && applied) throw userError('errorDeleteInterrupted', { message: error instanceof Error ? error.message : userMessage('statusDeleteInterrupted'), applied });
     throw error;
   } finally {
     release();
@@ -218,21 +219,21 @@ const BACKUP_ID = /^[0-9TZA-Fa-f-]{30,100}$/u;
 const KINDS: readonly OperationKind[] = ['sync', 'keep', 'archive', 'unarchive', 'delete', 'rename', 'star', 'unstar', 'restore'];
 
 function loadManifest(baseDirectory: string, id: string): Manifest {
-  if (!BACKUP_ID.test(id)) throw new Error('备份编号无效。');
+  if (!BACKUP_ID.test(id)) throw userError('errorInvalidBackupId');
   const path = join(baseDirectory, 'backups', id);
   assertPlainDirectory(path);
   const value: unknown = JSON.parse(readRegularFile(join(path, 'manifest.json')).toString('utf8'));
   if (!isRecord(value) || value.version !== 3 || typeof value.root !== 'string' || typeof value.configSha256 !== 'string'
     || typeof value.createdAt !== 'string' || !KINDS.includes(value.operation as OperationKind)
     || !['prepared', 'verified', 'interrupted'].includes(String(value.state)) || !Array.isArray(value.changes)) {
-    throw new Error('这个备份不是新版可恢复格式。');
+    throw userError('errorBackupFormat');
   }
   const seen = new Set<string>();
   for (const change of value.changes) {
     if (!isRecord(change) || typeof change.path !== 'string' || typeof change.sessionId !== 'string' || typeof change.title !== 'string'
       || !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/(?:local_[0-9a-f-]{36}\.json|archived-sessions\.idx|deleted_[0-9a-f-]{36})$/u.test(change.path)
       || seen.has(change.path) || ![change.beforeSha256, change.afterSha256].every((hash) => hash === null || typeof hash === 'string' && /^[0-9a-f]{64}$/u.test(hash))) {
-      throw new Error('备份清单格式无法安全识别。');
+      throw userError('errorBackupManifest');
     }
     seen.add(change.path);
   }
@@ -253,22 +254,22 @@ export function listBackups(baseDirectory: string): BackupView[] {
 
 export function buildRestorePlan(workspace: Workspace, id: string): FilePlan {
   const manifest = loadManifest(workspace.baseDirectory, id);
-  if (manifest.root !== workspace.root || manifest.configSha256 !== sha256(workspace.configRaw)) throw new Error('备份对应的文件夹或账号设置与现在不同，不能自动恢复。');
+  if (manifest.root !== workspace.root || manifest.configSha256 !== sha256(workspace.configRaw)) throw userError('errorRestoreWorkspaceMismatch');
   const scopes = new Set(workspace.accounts.map((account) => account.scope));
   const changes: FileChange[] = [];
   for (const change of manifest.changes) {
     const scope = change.path.split('/').slice(0, 2).join('/');
-    if (!scopes.has(scope)) throw new Error('备份包含当前设置之外的账号。');
+    if (!scopes.has(scope)) throw userError('errorRestoreScope');
     const current = workspace.snapshot.files.get(change.path);
     const currentHash = current ? sha256(current) : null;
     if (currentHash === change.beforeSha256) continue;
-    if (currentHash !== change.afterSha256) throw new Error(`这条Code 会话后来又被修改过，不能覆盖：${change.title || change.sessionId}`);
+    if (currentHash !== change.afterSha256) throw userError('errorRestoreSessionChanged', { title: change.title || change.sessionId });
     let restored: Buffer | undefined;
     if (change.beforeSha256 !== null) {
       const path = safeWorkspacePath(join(workspace.baseDirectory, 'backups', id, 'before'), change.path);
       assertPlainDirectory(dirname(path));
       restored = readRegularFile(path);
-      if (sha256(restored) !== change.beforeSha256) throw new Error('备份文件损坏，不能恢复。');
+      if (sha256(restored) !== change.beforeSha256) throw userError('errorBackupCorrupt');
     }
     changes.push({ path: change.path, before: current, after: restored, sessionId: change.sessionId, title: change.title, action: 'restore' });
   }

@@ -78,7 +78,7 @@ it.each(['link', 'directory', 'file parent', 'linked parent'])('still blocks an 
   const plan = buildOperationPlan(workspace, { kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] });
   const source = readFileSync(indexPath(root, SCOPE_A, CHAT_B));
   const before = structure(join(root, 'session-root'));
-  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow(/目标|目录|符号链接/u);
+  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow(/claudesync-message:(?:errorUnrecognizedTarget|errorDirectoryInvalid):/u);
   expect(readFileSync(indexPath(root, SCOPE_A, CHAT_B))).toEqual(source);
   expect(structure(join(root, 'session-root'))).toEqual(before);
   expect(listBackups(root)).toHaveLength(0);

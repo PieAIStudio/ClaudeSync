@@ -2,6 +2,7 @@ import type { Account, PlannedAddition, SessionEntry, SyncPlan } from './types';
 import { buildTitleActions, titleOrigin } from './title-policy';
 import { deterministicBranchIndexId, historyIds, isUuid, portableRecord } from './record';
 import { verifiedTargets, type VerifiedOrganizations } from './visibility';
+import { userMessage } from '../error-copy';
 
 export interface PlanOptions {
   verifiedOrganizations?: VerifiedOrganizations;
@@ -43,7 +44,7 @@ export function buildPlan(accounts: Account[], entries: SessionEntry[], options:
       const preferred = chosen ?? (new Set(manual.map((entry) => entry.data.title)).size === 1 ? manual[0] : undefined);
       const title = preferred?.data.title || source.data.title || '未命名会话';
       if ([...ids].some((id) => options.tombstones?.has(id))) {
-        skipped.push({ source: source.account, target, title, reason: '该会话或历史分支有删除标记，防止旧内容重新出现' });
+        skipped.push({ source: source.account, target, title, reason: userMessage('statusDeletedHistoryPreventsResurrection') });
         continue;
       }
       let copiedSessionId = source.data.sessionId;
@@ -54,15 +55,15 @@ export function buildPlan(accounts: Account[], entries: SessionEntry[], options:
       }
       const destinationIds = new Set([copiedSessionId, copiedSessionId.startsWith('local_') ? copiedSessionId.slice(6) : copiedSessionId]);
       if ([...destinationIds].some((id) => options.tombstones?.has(id))) {
-        skipped.push({ source: source.account, target, title, reason: '新入口曾被删除，防止重新生成' });
+        skipped.push({ source: source.account, target, title, reason: userMessage('statusDeletedEntryPreventsResurrection') });
         continue;
       }
       if ([...destinationIds].some((id) => options.archivedByAccount?.get(target.scope)?.has(id))) {
-        skipped.push({ source: source.account, target, title, reason: '目标账号已归档此会话' });
+        skipped.push({ source: source.account, target, title, reason: userMessage('statusTargetArchived') });
         continue;
       }
       if (existingByPath.has(targetPath)) {
-        skipped.push({ source: source.account, target, title, reason: '新入口 ID 已被占用，无法安全生成分支入口' });
+        skipped.push({ source: source.account, target, title, reason: userMessage('statusBranchEntryOccupied') });
         continue;
       }
       additions.push({

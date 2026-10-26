@@ -28,5 +28,5 @@ it('does not discover or read unrelated sibling stores outside the configured Co
 it('requires the local Code index contract, not an arbitrary conversation JSON object', () => {
   expect(() => validateSessionRecord(`local_${CHAT_A}.json`, {
     sessionId: `local_${CHAT_A}`, messages: [], title: 'Synthetic non-Code record',
-  })).toThrow('无法识别');
+  })).toThrow('claudesync-message:errorInvalidLocalSession');
 });

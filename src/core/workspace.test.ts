@@ -131,7 +131,7 @@ it('stops before writing when an index changes after the read-only check', () =>
     source.title = 'Changed after check';
     writeFileSync(sourcePath, `${JSON.stringify(source, null, 2)}\n`);
     const operation = buildOperationPlan(workspace, { kind: 'sync', sessionIds: workspace.entries.map((entry) => entry.data.cliSessionId!), accountIds: workspace.accounts.map((account) => account.scope.split('/')[0]!) });
-    expect(() => commitFilePlan(workspace, operation, () => undefined)).toThrow('数据发生变化');
+    expect(() => commitFilePlan(workspace, operation, () => undefined)).toThrow('claudesync-message:errorWorkspaceChanged');
     expect(existsSync(join(root, 'session-root', plan.additions[0]!.targetPath))).toBe(false);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -146,7 +146,7 @@ it('blocks resurrecting a session with a deletion marker in another account', ()
     const workspace = loadWorkspace(join(root, 'config.json'));
     const source = workspace.entries.find((entry) => entry.data.cliSessionId === 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
     expect(source?.eligible).toBe(false);
-    expect(source?.reason).toContain('删除标记');
+    expect(source?.reason).toContain('claudesync-message:statusDeletedHistoryNotCopied');
     expect(buildWorkspacePlan(workspace).additions).toHaveLength(0);
   } finally {
     rmSync(root, { recursive: true, force: true });

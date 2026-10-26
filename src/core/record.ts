@@ -1,5 +1,6 @@
 import type { SessionRecord } from './types';
 import { createHash } from 'node:crypto';
+import { userError } from '../error-copy';
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u;
 const LOCAL_INDEX = /^local_([0-9a-f-]{36})\.json$/u;
@@ -33,35 +34,35 @@ export function deterministicBranchIndexId(targetScope: string, cliSessionId: st
 export function validateSessionRecord(filename: string, value: unknown): SessionRecord {
   const match = LOCAL_INDEX.exec(filename);
   if (!match || !isUuid(match[1]) || !isRecord(value) || value.sessionId !== filename.slice(0, -5)) {
-    throw new Error(`无法识别本地会话结构：${filename}`);
+    throw userError('errorInvalidLocalSession', { filename });
   }
   const record = value as SessionRecord;
   if (REMOTE_KEYS.some((key) => Boolean(record[key]))) return record;
   if (!isUuid(record.cliSessionId) || typeof record.cwd !== 'string' || !isAbsolutePath(record.cwd)) {
-    throw new Error(`无法识别本地会话结构：${filename}`);
+    throw userError('errorInvalidLocalSession', { filename });
   }
   for (const key of ['isArchived', 'isStarred'] as const) {
-    if (key in record && typeof record[key] !== 'boolean') throw new Error(`会话布尔字段格式改变：${filename} / ${key}`);
+    if (key in record && typeof record[key] !== 'boolean') throw userError('errorBooleanFieldChanged', { filename, key });
   }
   for (const key of ['title', 'model'] as const) {
-    if (key in record && typeof record[key] !== 'string') throw new Error(`会话文本字段格式改变：${filename} / ${key}`);
+    if (key in record && typeof record[key] !== 'string') throw userError('errorTextFieldChanged', { filename, key });
   }
-  if (record.scheduledTaskId != null && typeof record.scheduledTaskId !== 'string') throw new Error(`定时任务字段格式改变：${filename}`);
+  if (record.scheduledTaskId != null && typeof record.scheduledTaskId !== 'string') throw userError('errorScheduledTaskFieldChanged', { filename });
   const prior = 'priorCliSessionIds' in record ? record.priorCliSessionIds : [];
-  if (!Array.isArray(prior) || prior.some((id) => !isUuid(id))) throw new Error(`历史正文 ID 格式改变：${filename}`);
+  if (!Array.isArray(prior) || prior.some((id) => !isUuid(id))) throw userError('errorHistoryIdChanged', { filename });
   const edges = 'rewindEdges' in record ? record.rewindEdges : [];
-  if (!Array.isArray(edges)) throw new Error(`分支关系格式改变：${filename}`);
+  if (!Array.isArray(edges)) throw userError('errorBranchRelationInvalid', { filename });
   for (const edge of edges) {
     if (!isRecord(edge) || !['id', 'parent', 'child'].every((key) => isUuid(edge[key]))) {
-      throw new Error(`分支关系字段格式改变：${filename}`);
+      throw userError('errorBranchRelationFieldChanged', { filename });
     }
     if ('cwd' in edge && (typeof edge.cwd !== 'string' || !isAbsolutePath(edge.cwd))) {
-      throw new Error(`分支工作目录格式改变：${filename}`);
+      throw userError('errorBranchCwdChanged', { filename });
     }
   }
   const states = 'transcriptModelStates' in record ? record.transcriptModelStates : {};
   if (!isRecord(states) || Object.entries(states).some(([id, item]) => !isUuid(id) || !isRecord(item))) {
-    throw new Error(`历史模型状态格式改变：${filename}`);
+    throw userError('errorModelStateChanged', { filename });
   }
   return record;
 }

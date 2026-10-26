@@ -88,7 +88,7 @@ it.each(['edit', 'add', 'remove'] as const)('blocks a stale preview after waitin
   if (change === 'remove') rmSync(path);
   else writeFileSync(path, 'Changed Desktop state');
   expect(workspaceRevision(load())).not.toBe(workspaceRevision(workspace));
-  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('检查后');
+  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('claudesync-message:errorWorkspaceChanged');
   expect(readFileSync(indexPath(root, SCOPE_A, CHAT_A))).toEqual(chatBefore);
   expect(listBackups(root)).toHaveLength(0);
 });
@@ -104,7 +104,7 @@ it.each(['edit', 'add', 'remove'] as const)('blocks a stale preview after backlo
   if (change === 'remove') rmSync(path);
   else writeFileSync(path, '{"version":1,"items":[{"id":"todo_012345abcdef"}]}');
   expect(workspaceRevision(load())).not.toBe(workspaceRevision(workspace));
-  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('检查后');
+  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('claudesync-message:errorWorkspaceChanged');
   expect(readFileSync(indexPath(root, SCOPE_A, CHAT_A))).toEqual(chatBefore);
   expect(listBackups(root)).toHaveLength(0);
 });
@@ -158,7 +158,7 @@ it('keeps the same ten chosen sessions across three accounts rather than limitin
 it('refuses keep-only before any write if selected transcripts are missing', () => {
   rmSync(join(root, 'projects/project', `${CHAT_B}.jsonl`));
   const workspace = load();
-  expect(() => buildOperationPlan(workspace, { kind: 'keep', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] })).toThrow('暂时不能');
+  expect(() => buildOperationPlan(workspace, { kind: 'keep', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] })).toThrow('claudesync-message:errorKeepSessionUnavailable');
   expect(workspace.snapshot.files).toEqual(load().snapshot.files);
   expect(listBackups(root)).toHaveLength(0);
 });
@@ -212,7 +212,7 @@ it('stops an interrupted direct delete with accurate partial status and no recov
   const workspace = load();
   const plan = buildOperationPlan(workspace, { kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] });
   let calls = 0;
-  expect(() => commitFilePlan(workspace, plan, () => { if (++calls === 3) throw new Error('Interrupted'); })).toThrow('删除没有备份');
+  expect(() => commitFilePlan(workspace, plan, () => { if (++calls === 3) throw new Error('Interrupted'); })).toThrow('claudesync-message:errorDeleteInterrupted');
   expect(listBackups(root)).toEqual([]);
   expect(existsSync(join(root, 'backups'))).toBe(false);
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(false);
@@ -221,7 +221,7 @@ it('stops an interrupted direct delete with accurate partial status and no recov
 
 it('refuses deletion when its entry ID is shared history, leaving archive available', () => {
   editIndex(root, SCOPE_A, CHAT_B, { priorCliSessionIds: [CHAT_A] });
-  expect(() => operation('delete', [CHAT_A], [ID_A])).toThrow('改用归档');
+  expect(() => operation('delete', [CHAT_A], [ID_A])).toThrow('claudesync-message:errorSharedHistoryDelete');
   expect(existsSync(join(root, 'session-root', SCOPE_A, `deleted_${CHAT_A}`))).toBe(false);
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(true);
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_B))).toBe(true);
@@ -236,7 +236,7 @@ it('protects history claimed by an unconfigured sibling folder of the same login
   const config = JSON.parse(readFileSync(path, 'utf8'));
   config.accounts = config.accounts.filter((account: { scope: string }) => account.scope !== sibling);
   writeFileSync(path, JSON.stringify(config));
-  expect(() => operation('delete', [CHAT_A], [ID_A])).toThrow('未参与整理');
+  expect(() => operation('delete', [CHAT_A], [ID_A])).toThrow('claudesync-message:errorSharedHistoryDelete');
   expect(existsSync(indexPath(root, sibling, CHAT_A))).toBe(true);
   expect(listBackups(root)).toHaveLength(0);
 });
@@ -262,18 +262,18 @@ it('blocks stale previews, running-process guards and changed transcripts before
   const plan = buildOperationPlan(workspace, { kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A] });
   expect(() => commitFilePlan(workspace, plan, () => { throw new Error('Claude running'); })).toThrow('Claude running');
   editIndex(root, SCOPE_A, CHAT_A, { title: 'A newer title' });
-  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('检查后');
+  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('claudesync-message:errorWorkspaceChanged');
   const fresh = load();
   const newPlan = buildOperationPlan(fresh, { kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A] });
   writeFileSync(join(root, 'projects/project', `${CHAT_A}.jsonl`), '{"type":"user","message":{"content":"newer"}}\n');
-  expect(() => commitFilePlan(fresh, newPlan, () => undefined)).toThrow('正文');
+  expect(() => commitFilePlan(fresh, newPlan, () => undefined)).toThrow('claudesync-message:errorDependencySessionChanged');
 });
 
 it('keeps an interrupted journal recoverable and refuses to overwrite later edits', () => {
   const before = load();
   const plan = buildOperationPlan(before, { kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] });
   let calls = 0;
-  expect(() => commitFilePlan(before, plan, () => { if (++calls === 3) throw new Error('Stopped mid-operation'); })).toThrow('备份');
+  expect(() => commitFilePlan(before, plan, () => { if (++calls === 3) throw new Error('Stopped mid-operation'); })).toThrow('claudesync-message:errorBackupInterrupted');
   const backup = listBackups(root)[0]!;
   expect(backup.state).toBe('interrupted');
   const after = load();
@@ -281,8 +281,8 @@ it('keeps an interrupted journal recoverable and refuses to overwrite later edit
   expect(load().snapshot.files).toEqual(before.snapshot.files);
   const result = operation('archive', [CHAT_A], [ID_A]).result;
   editIndex(root, SCOPE_A, CHAT_A, { title: 'Newer work' });
-  expect(() => buildRestorePlan(load(), basename(result.backup!))).toThrow('后来又被修改');
-  expect(() => buildRestorePlan(load(), '../bad')).toThrow('编号');
+  expect(() => buildRestorePlan(load(), basename(result.backup!))).toThrow('claudesync-message:errorRestoreSessionChanged');
+  expect(() => buildRestorePlan(load(), '../bad')).toThrow('claudesync-message:errorInvalidBackupId');
 });
 
 it('skips and reports symlink indexes and unknown schemas without treating them as managed sessions', () => {

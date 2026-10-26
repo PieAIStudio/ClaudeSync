@@ -4,6 +4,7 @@ import { assertTranscriptCurrent, isRecord, readRegularFile } from './storage';
 import type { Workspace } from './workspace';
 import type { SessionEntry, SessionRecord } from './types';
 import type { ProgressConflictView, ProgressUpdateView } from '../shared/contracts';
+import { userError } from '../error-copy';
 
 // Resume state is portable; destination permissions, title, archive/star state,
 // entry ID and unknown account-local fields are not replaced by a peer's copy.
@@ -91,7 +92,7 @@ export function reconcileProgress(workspace: Workspace, sourcePaths: string[], t
     const different = new Set(keys.values()).size > 1;
     const parents = different ? parentsFor(workspace, peers) : new Map<string, string | null>();
     const selected = choices[id] ? peers.find((entry) => entry.path === choices[id]) : undefined;
-    if (choices[id] && !selected) throw new Error('选择的会话版本已经变化，请重新预览并选择保留哪边。');
+    if (choices[id] && !selected) throw userError('errorSessionVersionChanged');
     const automatic = peers.filter((candidate) => peers.every((peer) => keys.get(candidate.path) === keys.get(peer.path) || extendsCopy(candidate, peer, parents)))
       .sort((a, b) => (activity(b.data) ?? 0) - (activity(a.data) ?? 0))[0];
     const chosen = selected ?? automatic;

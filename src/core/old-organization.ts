@@ -10,6 +10,7 @@ import { collectTranscriptIndex, loadWorkspace } from './workspace';
 import type { Workspace } from './workspace';
 
 import type { OldCopyItemView } from '../shared/contracts';
+import { userError, userMessage } from '../error-copy';
 
 export interface OldCleanupPlan {
   dependencies: DataDependencies;
@@ -25,7 +26,7 @@ export interface OldCleanupPlan {
 // account's ordinary sidebar number. The Owner can later unarchive or delete it.
 export function planOldCleanup(workspace: Workspace, selectedAccountIds: readonly string[]): OldCleanupPlan {
   const accountIds = [...new Set(selectedAccountIds)];
-  if (!accountIds.length || accountIds.length > 50) throw new Error('请选择要清理的账号。');
+  if (!accountIds.length || accountIds.length > 50) throw userError('errorCleanupAccountsRequired');
   const expectedMain: Record<string, number> = {};
   const items: OldCopyItemView[] = [];
   const removals: OldCleanupPlan['removals'] = [];
@@ -36,18 +37,18 @@ export function planOldCleanup(workspace: Workspace, selectedAccountIds: readonl
 
   for (const id of accountIds) {
     if (!isUuid(id) || !workspace.accounts.some((account) => accountIdForScope(account.scope) === id))
-      throw new Error('选择的账号不在本机清单中。');
+      throw userError('errorCleanupUnknownAccount');
     const organization = verifiedOrganization(workspace, id);
-    if (!organization) throw new Error('当前组织未核实，不能清理旧副本。请在 Claude Desktop 切到这个账号，再重新检查。');
+    if (!organization) throw userError('errorCleanupOrganizationUnverified');
     const currentScope = id + '/' + organization;
     const scannedPaths = new Set(workspace.entries.map((entry) => entry.path));
     for (const path of workspace.snapshot.files.keys()) {
       const [owner, org, name, extra] = path.split('/');
       if (owner === id && org !== organization && !extra && /^local_[0-9a-f-]{36}\.json$/u.test(name ?? '') && !scannedPaths.has(path))
-        throw new Error('旧组织有未列入设置的副本，不能假装已清理完，请先把目录加入检查范围。');
+        throw userError('errorCleanupUnconfiguredCopy');
     }
     const count = catalog.accounts.find((account) => account.id === id)?.visible;
-    if (count === null || count === undefined) throw new Error('当前组织的主数字未核实。');
+    if (count === null || count === undefined) throw userError('errorCleanupMainCountUnverified');
     expectedMain[id] = count;
     const inCurrent = new Set(workspace.entries.filter((e) => e.account.scope === currentScope).map(sessionKey));
     const broughtBack = new Set<string>();
@@ -55,20 +56,20 @@ export function planOldCleanup(workspace: Workspace, selectedAccountIds: readonl
       .sort((a, b) => a.path.localeCompare(b.path));
     for (const entry of old) {
       if (!isUuid(entry.data.cliSessionId) || !isManageable(entry) || hasDeletionMarker(workspace, entry) || entryGroup(workspace, entry) !== 'oldOrganization')
-        throw new Error('旧组织里有已删除、定时或无法识别的记录，已停止清理；请先单独核对。');
+        throw userError('errorCleanupUnsupportedRecords');
       const key = sessionKey(entry);
       const currentHasCopy = inCurrent.has(key);
       const hasPlannedImport = broughtBack.has(key);
       let action: OldCopyItemView['action'] = 'trashDuplicate';
       if (!currentHasCopy && !hasPlannedImport) {
-        if (entry.syncIssue) throw new Error('有旧会话缺少正文或无法安全复制，已停止；所有旧副本均未移动。');
+        if (entry.syncIssue) throw userError('errorCleanupMissingTranscript');
         let stem = entry.data.sessionId;
         let target = currentScope + '/' + stem + '.json';
         if (reserved.has(target)) {
           stem = 'local_' + deterministicBranchIndexId(currentScope, key);
           target = currentScope + '/' + stem + '.json';
         }
-        if (reserved.has(target)) throw new Error('当前组织里有重名文件，已停止以免覆盖。');
+        if (reserved.has(target)) throw userError('errorCleanupNameCollision');
         const data = { ...portableRecord(entry.data, stem === entry.data.sessionId ? undefined : stem, entry.data.title), isArchived: true, isStarred: false };
         imports.push({ path: target, raw: encodeJson(data) });
         const ids = pendingArchive.get(currentScope) ?? new Set<string>();
@@ -83,18 +84,18 @@ export function planOldCleanup(workspace: Workspace, selectedAccountIds: readonl
       items.push({ sessionId: key, title: entry.data.title || '', accountId: id,
         oldScope: entry.account.scope, currentHasCopy, action });
       const raw = workspace.snapshot.files.get(entry.path);
-      if (!raw || !entry.raw?.equals(raw)) throw new Error('旧会话快照无法核实，已停止。');
+      if (!raw || !entry.raw?.equals(raw)) throw userError('errorCleanupSnapshotChanged');
       removals.push({ path: entry.path, raw });
     }
   }
-  if (items.length > 5000) throw new Error('本次旧副本过多，请分账号清理。');
+  if (items.length > 5000) throw userError('errorCleanupTooManyCopies');
   const archiveHints: OldCleanupPlan['archiveHints'] = [];
   for (const [scope, names] of pendingArchive) {
     const path = scope + '/archived-sessions.idx';
     const before = workspace.snapshot.files.get(path);
     const data = before ? JSON.parse(before.toString('utf8')) as Record<string, unknown> : { v: 1 };
     if (data.v !== 1 || data.archived !== undefined && (!Array.isArray(data.archived) || data.archived.some((value) => typeof value !== 'string')))
-      throw new Error('当前组织归档索引格式无法识别。');
+      throw userError('errorCleanupArchiveIndexInvalid');
     const archived = [...new Set([...(data.archived as string[] | undefined ?? []), ...names])].sort();
     archiveHints.push({ path, before, after: encodeJson({ ...data, archived }) });
   }
@@ -116,14 +117,14 @@ export async function executeOldCleanup(
   workspace: Workspace, plan: OldCleanupPlan,
   trash: (absolutePath: string) => Promise<void>, guard: () => void,
 ): Promise<OldCleanupResult> {
-  if (!plan.items.length || plan.items.length !== plan.removals.length) throw new Error('清理清单为空或无效。');
+  if (!plan.items.length || plan.items.length !== plan.removals.length) throw userError('errorCleanupPlanInvalid');
   const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
   let expected = workspace.snapshot;
   let trashed = 0;
   let importedArchived = 0;
   function check() {
     guard();
-    if (!readRegularFile(workspace.configPath).equals(workspace.configRaw)) throw new Error('设置已变化，已停止清理。');
+    if (!readRegularFile(workspace.configPath).equals(workspace.configRaw)) throw userError('errorCleanupConfigChanged');
     assertDependencySnapshot(expected, takeWorkspaceSnapshot(workspace.root, workspace.accounts), plan.dependencies);
     for (const [id, transcript] of workspace.transcripts) {
       if ('error' in transcript || !plan.dependencies.ids.has(id)) continue;
@@ -140,7 +141,7 @@ export async function executeOldCleanup(
     // All imports must be safely archived before moving any old-only source.
     for (const addition of plan.imports) {
       check();
-      if (expected.files.has(addition.path)) throw new Error('当前组织已有同名文件。');
+      if (expected.files.has(addition.path)) throw userError('errorCleanupCurrentNameCollision');
       const target = safeWorkspacePath(workspace.root, addition.path);
       assertPlainDirectory(dirname(target));
       publishNewFile(target, addition.raw);
@@ -164,7 +165,7 @@ export async function executeOldCleanup(
       check();
       const path = safeWorkspacePath(workspace.root, removal.path);
       assertPlainDirectory(dirname(path));
-      if (!readRegularFile(path).equals(removal.raw)) throw new Error('旧副本在预览后变化。');
+      if (!readRegularFile(path).equals(removal.raw)) throw userError('errorCleanupOldCopyChanged');
       await trash(path);
       expected = snapshotWithRemoved(expected, removal.path);
       trashed++;
@@ -177,16 +178,16 @@ export async function executeOldCleanup(
       const parts = addition.path.split('/');
       const scope = parts.slice(0, 2).join('/');
       const name = parts[2]!.slice(0, -'.json'.length);
-      if (!fresh.archivedByAccount.get(scope)?.has(name)) throw new Error('归档索引读回失败。');
+      if (!fresh.archivedByAccount.get(scope)?.has(name)) throw userError('errorCleanupArchiveReadback');
     }
     const mainUnchanged = plan.accountIds.every((id) => updated.accounts.find((a) => a.id === id)?.visible === plan.expectedMain[id]);
     const oldCopiesRemaining = fresh.entries.filter((e) => plan.accountIds.includes(accountIdForScope(e.account.scope))
       && e.account.scope !== idScope(fresh, accountIdForScope(e.account.scope))).length;
-    if (!mainUnchanged || oldCopiesRemaining !== 0) throw new Error('读回数字不符合预期，请检查记录。');
+    if (!mainUnchanged || oldCopiesRemaining !== 0) throw userError('errorCleanupCountMismatch');
     return { trashed, importedArchived, mainUnchanged, oldCopiesRemaining };
   } catch (error) {
-    const message = error instanceof Error ? error.message : '清理中断';
-    throw new Error(message + '；已移入废纸篓 ' + trashed + ' 条、已归档搬回 ' + importedArchived + ' 条。未自动重试，请重新检查；废纸篓中的旧副本可恢复。');
+    const message = error instanceof Error ? error.message : userMessage('statusCleanupInterrupted');
+    throw userError('errorCleanupInterruptedSummary', { message, trashed, importedArchived });
   } finally {
     release();
   }

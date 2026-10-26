@@ -12,10 +12,10 @@ const validRecord = {
 it('rejects changed history schemas and invalid local index IDs', () => {
   expect(() => validateSessionRecord('local_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.json', {
     ...validRecord, priorCliSessionIds: null,
-  })).toThrow('历史正文 ID 格式改变');
+  })).toThrow('claudesync-message:errorHistoryIdChanged');
   expect(() => validateSessionRecord('local_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaZ.json', {
     ...validRecord, sessionId: 'local_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaZ',
-  })).toThrow('无法识别本地会话结构');
+  })).toThrow('claudesync-message:errorInvalidLocalSession');
 });
 
 it('copies only portable fields and resets permission-specific settings', () => {

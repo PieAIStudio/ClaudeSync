@@ -6,6 +6,7 @@ import { sha256, type WorkspaceSnapshot } from './storage';
 import { entryGroup } from './visibility';
 import type { Workspace } from './workspace';
 import type { SessionGroup } from '../shared/contracts';
+import { userError, userMessage } from '../error-copy';
 
 export interface DataSelection {
   accountIds: string[];
@@ -31,7 +32,7 @@ export function captureDependencies(workspace: Workspace, selection: DataSelecti
     && selectedKeys.has(sessionKey(entry))) : [];
   const dependencies: DataDependencies = { ids: new Set(), paths: new Set(), archivePaths: new Set(), labels: new Map(), oldOrganizations: {} };
   for (const entry of [...primary, ...peers]) {
-    const label = `${entry.data.title || '未命名会话'}（${sessionKey(entry).slice(0, 8)}）`;
+    const label = userMessage('statusSessionLabel', { title: entry.data.title || userMessage('statusUntitledSession'), id: sessionKey(entry).slice(0, 8) });
     const ids = [...historyIds(entry.data), entry.data.sessionId.replace(/^local_/u, '')];
     for (const id of ids) { dependencies.ids.add(id); if (!dependencies.labels.has(id)) dependencies.labels.set(id, label); }
     dependencies.paths.add(entry.path); dependencies.labels.set(entry.path, label);
@@ -69,9 +70,10 @@ export function dependencySnapshot(snapshot: WorkspaceSnapshot, dependencies?: D
 
 export function dependencyError(dependencies: DataDependencies, changed?: string): Error {
   const id = changed ? basename(changed).replace(/\.jsonl$/u, '') : '';
-  const label = dependencies.labels.get(changed ?? '') ?? dependencies.labels.get(id)
-    ?? ([...new Set(dependencies.labels.values())].slice(0, 3).join('、') || '所选会话或其共享正文引用');
-  return new Error(`Code 会话“${label}”已经变化（检查后索引或正文已变化）；请先保存并关闭这条会话所在的 Claude / Claude Code 窗口，再点“重新检查”后重新选择。`);
+  const specific = dependencies.labels.get(changed ?? '') ?? dependencies.labels.get(id);
+  const labels = specific ? [specific] : [...new Set(dependencies.labels.values())].slice(0, 3);
+  if (!labels.length) labels.push(userMessage('statusSelectedSessionSharedBody'));
+  return userError('errorDependencySessionChanged', { labels });
 }
 export function assertDependencySnapshot(expected: WorkspaceSnapshot, actual: WorkspaceSnapshot, dependencies: DataDependencies): void {
   const before = dependencySnapshot(expected, dependencies).files, after = dependencySnapshot(actual, dependencies).files;

@@ -28,7 +28,7 @@ it('honors an explicit fork choice and rejects a forged source path', () => {
   editIndex(root, SCOPE_A, CHAT_A, { lastAssistantUuid: H2, completedTurns: 2 });
   editIndex(root, SCOPE_B, CHAT_A, { lastAssistantUuid: H3, completedTurns: 3 });
   const workspace = load();
-  expect(() => buildOperationPlan(workspace, { ...request, contentSelections: { [CHAT_A]: '/not-a-source' } })).toThrow('版本');
+  expect(() => buildOperationPlan(workspace, { ...request, contentSelections: { [CHAT_A]: '/not-a-source' } })).toThrow('claudesync-message:errorSessionVersionChanged');
   const plan = buildOperationPlan(workspace, { ...request, contentSelections: { [CHAT_A]: `${SCOPE_B}/local_${CHAT_A}.json` } });
   expect(plan.preview.progressConflicts?.[0]?.resolved).toBe(true);
   commitFilePlan(workspace, plan, () => undefined);
@@ -78,7 +78,7 @@ it('does not treat a later timestamp or more turns as proof that a fork may over
   const workspace = load();
   const plan = buildOperationPlan(workspace, { ...request, sessionIds: [CHAT_A, CHAT_B] });
   expect(plan.preview).toMatchObject({ progressConflicts: [{ id: CHAT_A, options: [{ accountId: ID_A }, { accountId: ID_B }] }] });
-  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('保留');
+  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('claudesync-message:errorProgressConflict');
   expect(readFileSync(indexPath(root, SCOPE_A, CHAT_A))).toEqual(workspace.snapshot.files.get(`${SCOPE_A}/local_${CHAT_A}.json`));
 });
 
@@ -86,5 +86,5 @@ it('requires an explicit choice when resume heads are absent and progress differ
   editIndex(root, SCOPE_A, CHAT_A, { lastAssistantUuid: null });
   editIndex(root, SCOPE_B, CHAT_A, { lastAssistantUuid: null, completedTurns: 8, lastActivityAt: 8000 });
   const workspace = load();
-  expect(() => commitFilePlan(workspace, buildOperationPlan(workspace, request), () => undefined)).toThrow('保留');
+  expect(() => commitFilePlan(workspace, buildOperationPlan(workspace, request), () => undefined)).toThrow('claudesync-message:errorProgressConflict');
 });

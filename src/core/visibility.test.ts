@@ -34,15 +34,15 @@ it('does not invent verification from one folder, an email, or the number four',
   const view = buildCatalog(workspace, { [ID_A]: 'synthetic@example.com' }, ID_A);
   expect(view.accounts.every((account) => account.visible === null && !account.organizationVerified)).toBe(true);
   expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ active: 0, oldCopies: 0, unverified: 10 });
-  expect(() => buildPlan(workspace.accounts, workspace.entries)).toThrow('未核实');
-  expect(() => buildOperationPlan(workspace, { kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] })).toThrow('未核实');
+  expect(() => buildPlan(workspace.accounts, workspace.entries)).toThrow('claudesync-message:errorOrganizationUnverified');
+  expect(() => buildOperationPlan(workspace, { kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] })).toThrow('claudesync-message:errorOrganizationUnverified');
 });
 
 it('fails closed when the verified organization is missing from configured folders', () => {
   const workspace = load();
   workspace.verifiedOrganizations = { ...workspace.verifiedOrganizations, [ID_A]: syntheticId(999) };
   expect(buildCatalog(workspace).accounts.find((account) => account.id === ID_A)?.visible).toBeNull();
-  expect(() => buildPlan(workspace.accounts, workspace.entries, { verifiedOrganizations: workspace.verifiedOrganizations })).toThrow('未核实');
+  expect(() => buildPlan(workspace.accounts, workspace.entries, { verifiedOrganizations: workspace.verifiedOrganizations })).toThrow('claudesync-message:errorOrganizationUnverified');
 });
 
 it('classifies by metadata, never by title, age, or single-turn length', () => {
@@ -123,7 +123,7 @@ it('does not silently manage hidden old copies when the visible group is selecte
   const workspace = load();
   const plan = buildOperationPlan(workspace, { kind: 'archive', group: 'visible', sessionIds: [CHAT_A], accountIds: [ID_A] });
   expect(plan.changes.every((change) => change.path.startsWith(`${SCOPE_A}/`))).toBe(true);
-  expect(() => buildOperationPlan(workspace, { kind: 'delete', group: 'visible', sessionIds: [CHAT_A], accountIds: [ID_A] })).toThrow('改用归档');
+  expect(() => buildOperationPlan(workspace, { kind: 'delete', group: 'visible', sessionIds: [CHAT_A], accountIds: [ID_A] })).toThrow('claudesync-message:errorSharedHistoryDelete');
   const old = buildOperationPlan(workspace, { kind: 'archive', group: 'oldOrganization', sessionIds: [CHAT_A], accountIds: [ID_A] });
   expect(old.changes.every((change) => change.path.startsWith(`${OLD_SCOPE}/`))).toBe(true);
 });
@@ -132,7 +132,7 @@ it('rejects forged sync plans to an old organization at the transaction boundary
   const workspace = load();
   const entry = workspace.entries.find((item) => item.account.scope === OLD_SCOPE)!;
   expect(() => commitFilePlan(workspace, { kind: 'sync', changes: [{ path: entry.path, before: entry.raw,
-    after: encodeJson({ ...entry.data, title: 'Forged' }), action: 'title', sessionId: entry.data.cliSessionId!, title: 'Forged' }] }, () => undefined)).toThrow('旧组织');
+    after: encodeJson({ ...entry.data, title: 'Forged' }), action: 'title', sessionId: entry.data.cliSessionId!, title: 'Forged' }] }, () => undefined)).toThrow('claudesync-message:errorUnverifiedPlan');
   expect(load().snapshot.files).toEqual(workspace.snapshot.files);
 });
 

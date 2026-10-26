@@ -43,6 +43,6 @@ it('still stops if a formerly unrelated session starts claiming the body schedul
 it('still stops and names the selected session if its own body is updated', () => {
   const workspace = load(), plan = buildOperationPlan(workspace, request);
   writeFileSync(join(root, 'projects/project', `${CHAT_B}.jsonl`), '{"type":"user","message":{"content":"selected changed"}}\n');
-  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow(/Only Account A.*关闭/u);
+  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('claudesync-message:errorDependencySessionChanged');
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_B))).toBe(true);
 });

@@ -10,7 +10,7 @@ it('refuses a live operation lock and preserves the owner bytes', () => {
   try {
     const path = join(root, '.lock');
     const release = acquireFileLock(path);
-    expect(() => acquireFileLock(path)).toThrow('正在运行');
+    expect(() => acquireFileLock(path)).toThrow('claudesync-message:errorOperationAlreadyRunning');
     expect(readFileSync(path, 'utf8')).toBe(`${process.pid}\n`);
     release();
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -20,7 +20,7 @@ it('rejects malformed lock state instead of deleting a potentially live lock', (
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'claudesync-lock-')));
   try {
     const path = join(root, '.lock'); writeFileSync(path, 'bad owner');
-    expect(() => acquireFileLock(path)).toThrow('格式异常');
+    expect(() => acquireFileLock(path)).toThrow('claudesync-message:errorLockInvalid');
     expect(readFileSync(path, 'utf8')).toBe('bad owner');
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

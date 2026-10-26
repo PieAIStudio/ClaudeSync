@@ -57,10 +57,10 @@ it('returns six unique old-only sessions archived, trashes ten old copies and re
 });
 it('refuses missing organization or deletion marker before any old file moves', () => {
   const workspace = loadWorkspace(join(root, 'config.json'));
-  expect(() => planOldCleanup(workspace, [ID_A])).toThrow('未核实');
+  expect(() => planOldCleanup(workspace, [ID_A])).toThrow('claudesync-message:errorCleanupOrganizationUnverified');
   expect(() => planOldCleanup(load(), [ID_B])).not.toThrow();
   writeFileSync(join(root, 'session-root', OLD_SCOPE, 'deleted_' + syntheticId(100)), '0');
-  expect(() => planOldCleanup(load(), [ID_A])).toThrow('已删除');
+  expect(() => planOldCleanup(load(), [ID_A])).toThrow('claudesync-message:errorCleanupUnsupportedRecords');
   expect(existsSync(indexPath(root, OLD_SCOPE, syntheticId(100)))).toBe(true);
 });
 it('fails closed when a source changes between preview and execution', async () => {
@@ -68,7 +68,7 @@ it('fails closed when a source changes between preview and execution', async () 
   const plan = planOldCleanup(workspace, [ID_A]);
   editIndex(root, OLD_SCOPE, syntheticId(100), { title: 'Synthetic changed after preview' });
   const { directory, trash } = fakeTrash();
-  await expect(executeOldCleanup(workspace, plan, trash, () => undefined)).rejects.toThrow('已变化');
+  await expect(executeOldCleanup(workspace, plan, trash, () => undefined)).rejects.toThrow('claudesync-message:errorCleanupInterruptedSummary');
   expect(readdirSync(directory)).toHaveLength(0);
   expect(existsSync(indexPath(root, OLD_SCOPE, syntheticId(100)))).toBe(true);
 });
@@ -80,7 +80,7 @@ it('does not perform a second Trash operation after a simulated failure', async 
   await expect(executeOldCleanup(workspace, plan, async (path) => {
     if (++called === 2) throw new Error('Synthetic trash denied');
     await trash(path);
-  }, () => undefined)).rejects.toThrow('已移入废纸篓 1 条');
+  }, () => undefined)).rejects.toThrow('claudesync-message:errorCleanupInterruptedSummary');
   expect(readdirSync(directory)).toHaveLength(1);
   expect(called).toBe(2);
   expect(buildCatalog(load()).accounts.find((a) => a.id === ID_A)?.visible).toBe(4);
@@ -111,12 +111,12 @@ it('imports an old-only session exactly once across two old organizations', asyn
 
 it('does not move a source with unsupported scheduled metadata', () => {
   editIndex(root, OLD_SCOPE, syntheticId(100), { scheduledTaskId: 'fixture-run' });
-  expect(() => planOldCleanup(load(), [ID_A])).toThrow('定时');
+  expect(() => planOldCleanup(load(), [ID_A])).toThrow('claudesync-message:errorCleanupUnsupportedRecords');
 });
 it('never deletes unconfigured sibling copies silently', () => {
   const configPath = join(root, 'config.json');
   const json = JSON.parse(readFileSync(configPath, 'utf8'));
   json.accounts = json.accounts.filter((account: {scope:string}) => account.scope !== OLD_SCOPE);
   writeFileSync(configPath, JSON.stringify(json));
-  expect(() => planOldCleanup(load(), [ID_A])).toThrow('未列入');
+  expect(() => planOldCleanup(load(), [ID_A])).toThrow('claudesync-message:errorCleanupUnconfiguredCopy');
 });

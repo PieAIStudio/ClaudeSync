@@ -3,6 +3,7 @@ import { historyIds, isUuid } from './record';
 import type { Account, SessionEntry } from './types';
 import type { Workspace } from './workspace';
 import type { SessionGroup } from '../shared/contracts';
+import { userError } from '../error-copy';
 
 export type VerifiedOrganizations = Readonly<Record<string, string>>;
 
@@ -19,7 +20,7 @@ export function verifiedTargets(accounts: Account[], organizations: VerifiedOrga
   for (const id of new Set(accounts.map((account) => accountIdForScope(account.scope)))) {
     const organization = organizations[id];
     const target = isUuid(organization) ? accounts.find((account) => account.scope === `${id}/${organization}`) : undefined;
-    if (!target) throw new Error('尚未核实所选账号的当前组织，不能同步。请先在 Claude Desktop 切换到该账号并重新检查；当前组织目录也必须包含在设置中。');
+    if (!target) throw userError('errorOrganizationUnverified');
     result.push(target);
   }
   return result;

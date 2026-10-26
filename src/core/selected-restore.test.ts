@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, expect, it } from 'vitest';
+import { parseMessage } from '../error-copy';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildCatalog } from './catalog';
@@ -65,6 +66,6 @@ it('does not use marker override to bypass a missing transcript or erase the del
   const workspace = load();
   const plan = buildOperationPlan(workspace, sync);
   expect(plan.changes).toHaveLength(0);
-  expect(plan.preview.skipped.some((item) => item.reason.includes('缺少'))).toBe(true);
+  expect(plan.preview.skipped.some((item) => parseMessage(item.reason)?.key === 'statusTranscriptMissing')).toBe(true);
   expect(existsSync(join(root, 'session-root', SCOPE_A, `deleted_${CHAT_A}`))).toBe(true);
 });

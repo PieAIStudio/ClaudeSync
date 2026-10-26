@@ -64,7 +64,7 @@ it('names the selected old session and tells the user what to close when its own
   const preview = previewOldCopies([ID_A], view.revision);
   editIndex(environment.root, oldScope, CHAT_B, { completedTurns: 99 });
   const trash = vi.fn();
-  await expect(cleanupOldCopies(preview.token, trash)).rejects.toThrow(/Selected old project.*关闭/u);
+  await expect(cleanupOldCopies(preview.token, trash)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
   expect(trash).not.toHaveBeenCalled();
 });
 
@@ -98,7 +98,7 @@ it('does not trash anything when writers are running or the organization has cha
   const fresh = await checkWorkspace();
   const second = previewOldCopies([ID_A], fresh.revision);
   rememberIdentities([], { accountId: ID_A, email: 'fixture@example.com', organizationId: oldScope.split('/')[1] });
-  await expect(cleanupOldCopies(second.token, async () => { throw new Error('Never called'); })).rejects.toThrow('已经变化');
+  await expect(cleanupOldCopies(second.token, async () => { throw new Error('Never called'); })).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
   expect(readdirSync(join(environment.root, 'session-root', oldScope))).toContain('local_' + CHAT_A + '.json');
 });
 it('rejects an organization change after preview without any backup or session write', async () => {
@@ -118,7 +118,7 @@ it('reports an email-only account as unverified and explains the blocked destina
   }));
   const view = await checkWorkspace();
   expect(view.accounts.find((account) => account.id === ID_B)).toMatchObject({ visible: null, organizationVerified: false });
-  expect(() => previewOperation({ kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision)).toThrow('尚未核实');
+  expect(() => previewOperation({ kind: 'sync', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }, view.revision)).toThrow('claudesync-message:errorOrganizationUnverified');
   expect(() => previewOperation({ kind: 'archive', group: 'invalid', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision)).toThrow('claudesync-message:errorInvalidSessionGroup');
 });
 
@@ -156,7 +156,7 @@ it('executes only the confirmed local deletion scope without a preview, backup o
   expect(result.result.backup).toBeUndefined();
   expect(result.workspace.sessions.find((session) => session.id === CHAT_A)?.presence.map((item) => item.accountId)).toEqual([ID_B]);
   expect(availableBackups()).toEqual([]);
-  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).rejects.toThrow('已经变化');
+  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
 });
 
 it('blocks a direct deletion when Claude is running or the confirmed list has changed', async () => {
@@ -165,7 +165,7 @@ it('blocks a direct deletion when Claude is running or the confirmed list has ch
   await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).rejects.toThrow('Claude is running');
   environment.blocked = false;
   editIndex(environment.root, SCOPE_A, CHAT_A, { isArchived: true });
-  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).rejects.toThrow('已经变化');
+  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
   expect(availableBackups()).toEqual([]);
 });
 
@@ -180,7 +180,7 @@ it('uses the verified organization for counts and management rather than letting
   expect(restore.changes).toHaveLength(1);
   desktop.check.mockResolvedValue({ state: 'unavailable' });
   expect((await checkWorkspace()).accounts.find((account) => account.id === ID_A)).toMatchObject({ active: 1, archived: 1, current: false });
-  await expect(deleteSelected({ group: 'archived', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision)).rejects.toThrow('改用归档');
+  await expect(deleteSelected({ group: 'archived', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision)).rejects.toThrow('claudesync-message:errorSharedHistoryDelete');
   expect(readdirSync(join(environment.root, 'session-root', oldScope))).toContain(`local_${CHAT_A}.json`);
   expect(readFileSync(indexPath(environment.root, SCOPE_B, CHAT_A)).length).toBeGreaterThan(0);
 });
