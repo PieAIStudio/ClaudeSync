@@ -72,9 +72,6 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 /* Working pages (lists, settings) keep the light in one corner so the content stays readable. */
 .claudesync-app:is([data-stage="review"], [data-stage="cloud"], [data-stage="backups"], [data-stage="settings"]) { --swimmer-aura: radial-gradient(26% 40% at 6% 84%, rgb(176 107 255 / 30%), transparent 70%), radial-gradient(22% 32% at 0% 100%, rgb(255 122 200 / 26%), transparent 70%); }
 .claudesync-app.theme-dark:is([data-stage="review"], [data-stage="cloud"], [data-stage="backups"], [data-stage="settings"]) { --swimmer-aura: radial-gradient(26% 40% at 6% 84%, rgb(122 53 232 / 34%), transparent 70%), radial-gradient(22% 32% at 0% 100%, rgb(224 64 154 / 26%), transparent 70%); }
-/* Kit inputs paint --swimmer-surface-sunken. Kit redefines it on [data-game-ui-theme] (equal specificity,
- * later source order) and on the tool shell (as the teal progress track), so set it on all three. */
-.claudesync-app, .claudesync-app[data-game-ui-theme], .claudesync-app .game-ui-shell { --swimmer-surface-sunken: color-mix(in srgb, var(--swimmer-accent-ink) 7%, var(--swimmer-surface)); }
 .claudesync-app .game-ui-shell, .claudesync-app .game-ui-shell *, .claudesync-app .game-ui-page-surface, .claudesync-app .game-ui-page-surface * { font-family: inherit; }
 
 /* Shell look="aura" (Kit) paints --swimmer-aura under sidebar and page; the app only supplies its colours. */
