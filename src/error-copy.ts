@@ -220,6 +220,6 @@ export function parseMessage(value: string): ParsedMessage | undefined {
       || !(raw as { messages: unknown[] }).messages.every((item) => typeof item === 'string')) return undefined;
     return { key: MULTIPLE_KEY, params: { messages: (raw as { messages: string[] }).messages } };
   }
-  if (!(key in errorMessages) || !raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  if (!Object.hasOwn(errorMessages, key) || !raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   return { key: key as MessageKey, params: raw as MessageParams };
 }
