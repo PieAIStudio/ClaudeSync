@@ -119,9 +119,22 @@ async function waitFor(expression, label) {
 }
 async function clickButton(text, partial = false) {
   const predicate = partial ? `.includes(${JSON.stringify(text)})` : `===${JSON.stringify(text)}`;
-  const find = `[...document.querySelectorAll('button')].find(b => b.textContent.trim()${predicate})`;
+  // Summary cards show their title; their action word lives at the end of the aria-label ("Recent · 查看").
+  // Only rendered buttons count: items inside a closed menu are not something a user can click.
+  const find = `[...document.querySelectorAll('button')].find(b => b.checkVisibility() && (b.textContent.trim()${predicate} || (b.getAttribute('aria-label') || '').split(' · ').pop()${predicate}))`;
   await waitFor(`Boolean((()=>{const b=${find};return b&&!b.disabled})())`, `enabled button ${text}`);
-  await js(`(()=>{const b=${find};b.scrollIntoView({block:'center'});b.click()})()`);
+  // Click only what a user could hit: a clipped or covered button must fail here, not pass through b.click().
+  const hit = await js(`(()=>{const b=${find};b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return b.contains(e)?'':(b.className+' "'+b.textContent.trim()+'" under '+(e?e.tagName+'.'+e.className:'nothing')+' at '+Math.round(r.top))})()`);
+  if (hit) throw new Error(`Button is clipped or covered: ${text}: ${hit}`);
+  await js(`(()=>{const b=${find};b.click()})()`);
+  await sleep(80);
+}
+async function openScope() {
+  await js(`(()=>{const d=document.querySelector('.review-scope details');if(!d.open)d.querySelector('summary').click()})()`);
+  await sleep(80);
+}
+async function openMore() {
+  await js(`(()=>{const d=document.querySelector('.more-actions');if(!d.open)d.querySelector('summary').click()})()`);
   await sleep(80);
 }
 async function selectSession(id, group = 'session') {
@@ -207,6 +220,7 @@ async function runSkippedEntries() {
   assert.deepEqual(paths.map(preservedStructure), before);
   await clickButton('回到聊天');
   await selectSession(CHAT_B);
+  await openMore();
   await clickButton('归档所选');
   await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'known-session archive review');
   await clickButton('确认执行');
@@ -247,14 +261,17 @@ async function run() {
   await shot('01-progress-complete');
   await clickButton('回到聊天');
   // 2: delete only A, then explicitly restore from B, without a production account.
+  await openScope();
   await clickButton('account-a@fixture.invalid', true);
   await selectSession(CHAT_A);
+  await openMore();
   await clickButton('删除选中的 Code 会话');
   await clickButton('确定删除');
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('没有创建删除备份')`, 'A deletion complete');
   assert(!fs.existsSync(index(SA, CHAT_A)));
   assert(fs.existsSync(index(SB, CHAT_A)));
   await clickButton('回到聊天');
+  await openScope();
   await clickButton('account-b@fixture.invalid', true);
   await selectSession(CHAT_A);
   await clickButton('同步', true);
@@ -270,6 +287,7 @@ async function run() {
   await shot('02-selected-restore-complete');
   await clickButton('回到聊天');
   // 3a/3b: six old copies, while a positively identified unrelated CLI keeps writing.
+  await openScope();
   await clickButton('account-a@fixture.invalid', true);
   const originalCurrent = fs.readFileSync(index(SA, CHAT_B));
   const originalCurrentBody = fs.readFileSync(body(CHAT_B));
@@ -283,6 +301,7 @@ async function run() {
   await refresh();
   await oldGroup();
   for (const id of oldIds) await selectSession(id, 'oldOrganization');
+  await openMore();
   await clickButton('删除选中的 Code 会话');
   await shot('03-old-delete-confirm');
   await clickButton('确定删除');
@@ -297,6 +316,7 @@ async function run() {
   // Independent fresh old IDs exercise the non-destructive cleanup alternative.
   const cleanupIds = seedOld(2);
   await refresh();
+  await openMore();
   await clickButton('清理旧组织副本');
   await waitFor(`Boolean(document.querySelector('dialog[open]')) && document.body.innerText.includes('确认清理 6 条旧副本')`, 'six-copy cleanup review');
   await shot('03-old-cleanup-preview');

@@ -380,7 +380,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
       </div>
     </div>;
     return <PageSurface className="stage-surface stage-surface--review" title={t.t('reviewTitle')} description={t.t('reviewBody', { count: listCount, syncable: syncableCount })} layout="split" aside={<aside className="review-aside">
-      <div className="review-category-heading"><strong>{t.t('categoryAll')}</strong><span className="review-total">{listCount}</span></div>
+      <button type="button" className="review-category-heading" aria-pressed={reviewCategory === 'all'} onClick={() => { setReviewCategory('all'); setSelectionGroup('visible'); }}><strong>{t.t('categoryAll')}</strong><span className="review-total">{listCount}</span></button>
       <div className="review-categories">{categoryItems.map((category) => <button type="button" key={category} className={`review-category ${reviewCategory === category ? 'is-active' : ''}`} aria-pressed={reviewCategory === category} onClick={() => { setReviewCategory(category); setSelectionGroup('visible'); }}><span>{t.t(categoryLabels[category])}</span><span className="review-category-count">{categories[category].sessions.length}</span></button>)}</div>
       <div className="review-scope"><details><summary>{t.t('viewScope')}</summary><AccountSidebar accounts={workspace.accounts} included={included} currentFilter={accountFilter} onInclude={includeAccount} onFilter={(id) => { setAccountFilter(id); setSelected(new Set()); setSelectionGroup('visible'); }} busy={busy} identityState={workspace.identityState} /></details></div>
     </aside>} footer={reviewActions}>
