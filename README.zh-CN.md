@@ -75,6 +75,6 @@ pnpm package:mac:dir
 
 运行 `node tests/ui-smoke.cjs` 可在实际 Electron 界面复现本次三条路径。入口只创建自己的假账号和 home，禁止网络、钥匙串和外部命令；进程列表与废纸篓用隔离替身。截图和收据保存在忽略提交的 `.reports/2026-10-18-claudesync-fixes/`。它不会接收真实账号路径；真实 Desktop 续聊效果仍需使用者自己点验。
 
-当前本机包为未签名 Apple silicon `.app`；Windows、Intel Mac、Linux、签名与公证仍需单独验收。界面保留五种语言。不接广告、追踪、内购或后台自动同步。提交代码不会触发云端 CI 或发布，CI 只接受手动启动。
+当前本机包为未签名 Apple silicon `.app`；Windows、Intel Mac、Linux、签名与公证仍需单独验收。界面保留五种语言。当前版本没有广告、追踪、内购或后台自动同步。提交代码不会触发云端 CI 或发布，CI 只接受手动启动。
 
 维护说明：[ARCHITECTURE.md](ARCHITECTURE.md)；执行边界与未完成事项：[计划](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)。旧 Python/Tk/Web 代码与构建入口已从当前源码移除，历史可从 Git 的 v1 版本或本机重构前快照找回。

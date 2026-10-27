@@ -20,8 +20,8 @@
 ### 商业边界
 
 - ClaudeSync 的公开稳定版继续免费；TypeScript v2 测试线也不擅自改变这个角色。
-- ClaudeSync 是桌面工具，不接手机内购 SDK、不做手机空壳、不接广告或追踪 SDK。
-- MatrixAPPs 的共通免费档、5 次温和提示、RevenueCat、无广告和跨平台收费边界，以 [HQ 商业模式](../../../../HQ/1-what/business-model.md#matrixapps)、[HQ 技术方向](../../../../HQ/docs/canon/pie-product-technology-stack.md#matrixapps)和[组合计划](../../../docs/plans/active/PLAN-MATRIXAPPS-CROSSPLATFORM-CHARGING.md)为准。
+- ClaudeSync 是桌面工具，不接手机内购 SDK、不做手机空壳；按 MatrixAPPs 口径，免费版放广告、付费版去广告，统一经共享 AdKit 接入，不另接追踪 SDK。
+- MatrixAPPs 的共通免费档、5 次温和提示、RevenueCat、广告（免费放、付费去）和跨平台收费边界，以 [HQ 商业模式](../../../../HQ/docs/canon/portfolio/business-model.md#matrixapps)、[HQ 技术方向](../../../../HQ/docs/canon/pie-product-technology-stack.md#matrixapps)和[组合计划](../../../docs/plans/active/PLAN-MATRIXAPPS-CROSSPLATFORM-CHARGING.md)为准。
 
 ### 产品与平台边界
 

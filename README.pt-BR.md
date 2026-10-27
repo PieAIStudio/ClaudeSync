@@ -35,6 +35,6 @@ pnpm package:mac:dir
 
 Os testes usam dados sintéticos temporários. O desenvolvimento permite isolamento com `CLAUDESYNC_DATA_DIR`; os pacotes finais ignoram esse ajuste.
 
-O pacote local é uma `.app` Apple silicon sem assinatura. Windows, Intel Mac, Linux, assinatura e notarização precisam de validação separada. Cinco idiomas, sem anúncios, rastreamento, pagamentos ou sincronização automática. CI só manual; enviar código não publica. O antigo Python/Tk/Web foi retirado do código atual, preservando histórico Git e versões anteriores.
+O pacote local é uma `.app` Apple silicon sem assinatura. Windows, Intel Mac, Linux, assinatura e notarização precisam de validação separada. Cinco idiomas; a versão atual não tem anúncios, rastreamento, pagamentos ou sincronização automática. CI só manual; enviar código não publica. O antigo Python/Tk/Web foi retirado do código atual, preservando histórico Git e versões anteriores.
 
 [Arquitetura](ARCHITECTURE.md) · [Contribuir](CONTRIBUTING.md) · [Segurança](SECURITY.md) · [Plano](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)

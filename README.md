@@ -69,6 +69,6 @@ After building, `CLAUDESYNC_UI_SCENARIO=skipped-entries node tests/ui-smoke.cjs`
 
 `node tests/ui-smoke.cjs` exercises the three repair paths in the real Electron renderer/preload/IPC/core, including both old-copy actions. It creates its own synthetic home and accounts, blocks network and external commands, and substitutes a fixture-only process list and Trash. Screenshots and receipts go to ignored `.reports/2026-10-18-claudesync-fixes/`; it never accepts a user data directory. This is not native Desktop or real-account acceptance.
 
-The local package is an unsigned Apple silicon `.app`. Windows, Intel Mac, Linux, signing and notarization still need acceptance. Five interface languages are included. No ads, tracking, payments or automatic background sync. Hosted CI is manual only; pushes do not publish or deploy.
+The local package is an unsigned Apple silicon `.app`. Windows, Intel Mac, Linux, signing and notarization still need acceptance. Five interface languages are included. The current build has no ads, tracking, payments or automatic background sync. Hosted CI is manual only; pushes do not publish or deploy.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the [execution plan](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md). Obsolete Python/Tk/Web code and packagers have been retired from current source; v1 remains in Git history and public releases. Existing local edits were privately snapshotted before cleanup.

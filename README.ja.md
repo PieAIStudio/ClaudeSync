@@ -35,6 +35,6 @@ pnpm package:mac:dir
 
 テストは一時的な合成データのみ使用。開発版は `CLAUDESYNC_DATA_DIR` で分離できます。配布用ビルドはこの指定を無視します。
 
-現在のローカルパッケージは未署名 Apple silicon `.app`。他の OS、Intel Mac、署名と公証は別途確認が必要。5言語 UI、広告・追跡・課金・自動同期なし。CI は手動のみ。旧 Python/Tk/Web コードは現在のソースから整理しましたが、Git 履歴と旧公開版は保持しています。
+現在のローカルパッケージは未署名 Apple silicon `.app`。他の OS、Intel Mac、署名と公証は別途確認が必要。5言語 UI。現在の版には広告・追跡・課金・自動同期はありません。CI は手動のみ。旧 Python/Tk/Web コードは現在のソースから整理しましたが、Git 履歴と旧公開版は保持しています。
 
 [構成](ARCHITECTURE.md) · [開発](CONTRIBUTING.md) · [セキュリティ](SECURITY.md) · [計画](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)
