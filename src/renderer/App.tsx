@@ -13,7 +13,7 @@ import { CloudSessions } from './CloudSessions';
 import { TermTip } from './TermTip';
 import { OldCleanupDialog } from './OldCleanupDialog';
 import { errorMessage } from './errors';
-import { GroupArt, RelayArt, type GroupVisual } from './visuals';
+import { GroupArt, PageArt, RelayArt, type GroupVisual } from './visuals';
 
 type Theme = 'light' | 'dark';
 type Platform = 'mac' | 'windows';
@@ -314,7 +314,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   function renderHome() {
     const configured = Boolean(info?.configured);
     const heroTitle = t.t('heroTitle').replace(/([,，、])\s*/u, '$1\n');
-    return <PageSurface className="stage-surface stage-surface--home" title={heroTitle} description={t.t('heroBody')}>
+    return <PageSurface className="stage-surface stage-surface--home" title={heroTitle} description={t.t('heroBody')} header={<PageArt kind="home" />}>
       <div className="home-stage">
         <div className="home-art"><RelayArt state="ready" /></div>
         <ul className="home-scope-list">
@@ -334,13 +334,13 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   }
 
   function renderResults() {
-    if (!workspace) return <PageSurface className="stage-surface" layout="centered" title={t.t('noCheck')} description={t.t('heroBody')} primaryAction={<Button variant="primary" onClick={() => void startCheck()}>{t.t('checkAgain')}</Button>}><div className="empty-state">{t.t('noCheck')}</div></PageSurface>;
+    if (!workspace) return <PageSurface className="stage-surface" layout="centered" title={t.t('noCheck')} description={t.t('heroBody')} header={<PageArt kind="local" />} primaryAction={<Button variant="primary" onClick={() => void startCheck()}>{t.t('checkAgain')}</Button>}><div className="empty-state">{t.t('noCheck')}</div></PageSurface>;
     const resultTitle = listCount ? t.t('resultsTitle', { count: listCount }) : t.t('noSessions');
     const resultBody = t.t('resultsBody', { count: syncableCount });
     const otherCount = scopedGroups.archived.length + scopedGroups.scheduled.length + scopedGroups.oldOrganization.length;
     const firstAction = syncableCount ? <Button variant="primary" disabled={busy || included.size < 2 || !targetsVerified} onClick={() => openReview('all', true)}>{t.t('syncCount', { count: syncableCount })}</Button>
       : <Button variant="primary" onClick={() => openReview(categories.attention.sessions.length ? 'attention' : 'aligned')}>{categories.attention.sessions.length ? t.t('categoryAttention') : t.t('categoryAligned')}</Button>;
-    return <PageSurface className="stage-surface stage-surface--results" title={resultTitle} description={resultBody} header={<button type="button" className="plain-action" onClick={() => navigate('settings')}>{t.t('viewScope')}</button>}>
+    return <PageSurface className="stage-surface stage-surface--results" title={resultTitle} description={resultBody} header={<div className="page-header-tools"><PageArt kind="local" /><button type="button" className="plain-action" onClick={() => navigate('settings')}>{t.t('viewScope')}</button></div>}>
       <div className="results-body">
         <div className="summary-grid">
           {(['recent', 'older', 'attention', 'aligned'] as const).map((kind) => <ResultCard key={kind} kind={kind} title={t.t(categoryLabels[kind])} count={categories[kind].sessions.length}
@@ -379,7 +379,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
         </div></details>
       </div>
     </div>;
-    return <PageSurface className="stage-surface stage-surface--review" title={t.t('reviewTitle')} description={t.t('reviewBody', { count: listCount, syncable: syncableCount })} layout="split" aside={<aside className="review-aside">
+    return <PageSurface className="stage-surface stage-surface--review" title={t.t('reviewTitle')} description={t.t('reviewBody', { count: listCount, syncable: syncableCount })} layout="split" header={<PageArt kind="local" />} aside={<aside className="review-aside">
       <button type="button" className="review-category-heading" aria-pressed={reviewCategory === 'all'} onClick={() => { setReviewCategory('all'); setSelectionGroup('visible'); }}><strong>{t.t('categoryAll')}</strong><span className="review-total">{listCount}</span></button>
       <div className="review-categories">{categoryItems.map((category) => <button type="button" key={category} className={`review-category ${reviewCategory === category ? 'is-active' : ''}`} aria-pressed={reviewCategory === category} onClick={() => { setReviewCategory(category); setSelectionGroup('visible'); }}><span>{t.t(categoryLabels[category])}</span><span className="review-category-count">{categories[category].sessions.length}</span></button>)}</div>
       <div className="review-scope"><details><summary>{t.t('viewScope')}</summary><AccountSidebar accounts={workspace.accounts} included={included} currentFilter={accountFilter} onInclude={includeAccount} onFilter={(id) => { setAccountFilter(id); setSelected(new Set()); setSelectionGroup('visible'); }} busy={busy} identityState={workspace.identityState} /></details></div>
@@ -422,7 +422,7 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   }
 
   function renderSettings() {
-    return <PageSurface className="stage-surface stage-surface--settings" layout="centered" title={t.t('settings')} primaryAction={<Button variant="primary" disabled={busy || !sessionRoot || !projectsRoot} onClick={() => void saveFolders()}>{t.t('saveFolders')}</Button>}>
+    return <PageSurface className="stage-surface stage-surface--settings" layout="centered" title={t.t('settings')} header={<PageArt kind="settings" />} primaryAction={<Button variant="primary" disabled={busy || !sessionRoot || !projectsRoot} onClick={() => void saveFolders()}>{t.t('saveFolders')}</Button>}>
       {!model.api && <Callout tone="warning">{t.t('needDesktop')}</Callout>}
       <div className="settings-grid">
         <Panel title={t.t('preferences')} className="settings-card"><label><span>{t.t('language')}</span><Select value={locale} onChange={(event) => onLocale(event.target.value as AppLocale)}>{locales.map((code) => <option key={code} value={code}>{languageNames[code]}</option>)}</Select></label><Toggle checked={compact} label={t.t('compactList')} onClick={() => setCompact((value) => !value)} /><Toggle checked={reducedMotion} label={t.t('reduceMotion')} onClick={() => setReducedMotion((value) => !value)} /></Panel>
@@ -433,13 +433,13 @@ function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(locale: 
   }
 
   function renderBackups() {
-    return <PageSurface className="stage-surface stage-surface--backups" layout="centered" title={t.t('backupTitle')} description={t.t('backupBody')}>
+    return <PageSurface className="stage-surface stage-surface--backups" layout="centered" title={t.t('backupTitle')} description={t.t('backupBody')} header={<PageArt kind="backup" />}>
       <div className="backups-page">{model.backups.length === 0 ? <p className="empty-state">{t.t('noBackups')}</p> : <ul className="backup-list">{model.backups.map((backup) => <li key={backup.id}><div><strong>{t.date(backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</strong><small>{t.t(backup.operation)} · {t.t('backupFiles', { count: backup.fileCount })}{backup.state !== 'verified' && ` · ${t.t('interrupted')}`}</small></div><Button variant="secondary" static disabled={busy} onClick={() => { void model.restore(backup.id); }}>{t.t('restore')}</Button></li>)}</ul>}<Button variant="secondary" static className="backups-open" onClick={() => void model.openBackups()}>{t.t('openBackups')}</Button></div>
     </PageSurface>;
   }
 
   function renderCloud() {
-    return <PageSurface className="stage-surface stage-surface--cloud" title={t.t('cloudSessions')} description={t.t('cloudBody')}><CloudSessions refreshKey={cloudRefresh} onBusy={onCloudBusy} onRetry={() => setCloudRefresh((value) => value + 1)} /></PageSurface>;
+    return <PageSurface className="stage-surface stage-surface--cloud" title={t.t('cloudSessions')} description={t.t('cloudBody')} header={<PageArt kind="cloud" />}><CloudSessions refreshKey={cloudRefresh} onBusy={onCloudBusy} onRetry={() => setCloudRefresh((value) => value + 1)} /></PageSurface>;
   }
 
   function renderStage(): ReactNode {

@@ -49,7 +49,7 @@ Settings, identity/organization cache and backups from non-delete operations liv
 
 ## Materials
 
-The UIKit 4.0 preview uses the six local PNGs copied byte-for-byte from the approved synthetic `MatrixAPPs/design/claudesync-v2.7/assets/` set: two relay states and four result-group marks. They contain no real account or chat data and are bundled locally; no remote image request is made.
+The UIKit 4.0 preview uses four local synthetic result-group marks plus six approved local 3D ClaudeSync icons (hero and five page marks), each bundled at 128, 256 and 512 pixels. They contain no real account or chat data and are bundled locally; no remote image request is made.
 
 ## Development
 

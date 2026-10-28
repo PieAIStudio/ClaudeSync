@@ -120,6 +120,9 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .stage-surface .game-ui-page-surface-heading p { margin-top: 10px; color: var(--cs-muted); font-size: 17px; }
 .plain-action { min-height: 36px; padding: 6px 12px; border: 0; border-radius: 10px; color: var(--swimmer-accent-ink); background: transparent; font-size: 15px; }
 .plain-action:hover { background: var(--cs-tint); }
+.page-header-tools { display: inline-flex; align-items: center; gap: 12px; }
+.page-header-art { display: block; flex: none; width: clamp(56px, 6vw, 80px); height: clamp(56px, 6vw, 80px); object-fit: contain; }
+.stage-surface .game-ui-page-surface-header-slot:has(.page-header-art) { align-self: center; }
 
 /* Home: art on the left, one promise on the right, one big action. */
 .stage-surface--home.game-ui-page-surface { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr); grid-template-rows: 1fr auto auto 1fr auto; grid-template-areas: "art ." "art head" "art list" "art ." "cta cta"; column-gap: 48px; row-gap: 0; min-height: 100%; }
