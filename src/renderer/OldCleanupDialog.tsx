@@ -13,7 +13,7 @@ export function OldCleanupDialog({ preview, busy, blocked, onClose, onConfirm }:
     actions={<>{blocked && <p className="operation-warning">{t.t('cleanupNeedQuit')}</p>}
       <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</Button>
       <Button variant="danger" disabled={busy || blocked || !preview.token} onClick={onConfirm}>
-        {t.t('cleanupOldConfirm', { count: preview.trashCount })}
+        {t.t(preview.trashCount === 1 ? 'cleanupOldConfirmOne' : 'cleanupOldConfirm', { count: preview.trashCount })}
       </Button></>}>
     <div className="count-with-tip"><strong>{t.t('cleanupOldSummary', {
       total: preview.trashCount, imported: preview.archivedToImport

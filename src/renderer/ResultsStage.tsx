@@ -21,7 +21,7 @@ function ResultCard({ kind, title, count, copy, canSync, onView, onSync }: {
 export function ResultsStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
   if (!controller.workspace) return <PageSurface className="stage-surface" layout="centered" title={t.t('noCheck')} description={t.t('heroBody')} header={<PageArt kind="local" />} primaryAction={<Button variant="primary" onClick={() => void controller.startCheck()}>{t.t('checkAgain')}</Button>}><div className="empty-state">{t.t('noCheck')}</div></PageSurface>;
-  const resultTitle = controller.listCount ? t.t('resultsTitle', { count: controller.listCount }) : t.t('noSessions');
+  const resultTitle = controller.listCount ? controller.listCount === 1 ? t.t('resultsTitleOne') : t.t('resultsTitle', { count: controller.listCount }) : t.t('noSessions');
   const resultBody = t.t('resultsBody', { count: controller.syncableCount });
   const otherCount = controller.scopedGroups.archived.length + controller.scopedGroups.scheduled.length + controller.scopedGroups.oldOrganization.length;
   const firstAction = controller.syncableCount ? <Button variant="primary" disabled={controller.busy || controller.included.size < 2 || !controller.targetsVerified} onClick={() => controller.openReview('all', true)}>{t.t('syncCount', { count: controller.syncableCount })}</Button>
@@ -31,7 +31,7 @@ export function ResultsStage({ controller }: { controller: AppController }) {
       copy={kind === 'recent' ? t.t('categoryRecentCopy') : kind === 'older' ? t.t('categoryOlderCopy') : kind === 'attention' ? t.t('categoryAttentionCopy') : t.t('categoryAlignedCopy')}
       canSync={kind === 'recent' || kind === 'older'} onView={() => controller.openReview(kind)} onSync={() => controller.openReview(kind, true)} />)}</div>
       <div className="results-cta">{firstAction}<small>{controller.listVerified ? t.t('visibleCount', { shown: controller.grouped.visible.length, total: controller.scopedGroups.visible.length }) : t.t('unverifiedCount')} · {t.t('localOnly')}</small></div>
-      {otherCount > 0 && <details className="other-records"><summary><Icon icon="arrow-right" />{t.t('otherRecords', { count: otherCount })}</summary><div className="other-records-grid">{(['archived', 'scheduled', 'oldOrganization'] as const).map((group) => <div key={group}><strong>{t.t(groupLabels[group])}</strong><Badge tone="neutral">{controller.scopedGroups[group].length}</Badge></div>)}</div></details>}
+      {otherCount > 0 && <details className="other-records"><summary><Icon icon="arrow-right" />{t.t(otherCount === 1 ? 'otherRecordsOne' : 'otherRecords', { count: otherCount })}</summary><div className="other-records-grid">{(['archived', 'scheduled', 'oldOrganization'] as const).map((group) => <div key={group}><strong>{t.t(groupLabels[group])}</strong><Badge tone="neutral">{controller.scopedGroups[group].length}</Badge></div>)}</div></details>}
       {controller.workspace.skippedPaths.length > 0 && <SkippedEntriesNotice paths={controller.workspace.skippedPaths} />}
     </div>
   </PageSurface>;

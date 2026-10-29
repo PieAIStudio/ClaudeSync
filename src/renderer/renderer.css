@@ -280,7 +280,13 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .filter-drawer > div, .selection-menu > div, .more-actions > div { position: absolute; z-index: 20; display: grid; gap: 2px; padding: 8px; border-radius: 16px; background: var(--cs-popover); box-shadow: var(--cs-popover-shadow); }
 .filter-drawer > div { top: calc(100% + 6px); right: 0; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 330px; padding: 14px; }
 .selection-menu > div { top: calc(100% + 6px); left: 0; min-width: 220px; }
-.more-actions > div { right: 0; bottom: calc(100% + 10px); min-width: 200px; }
+.more-actions > div { right: 0; bottom: calc(100% + 10px); min-width: 260px; }
+.action-group { display: grid; gap: 3px; padding: 6px 2px; }
+.action-group + .action-group { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--cs-hairline); }
+.action-group h3 { margin: 0 8px 3px; color: var(--cs-faint); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.action-group p { margin: 2px 8px 5px; color: var(--cs-muted); font-size: 12px; line-height: 1.45; white-space: normal; }
+.action-group--danger h3 { color: var(--swimmer-warning); }
+.action-group--danger .game-ui-button { color: var(--swimmer-warning); }
 .filter-drawer label { display: grid; gap: 4px; color: var(--cs-muted); font-size: 13px; }
 .filter-drawer .game-ui-select-frame { width: 100%; }
 .selection-menu .game-ui-button, .more-actions .game-ui-button { justify-content: flex-start; min-height: 38px; font-weight: 500; white-space: nowrap; }
@@ -475,9 +481,20 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
   .review-tools { width: 100%; }
   .review-tools .game-ui-input-frame { flex: 1; }
   .review-tools input { width: 100%; }
+  .session-details > div { position: static; width: 100%; max-height: 300px; margin-top: 6px; }
   .review-footer-actions { flex-wrap: wrap; }
   .settings-card label, .settings-path { grid-template-columns: 1fr; gap: 6px; }
   .settings-path .game-ui-button { justify-self: start; }
+}
+
+@media (max-width: 700px) {
+  .summary-grid { grid-template-columns: 1fr; }
+  .completion-list li { grid-template-columns: 22px minmax(0, 1fr); }
+  .completion-list li > span { grid-column: 2; text-align: left; }
+  .summary-card-main { grid-template-columns: 48px minmax(0, 1fr) auto; grid-template-areas: none; align-items: center; min-height: 104px; }
+  .summary-card-main > .group-art { grid-area: auto; width: 48px; height: 48px; }
+  .summary-card-copy { grid-area: auto; }
+  .summary-card-count { grid-area: auto; justify-self: end; }
 }
 
 @media (max-width: 560px) {

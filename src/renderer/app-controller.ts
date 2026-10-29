@@ -66,7 +66,7 @@ export function useAppController(locale: AppLocale, onLocale: (locale: AppLocale
 
   return {
     model, info: model.info, workspace: model.workspace, api: model.api, review: model.review, request: model.request, backups: model.backups,
-    error: model.error, deleted: model.deleted, busy, stage, setStage, theme: preferences.theme, setTheme: preferences.setTheme,
+    error: model.error, deleted: model.deleted, result: model.result, busy, stage, setStage, theme: preferences.theme, setTheme: preferences.setTheme,
     compact: preferences.compact, setCompact: preferences.setCompact, reducedMotion: preferences.reducedMotion, setReducedMotion: preferences.setReducedMotion, includeAccount: preferences.includeAccount,
     platform: systemPlatform(), locale, onLocale, sessionRoot: accountSessionRoot, setSessionRoot: setAccountSessionRoot, projectsRoot, setProjectsRoot,
     cloudRefresh, refreshCloud, onCloudBusy: setCloudBusy, navigate, openRename, openDeleteConfirmation, ...browser, ...operations, ...cleanup, saveFolders, openReview,

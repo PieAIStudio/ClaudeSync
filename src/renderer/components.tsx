@@ -64,7 +64,7 @@ export function DeleteConfirmation({ count, accountNames, state, group, source =
   busy: boolean; blocked?: boolean; onClose(): void; onDelete(): void;
 }) {
   const t = useTranslation();
-  return <Modal title={t.t('deleteConfirmTitle', { count })} lead={t.t(source === 'local' ? 'deleteLocalScope' : 'deleteCloudScope')} onClose={onClose} busy={busy}
+  return <Modal title={t.t(count === 1 ? 'deleteConfirmTitleOne' : 'deleteConfirmTitle', { count })} lead={t.t(source === 'local' ? 'deleteLocalScope' : 'deleteCloudScope')} onClose={onClose} busy={busy}
     actions={<>{blocked && <p className="operation-warning">{t.t('waiting')}</p>}
       <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</Button>
       <Button variant="danger" disabled={busy || blocked || count === 0} onClick={onDelete}>{t.t(busy ? 'deleting' : 'confirmDelete')}</Button></>}>
@@ -120,7 +120,7 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
       <div className="account-info">
         <div className="account-heading"><button className="account-open" onClick={() => onFilter(account.id)}><strong>{accountName(account, t)}</strong></button>
           {!account.email && <TermTip term="unknownEmail" />}</div>
-        <div className="count-with-tip"><span className="account-main-count">{account.visible === null || !account.organizationVerified ? t.t('unverifiedCount') : t.t('desktopCount', { count: account.visible })}</span>
+        <div className="count-with-tip"><span className="account-main-count">{account.visible === null || !account.organizationVerified ? t.t('unverifiedCount') : account.visible === 1 ? t.t('desktopCountOne') : t.t('desktopCount', { count: account.visible })}</span>
           <TermTip term={account.visible === null || !account.organizationVerified ? 'unverified' : 'visible'} /></div>
         <div className="account-secondary-counts">{([
           ['archived', 'archivedCountLabel', account.archived], ['scheduled', 'scheduledCountLabel', account.scheduled],
@@ -162,12 +162,12 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
       <span className={`session-status session-status--${status}`}>{t.t(status)}</span>
       <details className="session-details"><summary><span>{t.t('rowDetails')}</span><span aria-hidden="true">›</span></summary><div>
         {reasons.length > 0 && <p className="session-detail-reason">{reasons.map((reason) => <span key={reason}>{reasonText(reason, t)}</span>)}</p>}
-        <p>{t.t('project')}：{session.project || '—'}</p><p>ID：{session.id}</p>
+        <p>{t.t('project')}: {session.project || '—'}</p><p>ID: {session.id}</p>
         {!session.manageable && <p>{t.t('unsupported')}</p>}
         {session.presence.map((item) => <div className="presence-detail" key={item.accountId}>
           <strong>{accountName(accounts.find((account) => account.id === item.accountId), t)}</strong>
-          <span>{t.t(item.active ? 'active' : 'archived')} · {t.t('copies', { count: item.copies })}</span>
-          <p>{t.t('titleVariants')}：{item.titles.filter(Boolean).join(' / ') || t.t('untitled')}</p>
+          <span>{t.t(item.active ? 'active' : 'archived')} · {item.copies === 1 ? t.t('copyOne') : t.t('copies', { count: item.copies })}</span>
+          <p>{t.t('titleVariants')}: {item.titles.filter(Boolean).join(' / ') || t.t('untitled')}</p>
           {item.reasons.map((reason) => <p key={reason}>{reasonText(reason, t)}</p>)}
         </div>)}
       </div></details>
@@ -207,7 +207,7 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
     {preview.conflicts.length > 0 && <section className="title-conflicts"><h3>{t.t('conflicts')}</h3>{preview.conflicts.map((conflict) => <label key={conflict.id}>
       <span>{t.t('chooseTitle')}</span><select value={choices?.[conflict.id] === 'skip' ? '' : choices?.[conflict.id] ?? ''} onChange={(event) => onChooseTitle(conflict.id, event.target.value)} disabled={busy}>
         <option value="">{t.t('leaveTitle')}</option>{conflict.options.map((option) => <option key={option.scope} value={option.scope}>
-          {accountName(accounts.find((account) => account.id === option.accountId), t)}：{option.title || t.t('untitled')}
+          {accountName(accounts.find((account) => account.id === option.accountId), t)}: {option.title || t.t('untitled')}
         </option>)}
       </select>
     </label>)}</section>}
@@ -217,9 +217,9 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
         <Badge tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</Badge>
       </li>)}</ul>
     </section>}
-    {preview.selected.length > 0 && <details className="review-more" open={preview.kind === 'keep'}><summary>{t.t('selectedCount', { count: preview.selected.length })}</summary>
+    {preview.selected.length > 0 && <details className="review-more" open={preview.kind === 'keep'}><summary>{preview.selected.length === 1 ? t.t('selectedCountOne') : t.t('selectedCount', { count: preview.selected.length })}</summary>
       <ul>{preview.selected.map((session) => <li key={session.id}><strong>{session.title || t.t('untitled')}</strong><small>{session.id.slice(0, 8)}</small></li>)}</ul>
     </details>}
-    {preview.skipped.length > 0 && <details className="review-more"><summary>{t.t('skipped')} ({preview.skipped.length})</summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>：{reasonText(item.reason, t)}</p>)}</details>}
+    {preview.skipped.length > 0 && <details className="review-more"><summary>{t.t('skipped')} ({preview.skipped.length})</summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>: {reasonText(item.reason, t)}</p>)}</details>}
   </Modal>;
 }

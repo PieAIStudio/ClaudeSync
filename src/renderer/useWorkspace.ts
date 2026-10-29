@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AppInfo, BackupView, DeleteRequest, OperationPreview, OperationRequest, WorkspaceView } from '../shared/contracts';
+import type { AppInfo, ApplyResult, BackupView, DeleteRequest, OperationPreview, OperationRequest, WorkspaceView } from '../shared/contracts';
 import { errorMessage } from './errors';
 import type { AppLocale } from './i18n';
 
@@ -31,13 +31,14 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
   const [error, setError] = useState('');
   const [completed, setCompleted] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [result, setResult] = useState<ApplyResult>();
   const running = useRef(false);
   useWorkspaceBootstrap(locale, setInfo, setWorkspace, setError);
 
   async function run(action: () => Promise<void>): Promise<boolean> {
     if (running.current) return false;
     running.current = true;
-    setBusy(true); setError(''); setCompleted(false); setDeleted(false);
+    setBusy(true); setError(''); setCompleted(false); setDeleted(false); setResult(undefined);
     try { await action(); return true; }
     catch (reason) { setError(errorMessage(reason, locale)); return false; }
     finally { running.current = false; setBusy(false); }
@@ -67,7 +68,7 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
       const token = review.token;
       setReview(undefined);
       const result = await api.apply(token);
-      setWorkspace(result.workspace); setCompleted(result.result.verified);
+      setWorkspace(result.workspace); setResult(result.result); setCompleted(result.result.verified);
     });
   }
   async function loadBackups() { return await run(async () => { if (api) setBackups(await api.backups()); }); }
@@ -76,7 +77,7 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
       if (!api) return;
       try {
         const result = await api.deleteSelected(next, revision);
-        setWorkspace(result.workspace); setDeleted(result.result.verified);
+        setWorkspace(result.workspace); setResult(result.result); setDeleted(result.result.verified);
       } catch (reason) {
         // A failed direct delete may be partial. Refresh without retrying the mutation.
         try { setWorkspace(await api.check()); } catch { /* Preserve the deletion error. */ }
@@ -93,6 +94,6 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
     try { return await api.chooseDirectory(); }
     catch (reason) { setError(errorMessage(reason, locale)); return null; }
   }
-  return { api, info, workspace, review, request, backups, busy, error, completed, deleted, refresh, configure, preview, apply, deleteSelected,
+  return { api, info, workspace, review, request, backups, busy, error, completed, deleted, result, refresh, configure, preview, apply, deleteSelected,
     loadBackups, restore, openBackups, chooseDirectory, closeReview: () => setReview(undefined) };
 }

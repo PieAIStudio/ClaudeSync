@@ -46,6 +46,7 @@ export function useAppOperations({ model, workspace, included, accountFilter, se
   }
 
   async function applyDeletion(request: DeleteSelection & { revision: string; names: string[] }) {
+    setLastPreview(undefined);
     setStage('progress');
     const success = await model.deleteSelected(request, request.revision);
     setCelebrate(false);

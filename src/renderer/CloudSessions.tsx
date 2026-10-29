@@ -46,7 +46,7 @@ function useCloudSessionState(refreshKey: number, onBusy: CloudBusyHandler, t: C
     try {
       const result = await api.deleteCloudSessions(current.rows.map((row) => row.id), current.workspace.revision);
       setWorkspace(result.workspace); setSelected(new Set());
-      if (result.deleted > 0) setDone(t.t('cloudDeletedCount', { deleted: result.deleted, requested: result.requested }));
+      if (result.deleted > 0) setDone(result.requested === 1 ? t.t('cloudDeletedCountOne') : t.t('cloudDeletedCount', { deleted: result.deleted, requested: result.requested }));
       if (result.issue) setError(messageText(result.issue, t.locale));
     } catch (reason) {
       setError(errorMessage(reason, t.locale)); setWorkspace(undefined); setSelected(new Set());
@@ -84,7 +84,7 @@ export function CloudSessions({ refreshKey, onBusy, onRetry }: { refreshKey: num
         </div><Badge tone="neutral">{t.t(row.status === 'archived' ? 'archived' : 'active')}</Badge>
       </li>)}</ul>}
       <p className="action-tip">{t.t('checkedAt', { time: t.date(workspace.checkedAt, { timeStyle: 'short' }) })}</p>
-      <section className="management-actions"><div className="selection-summary"><strong>{t.t('selectedCount', { count: chosen.length })}</strong><span>{workspace.email} · {t.t('cloudSessions')}</span></div>
+      <section className="management-actions"><div className="selection-summary"><strong>{chosen.length === 1 ? t.t('selectedCountOne') : t.t('selectedCount', { count: chosen.length })}</strong><span>{workspace.email} · {t.t('cloudSessions')}</span></div>
         {hidden > 0 && <p className="hidden-selection">{t.t('hiddenSelected', { count: hidden })}</p>}
         <div className="action-buttons"><Button variant="danger" disabled={busy || !chosen.length} onClick={() => setConfirmation({ workspace, rows: chosen })}>{t.t('delete')}</Button></div>
       </section>

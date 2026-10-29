@@ -1,23 +1,34 @@
 import { Button, Callout, Icon, PageSurface, Select, Toggle } from '@pieai/swimmer-ui-kit';
 import { useTranslation, locales } from './i18n';
+import type { TranslationKey } from './i18n';
 import type { AppController } from './app-controller';
 import { languageNames } from './app-types';
 import { homeAccountLabel } from './app-helpers';
 import { FolderSetting, Panel } from './components';
 import { PageArt, RelayArt } from './visuals';
+import { resultOutcome, type ResultOutcome } from './result-copy';
 
 export function CompleteStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
   const failed = Boolean(controller.error);
-  const title = failed ? t.t('issue') : controller.deleted ? t.t('deleteComplete') : controller.lastPreview?.kind === 'sync' ? t.t('syncCompleteCount', { count: controller.lastPreview.selected.length }) : t.t('operationCompleteTitle');
-  const description = failed ? controller.error : controller.deleted ? t.t('deleteComplete') : t.t('operationCompleteBody');
+  const outcome = resultOutcome(controller.deleted ? 'delete' : controller.lastPreview?.kind, controller.result);
+  const resultKeys: Record<ResultOutcome, TranslationKey> = {
+    trash: 'resultTrash', backup: 'resultBackup', trashAndBackup: 'resultTrashAndBackup', noBackup: 'resultNoBackup', deleteNoTranscript: 'resultDeleteNoTranscript',
+  };
+  const trashCount = controller.result?.trashCount ?? 0;
+  const summaryKey: TranslationKey = outcome === 'trash' && trashCount === 1 ? 'resultTrashOne'
+    : outcome === 'trashAndBackup' && trashCount === 1 ? 'resultTrashAndBackupOne' : resultKeys[outcome];
+  const summary = t.t(summaryKey, outcome === 'trash' || outcome === 'trashAndBackup' ? { count: trashCount } : {});
+  const title = failed ? t.t('issue') : controller.lastPreview?.kind === 'sync' ? t.t(controller.lastPreview.selected.length === 1 ? 'syncCompleteCountOne' : 'syncCompleteCount', { count: controller.lastPreview.selected.length }) : t.t('operationCompleteTitle');
+  const description = failed ? controller.error : summary;
+  const accountSeparator = t.locale === 'zh-CN' ? '、' : ', ';
   const completedItems = controller.lastPreview?.selected.length ? controller.lastPreview.selected.map((item) => ({
     title: item.title || t.t('untitled'),
-    targets: [...new Set(controller.lastPreview!.changes.filter((change) => change.sessionId === item.id).map((change) => homeAccountLabel([...controller.included].indexOf(change.accountId), t)))].join('、') || controller.lastPreview!.accountIds.map((id) => homeAccountLabel([...controller.included].indexOf(id), t)).join('、'),
+    targets: [...new Set(controller.lastPreview!.changes.filter((change) => change.sessionId === item.id).map((change) => homeAccountLabel([...controller.included].indexOf(change.accountId), t)))].join(accountSeparator) || controller.lastPreview!.accountIds.map((id) => homeAccountLabel([...controller.included].indexOf(id), t)).join(accountSeparator),
   })) : [];
   return <PageSurface className="stage-surface stage-surface--complete" title={title} description={description}><div className="complete-layout"><aside className="complete-art"><RelayArt state={failed ? 'attention' : 'complete'} celebrate={controller.celebrate} /></aside><section className="complete-card">
-    <header><h1>{title}</h1><p>{description}</p></header>{failed && <Callout tone="danger">{controller.error}</Callout>}<p className="complete-proof">{t.t('complete')}</p>
-    <ul className="completion-list">{completedItems.length ? completedItems.map((item) => <li key={item.title}><Icon icon="check" /><strong>{item.title}</strong><span>{item.targets}</span></li>) : <><li><Icon icon={failed ? 'alert' : 'check'} /><strong>{failed ? t.t('issue') : controller.deleted ? t.t('deleteComplete') : t.t('complete')}</strong><span>{controller.workspace ? t.t('checkedAt', { time: t.date(controller.workspace.checkedAt, { timeStyle: 'short' }) }) : ''}</span></li><li><Icon icon="lock" /><strong>{t.t('localOnly')}</strong><span>{t.t('operationCompleteBody')}</span></li></>}</ul>
+    <header><h1>{title}</h1><p>{description}</p></header>{failed && <Callout tone="danger">{controller.error}</Callout>}<p className="complete-proof">{t.t(failed ? 'issue' : 'resultVerified')}</p>
+    <ul className="completion-list">{completedItems.length ? completedItems.map((item) => <li key={item.title}><Icon icon="check" /><strong>{item.title}</strong><span>{item.targets}</span></li>) : <><li><Icon icon={failed ? 'alert' : 'check'} /><strong>{failed ? t.t('issue') : t.t('resultVerified')}</strong><span>{controller.workspace ? t.t('checkedAt', { time: t.date(controller.workspace.checkedAt, { timeStyle: 'short' }) }) : ''}</span></li><li><Icon icon="lock" /><strong>{t.t('localOnly')}</strong><span>{t.t('operationCompleteBody')}</span></li></>}</ul>
     <footer><Button variant="ghost" static onClick={() => controller.setStage('review')}>{t.t('viewScope')}</Button><Button variant="primary" onClick={() => { controller.setCelebrate(false); controller.setReviewCategory('all'); controller.setStage(controller.workspace ? 'review' : 'home'); }}>{t.t('returnToChats')}</Button></footer>
   </section></div></PageSurface>;
 }
@@ -36,6 +47,6 @@ export function SettingsStage({ controller }: { controller: AppController }) {
 export function BackupsStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
   return <PageSurface className="stage-surface stage-surface--backups" layout="centered" title={t.t('backupTitle')} description={t.t('backupBody')} header={<PageArt kind="backup" />}>
-    <div className="backups-page">{controller.backups.length === 0 ? <p className="empty-state">{t.t('noBackups')}</p> : <ul className="backup-list">{controller.backups.map((backup) => <li key={backup.id}><div><strong>{t.date(backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</strong><small>{t.t(backup.operation)} · {t.t('backupFiles', { count: backup.fileCount })}{backup.state !== 'verified' && ` · ${t.t('interrupted')}`}</small></div><Button variant="secondary" static disabled={controller.busy} onClick={() => { void controller.model.restore(backup.id); }}>{t.t('restore')}</Button></li>)}</ul>}<Button variant="secondary" static className="backups-open" onClick={() => void controller.model.openBackups()}>{t.t('openBackups')}</Button></div>
+    <div className="backups-page">{controller.backups.length === 0 ? <p className="empty-state">{t.t('noBackups')}</p> : <ul className="backup-list">{controller.backups.map((backup) => <li key={backup.id}><div><strong>{t.date(backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</strong><small>{t.t(backup.operation)} · {t.t(backup.fileCount === 1 ? 'backupFilesOne' : 'backupFiles', { count: backup.fileCount })}{backup.state !== 'verified' && ` · ${t.t('interrupted')}`}</small></div><Button variant="secondary" static disabled={controller.busy} onClick={() => { void controller.model.restore(backup.id); }}>{t.t('restore')}</Button></li>)}</ul>}<Button variant="secondary" static className="backups-open" onClick={() => void controller.model.openBackups()}>{t.t('openBackups')}</Button></div>
   </PageSurface>;
 }

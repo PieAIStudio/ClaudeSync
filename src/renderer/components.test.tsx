@@ -64,13 +64,13 @@ it('shows source, destination and turn delta and blocks unresolved version confl
 
 it.each([
   ['active', '再使用“归档”'], ['archived', '想保留归档内容'], ['mixed', '既有普通会话'],
-] as const)('explains %s deletion with the right alternative, explicit account and no preview or backup promise', (state, advice) => {
+] as const)('explains %s deletion with the right alternative and explicit Trash recovery scope', (state, advice) => {
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(DeleteConfirmation,
     { count: 3, accountNames: ['fixture@example.com'], state, busy: false, onClose: noop, onDelete: noop }) }));
   expect(html).toContain('确定要删除这 3 条 Code 会话吗');
   expect(html).toContain('fixture@example.com');
   expect(html).toContain(advice);
-  expect(html).toContain('不留删除备份');
+  expect(html).toContain('废纸篓');
   expect(html).toContain('确定删除');
   expect(html).not.toContain('删除所选入口');
   expect(html).not.toContain('预览');

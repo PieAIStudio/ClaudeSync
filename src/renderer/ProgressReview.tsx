@@ -14,7 +14,7 @@ export function ProgressReview({ preview, accounts, choices, busy, onChoose }: {
         <strong>{item.title || t.t('untitled')}</strong>
         <p>{name(item.sourceAccountId)} → {name(item.targetAccountId)}</p>
         <p>{item.selected ? t.t('chosenVersion') : t.t('provenContinuation')}
-          {item.deltaTurns !== undefined && ` · ${t.t('turnDifference', { count: item.deltaTurns })}`}</p>
+          {item.deltaTurns !== undefined && ` · ${t.t(item.deltaTurns === 1 ? 'turnDifferenceOne' : 'turnDifference', { count: item.deltaTurns })}`}</p>
         {item.updatedAt && <time>{t.date(item.updatedAt, { dateStyle: 'medium', timeStyle: 'short' })}</time>}
       </div>)}
     </section>}
@@ -26,7 +26,7 @@ export function ProgressReview({ preview, accounts, choices, busy, onChoose }: {
           onChange={(event) => onChoose?.(item.id, event.target.value)}>
           <option value="">{t.t('chooseVersion')}</option>
           {item.options.map((option) => <option key={option.path} value={option.path}>
-            {name(option.accountId)} · {option.turns === undefined ? '—' : t.t('turnCount', { count: option.turns })}
+            {name(option.accountId)} · {option.turns === undefined ? '—' : t.t(option.turns === 1 ? 'turnCountOne' : 'turnCount', { count: option.turns })}
             {option.updatedAt ? ` · ${t.date(option.updatedAt, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}
           </option>)}
         </select>

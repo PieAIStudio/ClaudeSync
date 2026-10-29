@@ -115,7 +115,7 @@ async function installFixture(page: Page, locale: Locale): Promise<void> {
         return copy(pendingPreview);
       },
       apply: async () => ({ result: { filesChanged: 1, verified: true, backup: 'fixture-backup' }, workspace: copy(workspace) }),
-      deleteSelected: async () => ({ result: { filesChanged: 1, verified: true }, workspace: copy(workspace) }),
+      deleteSelected: async () => ({ result: { filesChanged: 1, verified: true, trashCount: 1 }, workspace: copy(workspace) }),
       previewOldCopies: async () => ({ items: [], accountIds: [], trashCount: 0, archivedToImport: 0 }),
       cleanupOldCopies: async () => ({ result: { trashed: 0, importedArchived: 0, mainUnchanged: true, oldCopiesRemaining: 0 }, workspace: copy(workspace) }),
       cloudSessions: async () => copy(cloud),
