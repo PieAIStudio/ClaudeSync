@@ -98,109 +98,118 @@ function createBackup(workspace: Workspace, plan: FilePlan): { path: string; man
   return { path, manifest };
 }
 
-export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () => void): ApplyResult {
+interface CommitState {
+  expected: WorkspaceSnapshot;
+  deletionExpected?: WorkspaceSnapshot;
+  removedTranscripts: Set<string>;
+  applied: number;
+}
+
+function assertPlanTargets(workspace: Workspace, plan: FilePlan): void {
   if (plan.blockingReason) throw new Error(plan.blockingReason);
-  if (plan.kind === 'sync' || plan.kind === 'keep') {
-    const affected = new Set(plan.changes.map((change) => change.path.split('/')[0]));
-    const targets = new Set(verifiedTargets(workspace.accounts.filter((account) => affected.has(account.scope.split('/')[0])), workspace.verifiedOrganizations).map((account) => account.scope));
-    if (plan.changes.some((change) => !targets.has(change.path.split('/').slice(0, 2).join('/'))
-      && !(plan.kind === 'sync' && change.action === 'restore' && !change.after && change.before
-        && plan.restoredMarkerPaths?.includes(change.path) && /^[0-9a-f-]{36}\/[0-9a-f-]{36}\/deleted_[0-9a-f-]{36}$/u.test(change.path))))
-      throw userError('errorUnverifiedPlan');
-  }
-  if (plan.changes.length === 0) return { filesChanged: 0, verified: true };
+  if (plan.kind !== 'sync' && plan.kind !== 'keep') return;
+  const affected = new Set(plan.changes.map((change) => change.path.split('/')[0]));
+  const targets = new Set(verifiedTargets(workspace.accounts.filter((account) => affected.has(account.scope.split('/')[0])), workspace.verifiedOrganizations).map((account) => account.scope));
+  const safeMarkers = (change: FileChange) => plan.kind === 'sync' && change.action === 'restore' && !change.after && Boolean(change.before)
+    && Boolean(plan.restoredMarkerPaths?.includes(change.path)) && /^[0-9a-f-]{36}\/[0-9a-f-]{36}\/deleted_[0-9a-f-]{36}$/u.test(change.path);
+  if (plan.changes.some((change) => !targets.has(change.path.split('/').slice(0, 2).join('/')) && !safeMarkers(change))) throw userError('errorUnverifiedPlan');
+}
+
+function assertPlanPaths(workspace: Workspace, plan: FilePlan): void {
   const paths = new Set<string>();
   for (const change of plan.changes) {
-    if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/(?:local_[0-9a-f-]{36}\.json|archived-sessions\.idx|deleted_[0-9a-f-]{36})$/u.test(change.path)) {
-      throw userError('errorUnmanagedPath');
-    }
+    if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/(?:local_[0-9a-f-]{36}\.json|archived-sessions\.idx|deleted_[0-9a-f-]{36})$/u.test(change.path)) throw userError('errorUnmanagedPath');
     if (paths.has(change.path)) throw userError('errorDuplicatePlanPath');
     paths.add(change.path);
     const before = workspace.snapshot.files.get(change.path);
     if (before ? !change.before?.equals(before) : Boolean(change.before)) throw userError('errorPlanSnapshotMismatch');
   }
-  const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
-  let backup: ReturnType<typeof createBackup> | undefined;
-  let expected = workspace.snapshot;
-  let deletionExpected = plan.deletionSnapshot;
-  const removedTranscripts = new Set<string>();
-  let applied = 0;
-  function checkInputs(): void {
-    guard();
-    assertInputsCurrent(workspace, removedTranscripts, plan.dependencies);
-    for (const check of plan.inputTranscripts ?? []) assertTranscriptCurrent(check);
-    for (const check of plan.transcriptRemovals ?? []) {
-      if (!removedTranscripts.has(check.path)) assertTranscriptCurrent(check);
+}
+
+function assertCommitInputs(workspace: Workspace, plan: FilePlan, state: CommitState, guard: () => void): void {
+  guard();
+  assertInputsCurrent(workspace, state.removedTranscripts, plan.dependencies);
+  for (const check of plan.inputTranscripts ?? []) assertTranscriptCurrent(check);
+  for (const check of plan.transcriptRemovals ?? []) if (!state.removedTranscripts.has(check.path)) assertTranscriptCurrent(check);
+  const current = takeWorkspaceSnapshot(workspace.root, workspace.accounts);
+  if (plan.dependencies) assertDependencySnapshot(state.expected, current, plan.dependencies);
+  else if (!sameSnapshot(state.expected, current)) throw userError('errorWorkspaceChanged');
+  if (state.deletionExpected) {
+    const allAccounts = takeDeletionSnapshot(workspace.root);
+    if (plan.dependencies) assertDependencySnapshot(state.deletionExpected, allAccounts, plan.dependencies);
+    else if (!sameSnapshot(state.deletionExpected, allAccounts)) throw userError('errorOtherAccountChanged');
+  }
+  for (const change of plan.changes) {
+    const target = safeWorkspacePath(workspace.root, change.path);
+    assertPlainDirectory(dirname(target));
+    if (state.expected.files.has(change.path)) continue;
+    try { lstatSync(target); }
+    catch (error) { if (isRecord(error) && error.code === 'ENOENT') continue; throw error; }
+    throw userError('errorUnrecognizedTarget', { path: change.path });
+  }
+  if (state.deletionExpected) {
+    const inventory = (index: Map<string, string[]>) => [...index].filter(([id]) => !plan.dependencies || plan.dependencies.ids.has(id)).map(([id, paths]) => [id, paths.filter((path) => !state.removedTranscripts.has(path))] as const)
+      .filter(([, paths]) => paths.length).sort(([a], [b]) => a.localeCompare(b));
+    if (JSON.stringify(inventory(workspace.transcriptPaths)) !== JSON.stringify(inventory(collectTranscriptIndex(workspace.projectsRoot)))) throw userError('errorTranscriptDirectoryChanged');
+  }
+}
+
+function applyPlanChanges(workspace: Workspace, plan: FilePlan, state: CommitState, backup: ReturnType<typeof createBackup> | undefined, checkInputs: () => void): void {
+  for (const change of plan.changes) {
+    checkInputs();
+    const path = safeWorkspacePath(workspace.root, change.path);
+    assertPlainDirectory(dirname(path));
+    if (change.after) {
+      if (change.before) {
+        replaceRegularFile(path, change.after, change.before);
+        state.expected = snapshotWithReplaced(state.expected, change.path, change.after);
+        if (state.deletionExpected) state.deletionExpected = snapshotWithReplaced(state.deletionExpected, change.path, change.after);
+      } else {
+        publishNewFile(path, change.after);
+        state.expected = snapshotWithAdded(state.expected, change.path, change.after);
+        if (state.deletionExpected) state.deletionExpected = snapshotWithAdded(state.deletionExpected, change.path, change.after);
+      }
+    } else if (change.before) {
+      removeRegularFile(path, change.before);
+      state.expected = snapshotWithRemoved(state.expected, change.path);
+      if (state.deletionExpected) state.deletionExpected = snapshotWithRemoved(state.deletionExpected, change.path);
     }
-    const current = takeWorkspaceSnapshot(workspace.root, workspace.accounts);
-    if (plan.dependencies) assertDependencySnapshot(expected, current, plan.dependencies);
-    else if (!sameSnapshot(expected, current)) throw userError('errorWorkspaceChanged');
-    if (deletionExpected) {
-      const allAccounts = takeDeletionSnapshot(workspace.root);
-      if (plan.dependencies) assertDependencySnapshot(deletionExpected, allAccounts, plan.dependencies);
-      else if (!sameSnapshot(deletionExpected, allAccounts)) throw userError('errorOtherAccountChanged');
-    }
-    // A skipped entry must never be overwritten by an addition. Check all
-    // destination parents/collisions before the first backup or write, including
-    // dangling links (existsSync alone cannot detect those).
-    for (const change of plan.changes) {
-      const target = safeWorkspacePath(workspace.root, change.path);
-      assertPlainDirectory(dirname(target));
-      if (expected.files.has(change.path)) continue;
-      try { lstatSync(target); }
-      catch (error) { if (isRecord(error) && error.code === 'ENOENT') continue; throw error; }
-      throw userError('errorUnrecognizedTarget', { path: change.path });
-    }
-    if (deletionExpected) {
-      const inventory = (index: Map<string, string[]>) => [...index].filter(([id]) => !plan.dependencies || plan.dependencies.ids.has(id)).map(([id, paths]) => [id, paths.filter((path) => !removedTranscripts.has(path))] as const)
-        .filter(([, paths]) => paths.length).sort(([a], [b]) => a.localeCompare(b));
-      if (JSON.stringify(inventory(workspace.transcriptPaths)) !== JSON.stringify(inventory(collectTranscriptIndex(workspace.projectsRoot)))) throw userError('errorTranscriptDirectoryChanged');
+    state.applied++;
+    if (backup) {
+      backup.manifest.applied.push(change.path);
+      writeOwnedFile(join(backup.path, 'manifest.json'), encodeJson(backup.manifest));
     }
   }
+  for (const transcript of plan.transcriptRemovals ?? []) {
+    if (plan.kind !== 'delete' || !state.deletionExpected) throw userError('errorInvalidDeletePlan');
+    checkInputs();
+    // Unknown stores may hold references we cannot inspect. Delete recognized
+    // indexes normally, but retain shared bodies rather than guessing ownership.
+    if (takeDeletionSnapshot(workspace.root).skippedPaths.length) continue;
+    removeTranscript(transcript);
+    state.removedTranscripts.add(transcript.path);
+    state.applied++;
+  }
+}
+
+export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () => void): ApplyResult {
+  assertPlanTargets(workspace, plan);
+  if (plan.changes.length === 0) return { filesChanged: 0, verified: true };
+  assertPlanPaths(workspace, plan);
+  const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
+  const state: CommitState = { expected: workspace.snapshot, deletionExpected: plan.deletionSnapshot, removedTranscripts: new Set(), applied: 0 };
+  let backup: ReturnType<typeof createBackup> | undefined;
+  const checkInputs = () => assertCommitInputs(workspace, plan, state, guard);
   try {
     checkInputs();
     if (plan.kind !== 'delete') backup = createBackup(workspace, plan);
-    for (const change of plan.changes) {
-      checkInputs();
-      const path = safeWorkspacePath(workspace.root, change.path);
-      assertPlainDirectory(dirname(path));
-      if (change.after) {
-        if (change.before) {
-          replaceRegularFile(path, change.after, change.before);
-          expected = snapshotWithReplaced(expected, change.path, change.after);
-          if (deletionExpected) deletionExpected = snapshotWithReplaced(deletionExpected, change.path, change.after);
-        } else {
-          publishNewFile(path, change.after);
-          expected = snapshotWithAdded(expected, change.path, change.after);
-          if (deletionExpected) deletionExpected = snapshotWithAdded(deletionExpected, change.path, change.after);
-        }
-      } else if (change.before) {
-        removeRegularFile(path, change.before);
-        expected = snapshotWithRemoved(expected, change.path);
-        if (deletionExpected) deletionExpected = snapshotWithRemoved(deletionExpected, change.path);
-      }
-      applied++;
-      if (backup) {
-        backup.manifest.applied.push(change.path);
-        writeOwnedFile(join(backup.path, 'manifest.json'), encodeJson(backup.manifest));
-      }
-    }
-    for (const transcript of plan.transcriptRemovals ?? []) {
-      if (plan.kind !== 'delete' || !deletionExpected) throw userError('errorInvalidDeletePlan');
-      checkInputs();
-      // Unknown stores may hold references we cannot inspect. Delete recognized
-      // indexes normally, but retain shared bodies rather than guessing ownership.
-      if (takeDeletionSnapshot(workspace.root).skippedPaths.length) continue;
-      removeTranscript(transcript);
-      removedTranscripts.add(transcript.path);
-      applied++;
-    }
+    applyPlanChanges(workspace, plan, state, backup, checkInputs);
     checkInputs();
     if (backup) {
       backup.manifest.state = 'verified';
       writeOwnedFile(join(backup.path, 'manifest.json'), encodeJson(backup.manifest));
     }
-    return { filesChanged: applied, verified: true, ...(backup ? { backup: backup.path } : {}) };
+    return { filesChanged: state.applied, verified: true, ...(backup ? { backup: backup.path } : {}) };
   } catch (error) {
     if (backup) {
       backup.manifest.state = 'interrupted';
@@ -208,7 +217,7 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
       try { writeOwnedFile(join(backup.path, 'manifest.json'), encodeJson(backup.manifest)); } catch { /* Preserve the original error. */ }
       throw userError('errorBackupInterrupted', { message: backup.manifest.error ?? userMessage('statusDeleteInterrupted'), path: backup.path });
     }
-    if (plan.kind === 'delete' && applied) throw userError('errorDeleteInterrupted', { message: error instanceof Error ? error.message : userMessage('statusDeleteInterrupted'), applied });
+    if (plan.kind === 'delete' && state.applied) throw userError('errorDeleteInterrupted', { message: error instanceof Error ? error.message : userMessage('statusDeleteInterrupted'), applied: state.applied });
     throw error;
   } finally {
     release();
