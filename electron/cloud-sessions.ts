@@ -5,6 +5,7 @@ import { assertSessionCredential, checkDesktopIdentity, readSessionCredential } 
 import type { AccountIdentity, SessionCredential } from './desktop-identity';
 import { rememberIdentities } from './accounts';
 import { userError, userMessage } from '../src/error-copy';
+import { pruneExpiringMap } from './expiring-map';
 
 const ORIGIN = 'https://api.anthropic.com';
 const ID = /^cse_[A-Za-z0-9]{10,80}$/u;
@@ -65,8 +66,7 @@ async function readRows(credential: SessionCredential): Promise<Row[]> {
 }
 
 function saveView(identity: Snapshot['identity'], rows: Row[]): CloudWorkspaceView {
-  for (const [token, snapshot] of snapshots) if (Date.now() - snapshot.at > 15 * 60 * 1000) snapshots.delete(token);
-  if (snapshots.size >= 10) snapshots.delete(snapshots.keys().next().value!);
+  pruneExpiringMap(snapshots, 10);
   const revision = randomUUID();
   snapshots.set(revision, { identity, rows, at: Date.now() });
   return { revision, checkedAt: new Date().toISOString(), accountId: identity.accountId, organizationId: identity.organizationId,

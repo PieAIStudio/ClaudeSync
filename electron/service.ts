@@ -14,6 +14,7 @@ import { assertClaudeStopped, processBlockers } from './processes';
 import { executeOldCleanup, planOldCleanup } from '../src/core/old-organization';
 import type { OldCleanupPlan } from '../src/core/old-organization';
 import { userError, userMessage } from '../src/error-copy';
+import { pruneExpiringMap } from './expiring-map';
 
 const pending = new Map<string, { workspace: Workspace; plan: FilePlan; at: number }>();
 const pendingOld = new Map<string, { workspace: Workspace; plan: OldCleanupPlan; at: number }>();
@@ -60,8 +61,7 @@ function normalizeRequest(value: unknown): OperationRequest {
 }
 
 function savePreview(workspace: Workspace, plan: FilePlan): string {
-  for (const [id, item] of pending) if (Date.now() - item.at > 15 * 60 * 1000) pending.delete(id);
-  if (pending.size >= 10) pending.delete(pending.keys().next().value!);
+  pruneExpiringMap(pending, 10);
   const token = randomUUID();
   pending.set(token, { workspace, plan, at: Date.now() });
   return token;
@@ -73,8 +73,7 @@ export async function checkWorkspace(): Promise<WorkspaceView> {
   const emails = rememberIdentities(discovered.accounts, desktop.identity);
   const workspace = managedWorkspace(discovered);
   const revision = workspaceRevision(workspace);
-  for (const [key, item] of displayed) if (Date.now() - item.at > 15 * 60 * 1000) displayed.delete(key);
-  if (displayed.size >= 4) displayed.delete(displayed.keys().next().value!);
+  pruneExpiringMap(displayed, 4);
   displayed.set(revision, { workspace, at: Date.now() });
   return { checkedAt: new Date().toISOString(), revision, blockers: processBlockers(),
     identityState: desktop.state, skippedPaths: workspace.snapshot.skippedPaths,
@@ -114,8 +113,7 @@ export function previewOldCopies(value: unknown, revision: unknown) {
   const workspace = freshWorkspace(revision, { accountIds: value as string[], oldCopies: true });
   const plan = planOldCleanup(workspace, value as string[]);
   if (!plan.items.length) return { token: '', items: [], accountIds: plan.accountIds, trashCount: 0, archivedToImport: 0 };
-  for (const [key, item] of pendingOld) if (Date.now() - item.at > 15 * 60 * 1000) pendingOld.delete(key);
-  if (pendingOld.size >= 10) pendingOld.delete(pendingOld.keys().next().value!);
+  pruneExpiringMap(pendingOld, 10);
   const token = randomUUID();
   pendingOld.set(token, { workspace, plan, at: Date.now() });
   return { token, items: plan.items, accountIds: plan.accountIds, trashCount: plan.removals.length, archivedToImport: plan.imports.length };
