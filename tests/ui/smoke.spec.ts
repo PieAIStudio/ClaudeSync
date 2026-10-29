@@ -176,6 +176,17 @@ async function assertInsideViewport(page: Page, locator: Locator, message: strin
   expect(box.y + box.height, `${message} bottom edge`).toBeLessThanOrEqual(viewport.height);
 }
 
+async function assertNoOverlap(first: Locator, second: Locator, message: string): Promise<void> {
+  const firstBox = await first.boundingBox();
+  const secondBox = await second.boundingBox();
+  expect(firstBox, `${message} first control must have a layout box`).not.toBeNull();
+  expect(secondBox, `${message} second control must have a layout box`).not.toBeNull();
+  if (!firstBox || !secondBox) return;
+  const overlaps = firstBox.x < secondBox.x + secondBox.width && secondBox.x < firstBox.x + firstBox.width
+    && firstBox.y < secondBox.y + secondBox.height && secondBox.y < firstBox.y + firstBox.height;
+  expect(overlaps, `${message} bounding boxes must not overlap`).toBe(false);
+}
+
 async function assertNoChineseSystemText(page: Page): Promise<void> {
   const text = await page.locator('.claudesync-app').evaluate((root) => {
     const copy = root.cloneNode(true) as HTMLElement;
@@ -247,6 +258,25 @@ test('fixed renderer smoke — review footer and More menu stay clickable', asyn
       return Boolean(hit && (hit === element || element.contains(hit)));
     });
     expect(hitTarget, `More menu action ${index} must not be covered`).toBe(true);
+  }
+});
+
+test('polish — search and select-all controls do not overlap in all eight review views', async ({ page }) => {
+  const cases: Array<{ locale: Locale; width: number; height: number; theme: 'light' | 'dark' }> = [
+    ...(['zh-CN', 'en'] as const).flatMap((locale) => [
+      { locale, width: 600, height: 900, theme: 'light' as const },
+      { locale, width: 600, height: 900, theme: 'dark' as const },
+      { locale, width: 1440, height: 900, theme: 'light' as const },
+      { locale, width: 1440, height: 900, theme: 'dark' as const },
+    ]),
+  ];
+  for (const item of cases) {
+    await openFixture(page, { name: `${item.width}-${item.theme}`, width: item.width, height: item.height }, item.locale);
+    if (item.theme === 'dark') await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
+    await openStage(page, item.locale, 'local');
+    await page.locator('.summary-card--older .summary-card-main').click();
+    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
+    await assertNoOverlap(page.locator('.review-tools input[type="search"]'), page.locator('.select-line'), `${item.locale} ${item.width}px ${item.theme} search/select-all`);
   }
 });
 

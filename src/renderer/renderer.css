@@ -267,7 +267,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .review-scope > details[open] > summary { margin-bottom: 6px; font-weight: 650; }
 .review-scope .account-list { max-height: 260px; overflow: auto; }
 .review-main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; gap: 6px; }
-.review-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 52px; }
+.review-toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; min-height: 52px; }
 .review-toolbar > div:first-child { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .review-toolbar h2 { margin: 0; font-size: 20px; font-weight: 700; }
 .review-toolbar small { color: var(--cs-faint); font-size: 14px; }
@@ -293,7 +293,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .filter-drawer label { display: grid; gap: 4px; color: var(--cs-muted); font-size: 13px; }
 .filter-drawer .game-ui-select-frame { width: 100%; }
 .selection-menu .game-ui-button, .more-actions .game-ui-button { justify-content: flex-start; min-height: 38px; font-weight: 500; white-space: nowrap; }
-.select-line { display: flex; align-items: center; gap: 8px; min-height: 40px; padding-left: 12px; color: var(--cs-muted); font-size: 14px; }
+.select-line { display: flex; flex: none; align-items: center; gap: 8px; min-height: 40px; padding-left: 12px; color: var(--cs-muted); font-size: 14px; }
 .select-line label { display: inline-flex; align-items: center; gap: 14px; }
 .review-list-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; padding-bottom: 12px; scrollbar-gutter: stable; }
 .session-list { margin: 0; padding: 0; list-style: none; }
@@ -483,9 +483,12 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
   .stage-surface--review .game-ui-page-surface-footer { position: sticky; bottom: 0; margin-top: 0; }
 
   .stage-surface--review .game-ui-page-surface-aside { order: 2; }
-  .review-toolbar { flex-wrap: wrap; padding-bottom: 12px; }
+  /* A wrapped flex toolbar can keep its old single-row height and let the
+   * search input paint over the select-all row. Use a real one-column flow so
+   * every control contributes its height before the list starts. */
+  .review-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-height: 0; padding-bottom: 0; }
   .review-tools { width: 100%; }
-  .select-line { margin-top: 8px; }
+  .select-line { margin-top: 0; }
   .review-tools .game-ui-input-frame { flex: 1; }
   .review-tools input { width: 100%; }
   .session-details > div { position: static; width: 100%; max-height: 300px; margin-top: 6px; }
