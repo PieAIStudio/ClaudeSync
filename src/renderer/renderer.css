@@ -93,6 +93,9 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .claudesync-shell .game-ui-shell-sidebar nav > button .game-ui-icon, .home-scope-list li > .game-ui-icon, .mobile-nav-links button .game-ui-icon { --a: #7be4ff; --b: #8a5cff; box-sizing: border-box; width: 26px; height: 26px; padding: 5px; border-radius: 8px; color: #fff; background: linear-gradient(150deg, var(--a), var(--b)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%), inset 0 -2px 4px rgb(0 0 0 / 16%), 0 3px 8px color-mix(in srgb, var(--b) 35%, transparent); }
 .claudesync-shell .game-ui-shell-sidebar nav > button:nth-child(2) .game-ui-icon, .home-scope-list li:nth-child(2) > .game-ui-icon, .mobile-nav-links button:nth-child(2) .game-ui-icon { --a: #c08bff; --b: #f0508f; }
 .claudesync-shell .game-ui-shell-sidebar nav > button:nth-child(3) .game-ui-icon, .home-scope-list li:nth-child(3) > .game-ui-icon, .mobile-nav-links button:nth-child(3) .game-ui-icon { --a: #ffc06a; --b: #ff6a9e; }
+/* The kit's home path is optically right-heavy while scroll starts at the left edge. */
+.claudesync-shell .game-ui-shell-sidebar nav > button:first-child .game-ui-icon, .mobile-nav-links button:first-child .game-ui-icon { transform: translateX(-1px); }
+.claudesync-shell .game-ui-shell-sidebar nav > button:nth-child(2) .game-ui-icon, .mobile-nav-links button:nth-child(2) .game-ui-icon { transform: translateX(1px); }
 .claudesync-shell .shell-sidebar-bottom > button:nth-child(1) .game-ui-icon { --a: #ffd08a; --b: #ff8a5a; }
 .claudesync-shell .shell-sidebar-bottom > button:nth-child(2) .game-ui-icon { --a: #b8b8cc; --b: #6c6c84; }
 .shell-brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 26px; }
@@ -474,11 +477,15 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
   .complete-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; justify-items: center; }
   .complete-art .relay-art { width: min(260px, 70vw); }
   .complete-card { width: 100%; max-width: 640px; padding: 26px 22px 20px; }
-  .stage-surface--review.game-ui-page-surface { height: auto; }
-  .stage-surface--review .game-ui-page-surface-content { grid-template-columns: 1fr; padding: 10px 10px 0; }
+  /* Keep the review footer in the scene; the list/content area owns its scrolling. */
+  .stage-surface--review.game-ui-page-surface { height: 100%; min-height: 0; }
+  .stage-surface--review .game-ui-page-surface-content { grid-template-columns: 1fr; min-height: 0; overflow: auto; padding: 10px 10px 0; }
+  .stage-surface--review .game-ui-page-surface-footer { position: sticky; bottom: 0; margin-top: 0; }
+
   .stage-surface--review .game-ui-page-surface-aside { order: 2; }
-  .review-toolbar { flex-wrap: wrap; }
+  .review-toolbar { flex-wrap: wrap; padding-bottom: 12px; }
   .review-tools { width: 100%; }
+  .select-line { margin-top: 8px; }
   .review-tools .game-ui-input-frame { flex: 1; }
   .review-tools input { width: 100%; }
   .session-details > div { position: static; width: 100%; max-height: 300px; margin-top: 6px; }

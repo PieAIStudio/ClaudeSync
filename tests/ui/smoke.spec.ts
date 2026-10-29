@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 type Locale = 'zh-CN' | 'en';
 type Viewport = { name: string; width: number; height: number };
@@ -21,7 +21,8 @@ const LOCALES: Locale[] = ['zh-CN', 'en'];
 const ACCOUNT_A = '11111111-1111-4111-8111-111111111111';
 const ACCOUNT_B = '22222222-2222-4222-8222-222222222222';
 const SESSION_SYNC = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const SESSION_ARCHIVED = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const SESSION_OLDER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const SESSION_ARCHIVED = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const NOW = '2026-10-29T00:00:00.000Z';
 const CHINESE = /[\u3400-\u9fff]/u;
 
@@ -29,7 +30,7 @@ const fixtureWorkspace: FixtureWorkspace = {
   checkedAt: NOW,
   revision: 'fixture-revision',
   accounts: [
-    { id: ACCOUNT_A, email: undefined, scopes: ['fixture-alpha'], active: 2, archived: 0, total: 2, eligible: 2, copies: 2, current: true, visible: 2, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 },
+    { id: ACCOUNT_A, email: undefined, scopes: ['fixture-alpha'], active: 3, archived: 0, total: 3, eligible: 3, copies: 3, current: true, visible: 3, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 },
     { id: ACCOUNT_B, email: undefined, scopes: ['fixture-beta'], active: 2, archived: 0, total: 2, eligible: 2, copies: 2, current: true, visible: 2, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 },
   ],
   sessions: [
@@ -43,6 +44,17 @@ const fixtureWorkspace: FixtureWorkspace = {
       presence: [
         { accountId: ACCOUNT_A, active: true, archived: false, eligible: true, copies: 1, titles: ['Synthetic sync session'], reasons: [], records: [{ scope: 'fixture-alpha', group: 'visible', title: 'Synthetic sync session', project: 'fixture-project', updatedAt: NOW, archived: false, eligible: true, manageable: true, starred: false, reasons: [] }] },
         { accountId: ACCOUNT_B, active: true, archived: false, eligible: true, copies: 1, titles: ['Synthetic sync session'], reasons: [], records: [{ scope: 'fixture-beta', group: 'visible', title: 'Synthetic sync session', project: 'fixture-project', updatedAt: NOW, archived: false, eligible: true, manageable: true, starred: false, reasons: [] }] },
+      ],
+    },
+    {
+      id: SESSION_OLDER,
+      title: 'Synthetic older session',
+      project: 'fixture-project',
+      updatedAt: '2026-09-01T00:00:00.000Z',
+      starred: false,
+      manageable: true,
+      presence: [
+        { accountId: ACCOUNT_A, active: true, archived: false, eligible: true, copies: 1, titles: ['Synthetic older session'], reasons: [], records: [{ scope: 'fixture-alpha', group: 'visible', title: 'Synthetic older session', project: 'fixture-project', updatedAt: '2026-09-01T00:00:00.000Z', archived: false, eligible: true, manageable: true, starred: false, reasons: [] }] },
       ],
     },
     {
@@ -152,7 +164,7 @@ async function assertDecorativeImages(page: Page, expectedName: string): Promise
   if (expectedName === 'home') expect(details.some((item) => item.source.includes('hero')), 'home must keep the hero image').toBe(true);
 }
 
-async function assertInsideViewport(page: Page, locator: ReturnType<Page['getByRole']>, message: string): Promise<void> {
+async function assertInsideViewport(page: Page, locator: Locator, message: string): Promise<void> {
   const box = await locator.boundingBox();
   const viewport = page.viewportSize();
   expect(box, `${message} must have a layout box`).not.toBeNull();
@@ -235,5 +247,42 @@ test('fixed renderer smoke — review footer and More menu stay clickable', asyn
       return Boolean(hit && (hit === element || element.contains(hit)));
     });
     expect(hitTarget, `More menu action ${index} must not be covered`).toBe(true);
+  }
+});
+
+test('polish — older label and review actions stay visible at 600px', async ({ page }) => {
+  const cases: Array<{ locale: Locale; olderLabel: string; syncLabel: string; moreLabel: string }> = [
+    { locale: 'zh-CN', olderLabel: '可以清理的旧聊天', syncLabel: '同步 1 条', moreLabel: '更多操作' },
+    { locale: 'en', olderLabel: 'Older chats you can clean up', syncLabel: 'Sync 1', moreLabel: 'More actions' },
+  ];
+  for (const item of cases) {
+    await openFixture(page, { name: 'narrow-600', width: 600, height: 900 }, item.locale);
+    await openStage(page, item.locale, 'local');
+    await expect(page.locator('.summary-card--older .summary-card-copy strong')).toHaveText(item.olderLabel);
+    await page.locator('.summary-card--older .summary-card-main').click();
+    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
+    await expect(page.getByText(item.olderLabel, { exact: true })).toHaveCount(2);
+    await page.locator('.review-list-wrap input[type="checkbox"]:not(:disabled)').first().check();
+
+    const footer = page.locator('.game-ui-page-surface-footer');
+    const more = page.locator('.more-actions > summary');
+    const sync = page.getByRole('button', { name: item.syncLabel, exact: true });
+    await expect(footer).toBeVisible();
+    await expect(more).toBeVisible();
+    await expect(more).toHaveText(item.moreLabel);
+    await expect(sync).toBeVisible();
+    await assertInsideViewport(page, more, `${item.locale} More actions at 600px`);
+    await assertInsideViewport(page, sync, `${item.locale} sync at 600px`);
+
+    const geometry = await page.evaluate(() => {
+      const row = document.querySelector('.review-list-wrap .session-row');
+      const actionBar = document.querySelector('.game-ui-page-surface-footer');
+      if (!row || !actionBar) return null;
+      const rowBox = row.getBoundingClientRect();
+      const actionBox = actionBar.getBoundingClientRect();
+      return { rowBottom: rowBox.bottom, actionTop: actionBox.top };
+    });
+    expect(geometry, `${item.locale} review geometry`).not.toBeNull();
+    if (geometry) expect(geometry.rowBottom, `${item.locale} first row must stay above actions`).toBeLessThanOrEqual(geometry.actionTop + 1);
   }
 });

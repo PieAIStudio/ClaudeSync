@@ -11,6 +11,11 @@ describe('ClaudeSync language catalogs', () => {
     expect(i18n.translator(locale).t('otherRecords', { count: 2 })).toContain('2');
   });
 
+  it('uses the plain older-chat label in both supported blind-test languages', () => {
+    expect(i18n.translator('zh-CN').t('categoryOlder')).toBe('可以清理的旧聊天');
+    expect(i18n.translator('en').t('categoryOlder')).toBe('Older chats you can clean up');
+  });
+
   it('keeps English copy free of Chinese characters and full-width colons', () => {
     for (const [key, values] of Object.entries(messages)) {
       expect(values[1], key).not.toMatch(/[\u3400-\u9fff：]/u);

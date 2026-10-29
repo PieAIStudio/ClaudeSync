@@ -19,7 +19,7 @@ export const messages = {
   accountNumber: ['账号 {count}', 'Account {count}', 'アカウント {count}', 'Cuenta {count}', 'Conta {count}'],
   overview: ['概览', 'Overview', '概要', 'Resumen', 'Visão geral'],
   categoryRecent: ['最近的聊天', 'Recent chats', '最近のチャット', 'Chats recientes', 'Chats recentes'],
-  categoryOlder: ['以前的聊天（可整理）', 'Earlier chats to clean up', '整理できる以前のチャット', 'Chats anteriores para limpiar', 'Chats anteriores para limpar'],
+  categoryOlder: ['可以清理的旧聊天', 'Older chats you can clean up', '整理できる以前のチャット', 'Chats anteriores para limpiar', 'Chats anteriores para limpar'],
   categoryAttention: ['需要你确认', 'Needs your attention', '確認が必要', 'Necesita tu atención', 'Precisa da sua atenção'],
   categoryAligned: ['已经齐全', 'Already aligned', '揃っているチャット', 'Ya están completas', 'Já estão alinhadas'],
   categoryRecentCopy: ['最近聊的，另一个账号还没有。', 'Recent chats that another account does not have yet.', '最近のチャット。別のアカウントにはまだありません。', 'Chats recientes que otra cuenta aún no tiene.', 'Chats recentes que outra conta ainda não tem.'],
