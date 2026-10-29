@@ -133,8 +133,8 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
   </aside>;
 }
 
-export function SessionRows({ sessions, accounts, selected, filterId, included, onToggle, busy, idPrefix = 'session' }: {
-  sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string;
+export function SessionRows({ sessions, accounts, selected, filterId, included, onToggle, busy, idPrefix = 'session', statusMode = 'sync' }: {
+  sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string; statusMode?: 'sync' | 'cleanup';
 }) {
   const t = useTranslation();
   if (!sessions.length) return <p className="empty-state">{t.t('noSessions')}</p>;
@@ -147,7 +147,7 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
     const projectName = session.project.split(/[\\/]/u).filter(Boolean).at(-1) || '—';
     const projectMissing = presence.some((item) => item.reasons.some((reason) => hasReason(reason, reasonKeys.project, '工作目录')))
       || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu.test(projectName);
-    const status = selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? 'syncable' : 'blocked';
+    const status = selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? statusMode === 'cleanup' ? 'cleanupReady' : 'syncable' : 'blocked';
     return <li key={session.id} className={`session-row ${selected.has(session.id) ? 'is-selected' : ''}`}>
       <input id={`${idPrefix}-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !session.manageable || !session.presence.some((item) => included.has(item.accountId))}
         onChange={(event) => onToggle(session.id, event.target.checked)} />

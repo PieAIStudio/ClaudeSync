@@ -22,7 +22,7 @@ export function ResultsStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
   if (!controller.workspace) return <PageSurface className="stage-surface" layout="centered" title={t.t('noCheck')} description={t.t('heroBody')} header={<PageArt kind="local" />} primaryAction={<Button variant="primary" onClick={() => void controller.startCheck()}>{t.t('checkAgain')}</Button>}><div className="empty-state">{t.t('noCheck')}</div></PageSurface>;
   const resultTitle = controller.listCount ? controller.listCount === 1 ? t.t('resultsTitleOne') : t.t('resultsTitle', { count: controller.listCount }) : t.t('noSessions');
-  const resultBody = t.t('resultsBody', { count: controller.syncableCount });
+  const resultBody = t.t('resultsBody');
   const otherCount = controller.scopedGroups.archived.length + controller.scopedGroups.scheduled.length + controller.scopedGroups.oldOrganization.length;
   const firstAction = controller.syncableCount ? <Button variant="primary" disabled={controller.busy || controller.included.size < 2 || !controller.targetsVerified} onClick={() => controller.openReview('all', true)}>{t.t('syncCount', { count: controller.syncableCount })}</Button>
     : <Button variant="primary" onClick={() => controller.openReview(controller.categories.attention.sessions.length ? 'attention' : 'aligned')}>{controller.categories.attention.sessions.length ? t.t('categoryAttention') : t.t('categoryAligned')}</Button>;

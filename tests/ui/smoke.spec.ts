@@ -280,10 +280,10 @@ test('polish — search and select-all controls do not overlap in all eight revi
   }
 });
 
-test('polish — older label and review actions stay visible at 600px', async ({ page }) => {
-  const cases: Array<{ locale: Locale; olderLabel: string; syncLabel: string; moreLabel: string }> = [
-    { locale: 'zh-CN', olderLabel: '可以清理的旧聊天', syncLabel: '同步 1 条', moreLabel: '更多操作' },
-    { locale: 'en', olderLabel: 'Older chats you can clean up', syncLabel: 'Sync 1', moreLabel: 'More actions' },
+test('polish — older cleanup names the archive action and keeps sync available at 600px', async ({ page }) => {
+  const cases: Array<{ locale: Locale; olderLabel: string; cleanupTitle: string; statusLabel: string; archiveLabel: string; syncLabel: string; moreLabel: string }> = [
+    { locale: 'zh-CN', olderLabel: '可以清理的旧聊天', cleanupTitle: '选好旧聊天，再归档。', statusLabel: '可归档', archiveLabel: '归档 1 条', syncLabel: '同步 1 条', moreLabel: '更多操作' },
+    { locale: 'en', olderLabel: 'Older chats you can clean up', cleanupTitle: 'Choose older chats, then archive.', statusLabel: 'Ready to archive', archiveLabel: 'Archive 1', syncLabel: 'Sync 1', moreLabel: 'More actions' },
   ];
   for (const item of cases) {
     await openFixture(page, { name: 'narrow-600', width: 600, height: 900 }, item.locale);
@@ -292,16 +292,21 @@ test('polish — older label and review actions stay visible at 600px', async ({
     await page.locator('.summary-card--older .summary-card-main').click();
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
     await expect(page.getByText(item.olderLabel, { exact: true })).toHaveCount(2);
+    await expect(page.getByRole('heading', { name: item.cleanupTitle, exact: true })).toBeVisible();
+    await expect(page.getByText(item.statusLabel, { exact: true })).toBeVisible();
     await page.locator('.review-list-wrap input[type="checkbox"]:not(:disabled)').first().check();
 
     const footer = page.locator('.game-ui-page-surface-footer');
     const more = page.locator('.more-actions > summary');
+    const archive = page.getByRole('button', { name: item.archiveLabel, exact: true });
     const sync = page.getByRole('button', { name: item.syncLabel, exact: true });
     await expect(footer).toBeVisible();
     await expect(more).toBeVisible();
     await expect(more).toHaveText(item.moreLabel);
+    await expect(archive).toBeVisible();
     await expect(sync).toBeVisible();
     await assertInsideViewport(page, more, `${item.locale} More actions at 600px`);
+    await assertInsideViewport(page, archive, `${item.locale} archive at 600px`);
     await assertInsideViewport(page, sync, `${item.locale} sync at 600px`);
 
     const geometry = await page.evaluate(() => {
