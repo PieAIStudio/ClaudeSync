@@ -68,7 +68,7 @@ export function assertPlainDirectory(path: string): void {
   }
 }
 
-export function fileFingerprint(path: string): FileFingerprint {
+function fileFingerprint(path: string): FileFingerprint {
   const info = statSync(path, { bigint: true });
   return {
     device: info.dev.toString(),
