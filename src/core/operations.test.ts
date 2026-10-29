@@ -10,6 +10,7 @@ import { loadFixtureWorkspace as loadWorkspace } from '../../tests/fixture';
 import { addScope, CHAT_A, CHAT_B, editIndex, ID_A, ID_B, indexPath, SCOPE_A, SCOPE_B, temporaryFixture } from '../../tests/fixture';
 import type { OperationRequest } from '../shared/contracts';
 
+const CHAT_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 let root: string;
 beforeEach(() => { root = temporaryFixture(); });
 afterEach(() => { rmSync(root, { recursive: true, force: true }); });
@@ -19,6 +20,12 @@ function operation(kind: Exclude<OperationRequest['kind'], 'delete'>, sessionIds
   const plan = buildOperationPlan(workspace, { kind, sessionIds, accountIds, title });
   const result = commitFilePlan(workspace, plan, () => undefined);
   return { plan, result };
+}
+
+function addSyntheticSession(scope: string, sessionId: string): void {
+  const source = JSON.parse(readFileSync(indexPath(root, SCOPE_A, CHAT_B), 'utf8')) as Record<string, unknown>;
+  writeFileSync(indexPath(root, scope, sessionId), JSON.stringify({ ...source, sessionId: `local_${sessionId}`, cliSessionId: sessionId, title: `Synthetic ${sessionId}` }));
+  writeFileSync(join(root, 'projects/project', `${sessionId}.jsonl`), '{"type":"user","message":{"content":"fixture"}}\n');
 }
 
 async function deleteOperation(sessionIds = [CHAT_A], accountIds = [ID_A, ID_B], trashPaths: string[] = []) {
@@ -121,6 +128,30 @@ it.each(['edit', 'add', 'remove'] as const)('blocks a stale preview after backlo
   expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('claudesync-message:errorWorkspaceChanged');
   expect(readFileSync(indexPath(root, SCOPE_A, CHAT_A))).toEqual(chatBefore);
   expect(listBackups(root)).toHaveLength(0);
+});
+
+it('scopes archive previews to changed accounts and unique sessions', () => {
+  const preview = buildOperationPlan(load(), { kind: 'archive', group: 'visible', sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] }).preview;
+  expect(preview.accountIds).toEqual([ID_A]);
+  expect(preview.changes).toHaveLength(1);
+  expect(preview.changes[0]).toMatchObject({ accountId: ID_A, sessionId: CHAT_B, action: 'archive' });
+});
+
+it('lists two changed accounts and two sessions once', () => {
+  addSyntheticSession(SCOPE_B, CHAT_C);
+  const preview = buildOperationPlan(load(), { kind: 'archive', group: 'visible', sessionIds: [CHAT_B, CHAT_C], accountIds: [ID_A, ID_B] }).preview;
+  expect(preview.accountIds).toEqual([ID_A, ID_B]);
+  expect(preview.changes).toHaveLength(2);
+  expect(preview.changes.map((change) => `${change.accountId}:${change.sessionId}`)).toEqual([`${ID_A}:${CHAT_B}`, `${ID_B}:${CHAT_C}`]);
+});
+
+it('collapses a session reached through two local copies into one plan row', () => {
+  const extra = `${ID_A}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`;
+  addScope(root, extra, SCOPE_A);
+  const preview = buildOperationPlan(load(), { kind: 'archive', sessionIds: [CHAT_B], accountIds: [ID_A] }).preview;
+  expect(preview.accountIds).toEqual([ID_A]);
+  expect(preview.changes).toHaveLength(1);
+  expect(preview.changes[0]).toMatchObject({ accountId: ID_A, sessionId: CHAT_B, copies: 2 });
 });
 
 it('archives all copies in included accounts, updates both native archive formats, and unarchives', () => {

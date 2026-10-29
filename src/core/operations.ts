@@ -53,6 +53,10 @@ export function changeViews(changes: FileChange[]): ChangeView[] {
   return [...groups.values()];
 }
 
+function changedAccountIds(changes: FileChange[]): string[] {
+  return [...new Set(changes.map((change) => accountIdForScope(change.path)))];
+}
+
 function createPlanContext(workspace: Workspace, request: OperationRequest): PlanContext {
   const accountIds = new Set(request.accountIds);
   const knownAccounts = new Set(workspace.accounts.map((account) => accountIdForScope(account.scope)));
@@ -316,7 +320,7 @@ export function buildOperationPlan(workspace: Workspace, request: OperationReque
     inputTranscripts: context.inputTranscripts, restoredMarkerPaths: context.restoredMarkerPaths,
     blockingReason: context.progressConflicts.some((conflict) => !conflict.resolved) ? userMessage('errorProgressConflict') : undefined,
     ...(context.deletionSnapshot ? { deletionSnapshot: context.deletionSnapshot, transcriptRemovals: context.transcriptRemovals } : {}),
-    preview: { group: request.group, kind: request.kind, accountIds: [...context.accountIds], selected, changes: changeViews(changes), conflicts: context.conflicts,
+    preview: { group: request.group, kind: request.kind, accountIds: changedAccountIds(changes), selected, changes: changeViews(changes), conflicts: context.conflicts,
       progressUpdates: context.progressUpdates, progressConflicts: context.progressConflicts, skipped: context.skipped, fileCount: changes.length },
   };
 }

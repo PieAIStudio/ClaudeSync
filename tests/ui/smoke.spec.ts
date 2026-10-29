@@ -111,18 +111,24 @@ async function installFixture(page: Page, locale: Locale): Promise<void> {
       check: async () => copy(workspace),
       preview: async (request: { kind: string; sessionIds: string[]; accountIds: string[]; group?: string }) => {
         const selected = workspace.sessions.filter((session: { id: string }) => request.sessionIds.includes(session.id));
-        const accountIds = request.accountIds.length ? request.accountIds : workspace.accounts.map((account: { id: string }) => account.id);
+        const requestedAccountIds = request.accountIds.length ? request.accountIds : workspace.accounts.map((account: { id: string }) => account.id);
+        const changes = selected.flatMap((session: { id: string; title: string; presence: Array<{ accountId: string; active: boolean; archived: boolean }> }) => {
+          const presence = session.presence.filter((item) => requestedAccountIds.includes(item.accountId)
+            && (request.kind === 'archive' ? item.active : request.kind === 'unarchive' ? item.archived : true));
+          return presence.map((item) => ({ sessionId: session.id, title: session.title, accountId: item.accountId, action: request.kind === 'sync' ? 'update' : request.kind, copies: 1 }));
+        });
+        const accountIds = [...new Set(changes.map((change) => change.accountId))];
         pendingPreview = {
           group: request.group,
           kind: request.kind,
-          changes: selected.flatMap((session: { id: string; title: string }) => accountIds.map((accountId: string) => ({ sessionId: session.id, title: session.title, accountId, action: request.kind === 'sync' ? 'update' : request.kind, copies: 1 }))),
+          changes,
           selected: selected.map((session: { id: string; title: string }) => ({ id: session.id, title: session.title })),
           accountIds,
           conflicts: [],
           progressUpdates: [],
           progressConflicts: [],
           skipped: [],
-          fileCount: selected.length || 1,
+          fileCount: changes.length || 1,
         };
         return copy(pendingPreview);
       },
