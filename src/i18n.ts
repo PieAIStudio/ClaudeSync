@@ -170,6 +170,7 @@ export const messages = {
   keepTip: ['把所选 Code 会话补到参与的账号，其余普通会话归档。', 'Add selected Code sessions to included accounts and archive other regular sessions.', '選んだ Code セッションを各対象に揃え、他の通常セッションを保管。', 'Añade las sesiones de Code elegidas a las cuentas incluidas y archiva las demás normales.', 'Adicione as sessões de Code escolhidas às contas incluídas e arquive as outras normais.'],
   previewTitle: ['确认这次整理', 'Review this operation', '操作を確認', 'Revisa la operación', 'Revise a operação'],
   previewBody: ['只处理这里列出的账号和 Code 会话。确认后，先备份再修改。', 'Only these accounts and Code sessions are affected. A backup is made before changes.', '表示中のアカウントと Code セッションのみ処理。変更前にバックアップ。', 'Solo se afectan estas cuentas y sesiones de Code. Primero se crea una copia.', 'Só estas contas e sessões de Code serão afetadas. Um backup vem antes das mudanças.'],
+  archiveUndoHelp: ['已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。', 'Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”', 'アーカイブしたチャットは「アーカイブ」グループに移ります。戻すには、そこで選択して「アーカイブ解除」を選びます。', 'Los chats archivados pasan al grupo «Archivadas»; para devolver uno, selecciónalo allí y elige «Desarchivar elegidas».', 'Os chats arquivados vão para o grupo “Arquivadas”; para trazer um de volta, selecione-o lá e escolha “Desarquivar escolhidas”.'],
   reviewAction: ['操作', 'Action', '操作', 'Acción', 'Ação'],
   reviewGroup: ['分组', 'Group', 'グループ', 'Grupo', 'Grupo'],
   targets: ['处理账号', 'Accounts affected', '対象アカウント', 'Cuentas afectadas', 'Contas afetadas'],

@@ -77,6 +77,17 @@ it.each([
   expect(html).not.toContain('先备份');
 });
 
+it('explains where an archive goes and how to undo it before confirmation', () => {
+  const preview = { kind: 'archive' as const, token: 'fixture', group: 'visible' as const, accountIds: ['a'],
+    selected: [{ id: 'chat', title: 'Chosen session' }], changes: [{ sessionId: 'chat', title: 'Chosen session', accountId: 'a', action: 'archive' as const, copies: 1 }],
+    conflicts: [], skipped: [], fileCount: 1 };
+  const renderArchive = (locale: 'zh-CN' | 'en') => renderToStaticMarkup(createElement(I18nProvider, { locale, children: createElement(OperationReview, {
+    accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop, preview,
+  }) }));
+  expect(renderArchive('zh-CN')).toContain('已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。');
+  expect(renderArchive('en')).toContain('Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”');
+});
+
 it('renders readable account counts, named session checkboxes and the exact retained set in review', () => {
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement('div', null,
     createElement(AccountSidebar, { accounts, included: new Set(['a']), currentFilter: 'all', onInclude: noop, onFilter: noop, busy: false }),

@@ -202,6 +202,7 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
       <Button variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0 || unresolved} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</Button></>}>
     <ReviewFacts action={t.t(preview.kind)} group={preview.group} accountNames={preview.accountIds.map((id) => accountName(accounts.find((account) => account.id === id), t))} />
     {preview.kind === 'keep' && <p className="operation-warning">{t.t('keepWarning')}</p>}
+    {preview.kind === 'archive' && <p className="panel-intro">{t.t('archiveUndoHelp')}</p>}
     {preview.kind === 'sync' && <p className="panel-intro">{t.t('selectedSyncHelp')}</p>}
     <ProgressReview preview={preview} accounts={accounts} choices={contentChoices} busy={busy} onChoose={onChooseContent} />
     {preview.conflicts.length > 0 && <section className="title-conflicts"><h3>{t.t('conflicts')}</h3>{preview.conflicts.map((conflict) => <label key={conflict.id}>

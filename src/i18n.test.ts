@@ -25,6 +25,10 @@ describe('ClaudeSync language catalogs', () => {
     expect(en.t('archiveCount', { count: 1 })).toBe('Archive 1');
     expect(zh.t('syncCount', { count: 1 })).toBe('同步 1 条');
     expect(en.t('syncCount', { count: 1 })).toBe('Sync 1');
+    expect(zh.t('archiveUndoHelp')).toContain('已归档');
+    expect(zh.t('archiveUndoHelp')).toContain('取消归档');
+    expect(en.t('archiveUndoHelp')).toContain('Archived');
+    expect(en.t('archiveUndoHelp')).toContain('Unarchive selected');
     expect(zh.t('deleteNoRecovery')).toContain('废纸篓');
     expect(en.t('deleteNoRecovery')).toContain('Trash');
   });
