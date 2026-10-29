@@ -24,7 +24,7 @@ export interface FileChange {
   action: ChangeKind;
 }
 
-export type TrashHandler = (absolutePath: string) => Promise<void>;
+type TrashHandler = (absolutePath: string) => Promise<void>;
 
 export interface FilePlan {
   blockingReason?: string;
