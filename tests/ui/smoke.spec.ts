@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 type Locale = 'zh-CN' | 'en';
@@ -25,6 +27,7 @@ const SESSION_OLDER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const SESSION_ARCHIVED = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const NOW = '2026-10-29T00:00:00.000Z';
 const CHINESE = /[\u3400-\u9fff]/u;
+const CONFIRM_SCOPE_REPORT = join(process.cwd(), '.reports/2026-10-30-confirm-scope');
 
 const fixtureWorkspace: FixtureWorkspace = {
   checkedAt: NOW,
@@ -112,7 +115,7 @@ async function installFixture(page: Page, locale: Locale): Promise<void> {
       preview: async (request: { kind: string; sessionIds: string[]; accountIds: string[]; group?: string }) => {
         const selected = workspace.sessions.filter((session: { id: string }) => request.sessionIds.includes(session.id));
         const requestedAccountIds = request.accountIds.length ? request.accountIds : workspace.accounts.map((account: { id: string }) => account.id);
-        const changes = selected.flatMap((session: { id: string; title: string; presence: Array<{ accountId: string; active: boolean; archived: boolean }> }) => {
+        const changes: Array<{ sessionId: string; title: string; accountId: string; action: string; copies: number }> = selected.flatMap((session: { id: string; title: string; presence: Array<{ accountId: string; active: boolean; archived: boolean }> }) => {
           const presence = session.presence.filter((item) => requestedAccountIds.includes(item.accountId)
             && (request.kind === 'archive' ? item.active : request.kind === 'unarchive' ? item.archived : true));
           return presence.map((item) => ({ sessionId: session.id, title: session.title, accountId: item.accountId, action: request.kind === 'sync' ? 'update' : request.kind, copies: 1 }));
@@ -283,6 +286,30 @@ test('polish — search and select-all controls do not overlap in all eight revi
     await page.locator('.summary-card--older .summary-card-main').click();
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
     await assertNoOverlap(page.locator('.review-tools input[type="search"]'), page.locator('.select-line'), `${item.locale} ${item.width}px ${item.theme} search/select-all`);
+  }
+});
+
+test('confirm page scope evidence — one changed account and session at 600px and 1440px', async ({ page }) => {
+  mkdirSync(CONFIRM_SCOPE_REPORT, { recursive: true });
+  const cases: Array<{ locale: Locale; width: number; screenshot: string; archiveLabel: string; title: string; undo: string }> = [
+    { locale: 'zh-CN', width: 600, screenshot: 'confirm-zh-600.png', archiveLabel: '归档 1 条', title: '确认这次整理', undo: '已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。' },
+    { locale: 'en', width: 600, screenshot: 'confirm-en-600.png', archiveLabel: 'Archive 1', title: 'Review this operation', undo: 'Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”' },
+    { locale: 'zh-CN', width: 1440, screenshot: 'confirm-zh-1440.png', archiveLabel: '归档 1 条', title: '确认这次整理', undo: '已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。' },
+    { locale: 'en', width: 1440, screenshot: 'confirm-en-1440.png', archiveLabel: 'Archive 1', title: 'Review this operation', undo: 'Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”' },
+  ];
+  for (const item of cases) {
+    await openFixture(page, { name: `confirm-${item.locale}-${item.width}`, width: item.width, height: 900 }, item.locale);
+    await openStage(page, item.locale, 'local');
+    await page.locator('.summary-card--older .summary-card-main').click();
+    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
+    await page.locator('.review-list-wrap input[type="checkbox"]:not(:disabled)').first().check();
+    await page.getByRole('button', { name: item.archiveLabel, exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: item.title, exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('.review-accounts > span')).toHaveCount(1);
+    await expect(dialog.locator('.review-changes li')).toHaveCount(1);
+    await expect(dialog.getByText(item.undo, { exact: true })).toBeVisible();
+    await page.screenshot({ path: join(CONFIRM_SCOPE_REPORT, item.screenshot), animations: 'disabled' });
   }
 });
 
