@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "checks": {
+    "test:ui": [
+      "src/renderer/**",
+      "src/shared/**",
+      "index.html",
+      "electron.vite.config.ts",
+      "tests/ui/**",
+      "playwright.config.*",
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "lefthook.yml"
+    ],
+    "typecheck": [
+      "src/**",
+      "tests/**",
+      "electron/**",
+      "index.html",
+      "electron.vite.config.ts",
+      "tsconfig*.json",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "test": [
+      "src/**",
+      "tests/**",
+      "electron/**",
+      "package.json",
+      "pnpm-lock.yaml"
+    ],
+    "build": [
+      "src/**",
+      "electron/**",
+      "index.html",
+      "electron.vite.config.ts",
+      "package.json",
+      "pnpm-lock.yaml"
+    ]
+  },
+  "blindSpots": [
+    "Changes under scripts/ or lefthook itself do not infer a runtime check unless package.json, lefthook.yml, or the mapped source also changes.",
+    "A CSS-only change outside src/renderer/** is not selected by this map.",
+    "Native Electron IPC, OS Keychain, real Claude data, cloud deletion, signed-app and store acceptance remain explicit checks.",
+    "The renderer smoke uses a local Vite server and a browser-side API fixture; it does not prove the packaged preload or main-process adapters."
+  ]
+}

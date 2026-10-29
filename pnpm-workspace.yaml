@@ -2,5 +2,6 @@ allowBuilds:
   electron: true
   electron-winstaller: true
   esbuild: true
+  lefthook: true
 minimumReleaseAgeExclude:
   - '@pieai/swimmer-ui-kit@4.0.0-alpha.4 || 4.0.0-alpha.5 || 4.0.0-alpha.6 || 4.0.0-alpha.7 || 4.0.0-alpha.8 || 4.0.0-alpha.9 || 4.0.0-alpha.10'

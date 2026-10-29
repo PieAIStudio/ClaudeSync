@@ -1,0 +1,7 @@
+# ClaudeSync push gate. The source-to-check map is scripts/check-map.json.
+# Install only in this repository with: pnpm exec lefthook install
+pre-push:
+  parallel: false
+  commands:
+    changed-checks:
+      run: pnpm check:changed --base=origin/main

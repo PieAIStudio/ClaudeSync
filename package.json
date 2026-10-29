@@ -10,6 +10,8 @@
     "dev": "electron-vite dev",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "test:ui": "playwright test --config tests/ui/playwright.config.ts",
+    "check:changed": "node scripts/check-changed.mjs",
     "build": "electron-vite build",
     "package:mac:dir": "pnpm build && electron-builder --mac --arm64 --dir"
   },
@@ -24,6 +26,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@types/node": "24.13.2",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
@@ -31,6 +34,7 @@
     "electron": "40.10.3",
     "electron-builder": "26.15.2",
     "electron-vite": "5.0.0",
+    "lefthook": "^2.1.10",
     "typescript": "6.0.3",
     "vite": "8.2.2",
     "vitest": "4.1.10"
