@@ -28,7 +28,7 @@ export const MAX_INDEX_BYTES = 10 * 1024 * 1024;
 const MAX_BACKLOG_BYTES = 32 * 1024 * 1024;
 const SAMPLE_BYTES = 1024 * 1024;
 
-export interface FileFingerprint {
+interface FileFingerprint {
   device: string;
   inode: string;
   bytes: string;

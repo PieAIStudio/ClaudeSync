@@ -11,8 +11,7 @@ import {
 import type { TranscriptCheck, WorkspaceSnapshot } from './storage';
 import { historyIds, REMOTE_KEYS, validateSessionRecord } from './record';
 import { buildPlan } from './planner';
-import type { Account, SessionEntry, SessionRecord, SyncPlan } from './types';
-import type { VerifiedOrganizations } from './visibility';
+import type { Account, SessionEntry, SessionRecord, SyncPlan, VerifiedOrganizations } from './types';
 import { userError, userMessage } from '../error-copy';
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u;

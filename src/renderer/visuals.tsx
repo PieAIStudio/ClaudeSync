@@ -22,9 +22,9 @@ import groupAttention from './assets/group-attention.png';
 import groupCarry from './assets/group-carry.png';
 import groupOlder from './assets/group-older.png';
 
-export type RelayState = 'ready' | 'scanning' | 'syncing' | 'complete' | 'attention';
+type RelayState = 'ready' | 'scanning' | 'syncing' | 'complete' | 'attention';
 export type GroupVisual = 'recent' | 'older' | 'attention' | 'aligned';
-export type PageVisual = 'home' | 'local' | 'cloud' | 'backup' | 'settings';
+type PageVisual = 'home' | 'local' | 'cloud' | 'backup' | 'settings';
 type ThreeDVisual = 'hero' | PageVisual;
 type ThreeDSource = { small: string; medium: string; large: string };
 

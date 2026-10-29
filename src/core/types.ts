@@ -5,6 +5,14 @@ export interface Account {
   scope: string;
 }
 
+export type VerifiedOrganizations = Readonly<Record<string, string>>;
+
+export interface VisibilityWorkspace {
+  verifiedOrganizations?: VerifiedOrganizations;
+  accounts: Account[];
+  snapshot: { files: Map<string, Buffer> };
+}
+
 export interface SessionRecord extends Record<string, unknown> {
   sessionId: string;
   cliSessionId?: string;

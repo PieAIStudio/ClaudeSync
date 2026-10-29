@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
-import { buildPlan, type Account, type SessionEntry, type SessionRecord } from './index';
+import { buildPlan } from './planner';
+import type { Account, SessionEntry, SessionRecord } from './types';
 
 const fixtureRoot = resolve(import.meta.dirname, '../../tests/fixtures/basic');
 const config = JSON.parse(readFileSync(join(fixtureRoot, 'config.fixture.json'), 'utf8')) as {

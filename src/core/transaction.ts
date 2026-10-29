@@ -3,7 +3,7 @@ import { existsSync, lstatSync, mkdirSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import {
-  acquireFileLock, assertPlainDirectory, fileFingerprint, isRecord, publishNewFile, readRegularFile,
+  acquireFileLock, assertPlainDirectory, isRecord, publishNewFile, readRegularFile,
   removeRegularFile, replaceRegularFile, safeWorkspacePath, sameSnapshot, sha256,
   snapshotWithAdded, snapshotWithRemoved, snapshotWithReplaced, takeWorkspaceSnapshot, takeDeletionSnapshot,
   assertTranscriptCurrent, removeTranscript, writeOwnedFile,

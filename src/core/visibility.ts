@@ -1,15 +1,12 @@
 import { accountIdForScope } from './account-identity';
 import { historyIds, isUuid } from './record';
-import type { Account, SessionEntry } from './types';
-import type { Workspace } from './workspace';
+import type { Account, SessionEntry, VerifiedOrganizations, VisibilityWorkspace } from './types';
 import type { SessionGroup } from '../shared/contracts';
 import { userError } from '../error-copy';
 
-export type VerifiedOrganizations = Readonly<Record<string, string>>;
-
 // These are the conservative, Owner-approved local rules, not a claim about
 // uninspected Desktop internals. Never infer a scope from its name or row count.
-export function verifiedOrganization(workspace: Workspace, accountId: string): string | undefined {
+export function verifiedOrganization(workspace: VisibilityWorkspace, accountId: string): string | undefined {
   const organization = workspace.verifiedOrganizations?.[accountId];
   return isUuid(organization) && workspace.accounts.some((account) => account.scope === `${accountId}/${organization}`)
     ? organization : undefined;
@@ -26,7 +23,7 @@ export function verifiedTargets(accounts: Account[], organizations: VerifiedOrga
   return result;
 }
 
-export function deletionMarkers(workspace: Workspace, accountId: string): Set<string> {
+export function deletionMarkers(workspace: VisibilityWorkspace, accountId: string): Set<string> {
   const markers = new Set<string>();
   for (const path of workspace.snapshot.files.keys()) {
     const [id, , name, extra] = path.split('/');
@@ -35,12 +32,12 @@ export function deletionMarkers(workspace: Workspace, accountId: string): Set<st
   return markers;
 }
 
-export function hasDeletionMarker(workspace: Workspace, entry: SessionEntry): boolean {
+export function hasDeletionMarker(workspace: VisibilityWorkspace, entry: SessionEntry): boolean {
   const markers = deletionMarkers(workspace, accountIdForScope(entry.account.scope));
   return [...historyIds(entry.data), entry.data.sessionId, entry.data.sessionId.replace(/^local_/u, '')].some((id) => markers.has(id));
 }
 
-export function entryGroup(workspace: Workspace, entry: SessionEntry): SessionGroup {
+export function entryGroup(workspace: VisibilityWorkspace, entry: SessionEntry): SessionGroup {
   if (hasDeletionMarker(workspace, entry)) return 'deleted';
   const organization = verifiedOrganization(workspace, accountIdForScope(entry.account.scope));
   if (organization && entry.account.scope.split('/')[1] !== organization) return 'oldOrganization';

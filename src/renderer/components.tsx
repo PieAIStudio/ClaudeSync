@@ -97,7 +97,7 @@ function hasReason(reason: string, keys: ReadonlySet<string>, legacy: string): b
   return keys.has(parseMessage(reason)?.key ?? '') || reason.includes(legacy);
 }
 
-export function reasonText(reason: string, t: ReturnType<typeof useTranslation>): string {
+function reasonText(reason: string, t: ReturnType<typeof useTranslation>): string {
   if (hasReason(reason, reasonKeys.deleted, '删除标记') || reason.includes('曾被删除')) return t.t('deletedReason');
   if (hasReason(reason, reasonKeys.archived, '归档')) return t.t('archivedReason');
   if (hasReason(reason, reasonKeys.project, '工作目录')) return t.t('missingProject');

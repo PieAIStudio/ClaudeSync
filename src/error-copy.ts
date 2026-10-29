@@ -1,9 +1,9 @@
 export type MessageParam = string | number | boolean | readonly MessageParam[];
-export type MessageParams = Readonly<Record<string, MessageParam>>;
+type MessageParams = Readonly<Record<string, MessageParam>>;
 
 // Error and status text share one transport-safe envelope. It contains no line
 // breaks, so Electron's Error serialization cannot split the key or parameters.
-export const MESSAGE_PREFIX = 'claudesync-message:';
+const MESSAGE_PREFIX = 'claudesync-message:';
 const MULTIPLE_KEY = '__multiple__';
 
 export const errorMessages = {
@@ -187,7 +187,7 @@ export const errorMessages = {
   errorBackupCorrupt: ['备份文件损坏，不能恢复。', 'The backup file is damaged and cannot be restored.', 'バックアップファイルが破損しているため復元できません。', 'El archivo de copia está dañado y no se puede recuperar.', 'O arquivo de backup está danificado e não pode ser restaurado.'],
 } as const satisfies Record<string, readonly [string, string, string, string, string]>;
 
-export type MessageKey = keyof typeof errorMessages;
+type MessageKey = keyof typeof errorMessages;
 
 export function encodeMessage(key: MessageKey, params: MessageParams = {}): string {
   return `${MESSAGE_PREFIX}${key}:${JSON.stringify(params)}`;
@@ -205,7 +205,7 @@ export function messageList(messages: readonly string[]): string {
   return `${MESSAGE_PREFIX}${MULTIPLE_KEY}:${JSON.stringify({ messages })}`;
 }
 
-export type ParsedMessage = { key: MessageKey; params: MessageParams } | { key: typeof MULTIPLE_KEY; params: { messages: readonly string[] } };
+type ParsedMessage = { key: MessageKey; params: MessageParams } | { key: typeof MULTIPLE_KEY; params: { messages: readonly string[] } };
 
 export function parseMessage(value: string): ParsedMessage | undefined {
   if (!value.startsWith(MESSAGE_PREFIX)) return undefined;

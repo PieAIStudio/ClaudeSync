@@ -25,7 +25,7 @@ export function classifyProcesses(rows: Array<{ command: string; args: string }>
   return { writers, automatic };
 }
 
-export interface WriteScope { sessionIds: readonly string[]; label: string }
+interface WriteScope { sessionIds: readonly string[]; label: string }
 interface ProcessRow { command: string; args: string; pid?: number }
 
 // Positive session identity can rule out an unrelated CLI invocation. Unknown

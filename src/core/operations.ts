@@ -15,7 +15,7 @@ import { inspectTranscript, takeDeletionSnapshot } from './storage';
 import type { TranscriptCheck, WorkspaceSnapshot } from './storage';
 import { userError, userMessage } from '../error-copy';
 
-export interface OperationPlan extends FilePlan {
+interface OperationPlan extends FilePlan {
   preview: Omit<OperationPreview, 'token'>;
 }
 

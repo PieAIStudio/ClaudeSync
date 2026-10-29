@@ -77,10 +77,6 @@ const navItems: Array<{ stage: Stage; label: TranslationKey; icon: IconName }> =
   { stage: 'cloud', label: 'cloudSessions', icon: 'globe' },
 ];
 
-function visibleRecordsForAccount(session: SessionView, accountFilter: string, included: Set<string>) {
-  return session.presence.filter((item) => accountFilter === 'all' ? included.has(item.accountId) : item.accountId === accountFilter);
-}
-
 function classifyVisibleSessions(sessions: SessionView[], included: Set<string>): ResultCategories {
   const result: ResultCategories = {
     recent: { ids: new Set(), sessions: [] },

@@ -51,7 +51,7 @@ export function captureDependencies(workspace: Workspace, selection: DataSelecti
 // Unrecognized entries are skipped without following links. The comparison
 // ignores unrelated progress, but discovers new recognized relevant references
 // in any account, including accounts omitted from the application's settings.
-export function dependencySnapshot(snapshot: WorkspaceSnapshot, dependencies?: DataDependencies): WorkspaceSnapshot {
+function dependencySnapshot(snapshot: WorkspaceSnapshot, dependencies?: DataDependencies): WorkspaceSnapshot {
   if (!dependencies) return snapshot;
   const files = new Map<string, Buffer>();
   for (const [path, raw] of snapshot.files) {

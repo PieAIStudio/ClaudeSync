@@ -4,7 +4,7 @@ import { isUuid } from './record';
 const MANUAL_TITLE_SOURCES = new Set(['user', 'tool']);
 const LEGACY_BRANCH_TITLE = /^(.*?)（来自 .+ 的分支）$/u;
 
-export function legacyBranchTitle(data: SessionRecord): string | undefined {
+function legacyBranchTitle(data: SessionRecord): string | undefined {
   const title = String(data.title ?? '').trim();
   const match = LEGACY_BRANCH_TITLE.exec(title);
   if (match && !Array.isArray(data.previousTitles)) return match[1];

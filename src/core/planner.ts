@@ -1,10 +1,10 @@
-import type { Account, PlannedAddition, SessionEntry, SyncPlan } from './types';
+import type { Account, PlannedAddition, SessionEntry, SyncPlan, VerifiedOrganizations } from './types';
 import { buildTitleActions, titleOrigin } from './title-policy';
 import { deterministicBranchIndexId, historyIds, isUuid, portableRecord } from './record';
-import { verifiedTargets, type VerifiedOrganizations } from './visibility';
+import { verifiedTargets } from './visibility';
 import { userMessage } from '../error-copy';
 
-export interface PlanOptions {
+interface PlanOptions {
   verifiedOrganizations?: VerifiedOrganizations;
   tombstones?: Set<string>;
   archivedByAccount?: Map<string, Set<string>>;
