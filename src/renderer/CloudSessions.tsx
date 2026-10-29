@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Badge, Button, Callout, Input } from '@pieai/swimmer-ui-kit';
+import { Badge, Button, Callout, HelpTip, Input } from '@pieai/swimmer-ui-kit';
 import type { CloudSessionView, CloudWorkspaceView } from '../shared/contracts';
 import { DeleteConfirmation } from './components';
 import { useTranslation } from './i18n';
 import { errorMessage, messageText } from './errors';
 import { TermTip } from './TermTip';
-import { HelpTip } from '@pieai/swimmer-ui-kit';
 
-export function CloudSessions({ refreshKey, onBusy, onRetry }: { refreshKey: number; onBusy(value: boolean): void; onRetry?(): void }) {
-  const t = useTranslation();
+type CloudTranslation = ReturnType<typeof useTranslation>;
+type CloudBusyHandler = (value: boolean) => void;
+
+function useCloudSessionState(refreshKey: number, onBusy: CloudBusyHandler, t: CloudTranslation) {
   const api = window.claudeSync;
   const [workspace, setWorkspace] = useState<CloudWorkspaceView>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -52,23 +53,28 @@ export function CloudSessions({ refreshKey, onBusy, onRetry }: { refreshKey: num
     } finally { running.current = false; setBusy(false); onBusy(false); }
   }
 
+  return { api, workspace, selected, search, setSearch, filter, setFilter, busy, error, done, confirmation,
+    visible, selectable, hidden, chosen, setSelected, setConfirmation, remove };
+}
+
+export function CloudSessions({ refreshKey, onBusy, onRetry }: { refreshKey: number; onBusy(value: boolean): void; onRetry?(): void }) {
+  const t = useTranslation();
+  const state = useCloudSessionState(refreshKey, onBusy, t);
+  const { workspace, selected, search, setSearch, filter, setFilter, busy, error, done, confirmation,
+    visible, selectable, hidden, chosen, setSelected, setConfirmation, remove } = state;
   return <section className="cloud-manager" aria-label={t.t('cloudSessions')}>
     <div className="heading-with-tip"><h2>{t.t('cloudSessions')}</h2><TermTip term="code" /><HelpTip label={t.t('helpFor', { term: t.t('cloudSessions') })}>{t.t('cloudBody')}</HelpTip></div>
     {busy && !workspace && <p role="status">{t.t('checking')}</p>}
     {workspace && <>
-      <div className="cloud-heading"><div><h2>{workspace.email}</h2><p>{t.t('cloudCounts', { active: workspace.sessions.filter((row) => row.status !== 'archived').length, archived: workspace.sessions.filter((row) => row.status === 'archived').length })}</p></div>
-        <Badge tone="neutral">{t.t('current')}</Badge>
-      </div>
+      <div className="cloud-heading"><div><h2>{workspace.email}</h2><p>{t.t('cloudCounts', { active: workspace.sessions.filter((row) => row.status !== 'archived').length, archived: workspace.sessions.filter((row) => row.status === 'archived').length })}</p></div><Badge tone="neutral">{t.t('current')}</Badge></div>
       {workspace.limitReached && <Callout tone="warning">{t.t('cloudLimit')}</Callout>}
       <div className="session-filters cloud-filters"><Input type="search" aria-label={t.t('search')} placeholder={t.t('cloudSearch')} value={search} onChange={(event) => setSearch(event.target.value)} />
-        <select aria-label={t.t('filter')} value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}>{(['archived', 'active', 'all'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</select>
-      </div>
+        <select aria-label={t.t('filter')} value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}>{(['archived', 'active', 'all'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</select></div>
       <div className="selection-tools"><label><input type="checkbox" disabled={busy || !selectable.length} checked={selectable.length > 0 && selectable.every((row) => selected.has(row.id))}
         ref={(element) => { if (element) element.indeterminate = selectable.some((row) => selected.has(row.id)) && !selectable.every((row) => selected.has(row.id)); }}
         onChange={(event) => { const checked = event.target.checked; setSelected((current) => { const next = new Set(current); for (const row of selectable) { if (checked) next.add(row.id); else next.delete(row.id); } return next; }); }} />{t.t('selectVisible')}</label>
         {selected.size > 0 && <Button variant="ghost" disabled={busy} onClick={() => setSelected(new Set())}>{t.t('clearSelection')}</Button>}
-        <span>{t.t('visibleCount', { shown: visible.length, total: workspace.sessions.length })}</span>
-      </div>
+        <span>{t.t('visibleCount', { shown: visible.length, total: workspace.sessions.length })}</span></div>
       {!visible.length ? <p className="empty-state">{t.t('noSessions')}</p> : <ul className="session-list cloud-list">{visible.map((row) => <li key={row.id} className={`session-row ${selected.has(row.id) ? 'is-selected' : ''}`}>
         <input id={`cloud-${row.id}`} type="checkbox" aria-label={row.title || t.t('untitled')} disabled={busy || !row.deletable} checked={selected.has(row.id)} onChange={(event) => { const checked = event.target.checked;
           setSelected((current) => { const next = new Set(current); if (checked) next.add(row.id); else next.delete(row.id); return next; }); }} />

@@ -5,18 +5,7 @@ import type { AppLocale } from './i18n';
 
 const api = window.claudeSync;
 
-export function useWorkspace(locale: AppLocale = 'zh-CN') {
-  const [info, setInfo] = useState<AppInfo>();
-  const [workspace, setWorkspace] = useState<WorkspaceView>();
-  const [review, setReview] = useState<OperationPreview>();
-  const [request, setRequest] = useState<OperationRequest>();
-  const [backups, setBackups] = useState<BackupView[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [completed, setCompleted] = useState(false);
-  const [deleted, setDeleted] = useState(false);
-  const running = useRef(false);
-
+function useWorkspaceBootstrap(locale: AppLocale, setInfo: (value: AppInfo) => void, setWorkspace: (value: WorkspaceView) => void, setError: (value: string) => void): void {
   useEffect(() => {
     if (!api) return;
     let active = true;
@@ -30,6 +19,20 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
     }).catch((reason: unknown) => { if (active) setError(errorMessage(reason, locale)); });
     return () => { active = false; };
   }, []);
+}
+
+export function useWorkspace(locale: AppLocale = 'zh-CN') {
+  const [info, setInfo] = useState<AppInfo>();
+  const [workspace, setWorkspace] = useState<WorkspaceView>();
+  const [review, setReview] = useState<OperationPreview>();
+  const [request, setRequest] = useState<OperationRequest>();
+  const [backups, setBackups] = useState<BackupView[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [completed, setCompleted] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  const running = useRef(false);
+  useWorkspaceBootstrap(locale, setInfo, setWorkspace, setError);
 
   async function run(action: () => Promise<void>): Promise<boolean> {
     if (running.current) return false;
