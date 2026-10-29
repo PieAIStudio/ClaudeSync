@@ -5,6 +5,7 @@ import { buildCatalog } from './catalog';
 import { buildOperationPlan } from './operations';
 import { buildRestorePlan, commitFilePlan, commitFilePlanWithTrash, listBackups, workspaceRevision } from './transaction';
 import { buildWorkspacePlan } from './workspace';
+import { parseMessage } from '../error-copy';
 import { loadFixtureWorkspace as loadWorkspace } from '../../tests/fixture';
 import { addScope, CHAT_A, CHAT_B, editIndex, ID_A, ID_B, indexPath, SCOPE_A, SCOPE_B, temporaryFixture } from '../../tests/fixture';
 import type { OperationRequest } from '../shared/contracts';
@@ -237,6 +238,37 @@ it('keeps transcript removal behind the Trash adapter, not direct delete APIs', 
     const source = readFileSync(new URL(file, import.meta.url), 'utf8');
     expect(source).not.toMatch(/\b(?:unlinkSync|rmSync|fs\.rm)\b/u);
   }
+});
+
+it('reports an index interruption after Trash without backup or permanent removal', async () => {
+  const workspace = load();
+  const plan = buildOperationPlan(workspace, { kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] });
+  expect(plan.changes.length).toBeGreaterThan(1);
+  const bodyPath = join(root, 'projects/project', `${CHAT_A}.jsonl`);
+  const trashDirectory = join(root, 'fake-trash');
+  mkdirSync(trashDirectory);
+  let guardCalls = 0;
+  const trashPaths: string[] = [];
+  const trash = async (path: string) => {
+    trashPaths.push(path);
+    renameSync(path, join(trashDirectory, basename(path)));
+  };
+  const error = await commitFilePlanWithTrash(workspace, plan, () => {
+    guardCalls++;
+    if (guardCalls === 5) throw new Error('Interrupted during index writes');
+  }, trash).catch((reason: unknown) => reason);
+  expect(error).toBeInstanceOf(Error);
+  const parsed = parseMessage((error as Error).message);
+  expect(parsed).toMatchObject({ key: 'errorDeleteInterrupted', params: { applied: 1 } });
+  expect(guardCalls).toBe(5);
+  expect(trashPaths).toEqual([bodyPath]);
+  expect(existsSync(bodyPath)).toBe(false);
+  expect(readdirSync(trashDirectory)).toEqual([basename(bodyPath)]);
+  expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(false);
+  expect(existsSync(indexPath(root, SCOPE_B, CHAT_A))).toBe(true);
+  expect(existsSync(join(root, 'session-root', SCOPE_A, `deleted_${CHAT_A}`))).toBe(false);
+  expect(existsSync(join(root, 'session-root', SCOPE_B, `deleted_${CHAT_A}`))).toBe(false);
+  expect(listBackups(root)).toEqual([]);
 });
 
 it('reports a Trash failure without changing indexes or deletion markers', async () => {
