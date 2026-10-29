@@ -2,7 +2,7 @@ import { captureDependencies, dependencyError, selectionRevision, type DataSelec
 import { randomUUID } from 'node:crypto';
 import { buildCatalog } from '../src/core/catalog';
 import { buildOperationPlan, changeViews } from '../src/core/operations';
-import { buildRestorePlan, commitFilePlan, listBackups, workspaceRevision } from '../src/core/transaction';
+import { buildRestorePlan, commitFilePlan, commitFilePlanWithTrash, listBackups, workspaceRevision } from '../src/core/transaction';
 import type { FilePlan } from '../src/core/transaction';
 import type { Workspace } from '../src/core/workspace';
 import { isRecord } from '../src/core/storage';
@@ -88,14 +88,14 @@ export function previewOperation(value: unknown, revision: unknown) {
   return { ...plan.preview, token: savePreview(workspace, plan) };
 }
 
-export async function deleteSelected(value: unknown, revision: unknown) {
+export async function deleteSelected(value: unknown, revision: unknown, trash: (path: string) => Promise<void>) {
   if (!isRecord(value)) throw userError('errorInvalidDeleteParams');
   const request = normalizeRequest({ group: value.group, sessionIds: value.sessionIds, accountIds: value.accountIds, kind: 'delete' });
   const workspace = freshWorkspace(revision, request);
   const scope = writeScope(workspace, request);
   assertClaudeStopped(scope);
   const plan = buildOperationPlan(workspace, request);
-  const result = commitFilePlan(workspace, plan, () => { assertClaudeStopped(scope); assertOrganizationCurrent(workspace); });
+  const result = await commitFilePlanWithTrash(workspace, plan, () => { assertClaudeStopped(scope); assertOrganizationCurrent(workspace); }, trash);
   return { result, workspace: await checkWorkspace() };
 }
 

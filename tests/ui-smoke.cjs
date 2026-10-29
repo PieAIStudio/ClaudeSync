@@ -97,7 +97,7 @@ shell.openExternal = async () => { throw new Error('External links forbidden'); 
 shell.openPath = async () => { throw new Error('External paths forbidden'); };
 fs.mkdirSync(path.join(root, 'fake-trash'));
 shell.trashItem = async (file) => {
-  assert(file.startsWith(path.join(root, 'session-root') + path.sep));
+  assert(file.startsWith(path.join(root, 'session-root') + path.sep) || file.startsWith(path.join(root, 'projects') + path.sep));
   assert.equal(fs.realpathSync(file), file);
   await sleep(35);
   fs.renameSync(file, path.join(root, 'fake-trash', `${fs.readdirSync(path.join(root, 'fake-trash')).length}-${path.basename(file)}`));
@@ -215,7 +215,7 @@ async function runSkippedEntries() {
   await clickButton('同步', true);
   await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'known-session sync review');
   await clickButton('确认执行');
-  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('整理完成')`, 'known-session sync complete');
+  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已核对')`, 'known-session sync complete');
   assert(fs.existsSync(index(SB, CHAT_B)));
   assert.deepEqual(paths.map(preservedStructure), before);
   await clickButton('回到聊天');
@@ -224,7 +224,7 @@ async function runSkippedEntries() {
   await clickButton('归档所选');
   await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'known-session archive review');
   await clickButton('确认执行');
-  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('整理完成')`, 'known-session archive complete');
+  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已核对')`, 'known-session archive complete');
   assert(record(SA, CHAT_B).isArchived && record(SB, CHAT_B).isArchived);
   assert.deepEqual(paths.map(preservedStructure), before);
   await shot('02-sync-archive-preserved-entries');
@@ -253,7 +253,7 @@ async function run() {
   await waitFor(`Boolean(document.querySelector('dialog[open]')) && document.body.innerText.includes('比目标多 1 轮')`, 'source/target progress review');
   await shot('01-progress-preview');
   await clickButton('确认执行');
-  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('整理完成')`, 'progress applied');
+  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已核对')`, 'progress applied');
   assert.equal(record(SA, CHAT_A).lastAssistantUuid, H2);
   assert.equal(record(SA, CHAT_A).permissionMode, 'plan');
   assert(fs.readFileSync(body(CHAT_A)).equals(initialBody));
@@ -267,7 +267,7 @@ async function run() {
   await openMore();
   await clickButton('删除选中的 Code 会话');
   await clickButton('确定删除');
-  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('没有创建删除备份')`, 'A deletion complete');
+  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已移除所选记录')`, 'A deletion complete');
   assert(!fs.existsSync(index(SA, CHAT_A)));
   assert(fs.existsSync(index(SB, CHAT_A)));
   await clickButton('回到聊天');
@@ -279,7 +279,7 @@ async function run() {
   assert(!(await js('document.body.innerText')).includes('恢复这个备份'));
   await shot('02-selected-restore-preview');
   await clickButton('确认执行');
-  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('整理完成')`, 'selected restore applied');
+  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已核对')`, 'selected restore applied');
   assert.equal(record(SA, CHAT_A).lastAssistantUuid, H2);
   assert(!fs.existsSync(path.join(root, 'session-root', SA, 'deleted_' + CHAT_A)));
   assert(fs.readFileSync(body(CHAT_A)).equals(initialBody));
@@ -305,7 +305,7 @@ async function run() {
   await clickButton('删除选中的 Code 会话');
   await shot('03-old-delete-confirm');
   await clickButton('确定删除');
-  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('没有创建删除备份')`, 'old direct deletion');
+  await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('移到废纸篓')`, 'old direct deletion');
   assert(oldIds.every((id) => !fs.existsSync(index(OLD, id))));
   assert(fs.readFileSync(index(SA, CHAT_B)).equals(originalCurrent));
   assert(fs.readFileSync(body(CHAT_B)).equals(originalCurrentBody));
@@ -315,6 +315,7 @@ async function run() {
   await clickButton('回到聊天');
   // Independent fresh old IDs exercise the non-destructive cleanup alternative.
   const cleanupIds = seedOld(2);
+  const trashBeforeCleanup = fs.readdirSync(path.join(root, 'fake-trash')).length;
   await refresh();
   await openMore();
   await clickButton('清理旧组织副本');
@@ -323,7 +324,7 @@ async function run() {
   const beforeWrites = writes;
   await clickButton('确认清理 6 条旧副本');
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('旧副本剩余 0')`, 'old cleanup complete');
-  assert.equal(fs.readdirSync(path.join(root, 'fake-trash')).length, 6);
+  assert.equal(fs.readdirSync(path.join(root, 'fake-trash')).length, trashBeforeCleanup + 6);
   assert(cleanupIds.every((id) => !fs.existsSync(index(OLD, id))));
   assert(cleanupIds.slice(1).every((id) => record(SA, id).isArchived && fs.existsSync(body(id))));
   assert(fs.readFileSync(index(SA, CHAT_B)).equals(originalCurrent));

@@ -42,7 +42,7 @@ export interface AccountView {
   unverified: number;
 }
 
-export interface SessionPresence {
+interface SessionPresence {
   accountId: string;
   active: boolean;
   archived: boolean;
@@ -133,7 +133,7 @@ export interface ChangeView {
   copies: number;
 }
 
-export interface TitleConflictView {
+interface TitleConflictView {
   id: string;
   options: Array<{ scope: string; accountId: string; title: string }>;
 }
@@ -173,6 +173,7 @@ export interface ApplyResult {
   backup?: string;
   filesChanged: number;
   verified: boolean;
+  trashCount?: number;
 }
 
 export interface ClaudeSyncApi {

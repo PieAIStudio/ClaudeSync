@@ -1,7 +1,7 @@
 import { assertDependencySnapshot, dependencyError, type DataDependencies } from './data-scope';
 import { existsSync, lstatSync, mkdirSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import {
   acquireFileLock, assertPlainDirectory, isRecord, publishNewFile, readRegularFile,
   removeRegularFile, replaceRegularFile, safeWorkspacePath, sameSnapshot, sha256,
@@ -23,6 +23,8 @@ export interface FileChange {
   title: string;
   action: ChangeKind;
 }
+
+export type TrashHandler = (absolutePath: string) => Promise<void>;
 
 export interface FilePlan {
   blockingReason?: string;
@@ -102,6 +104,7 @@ interface CommitState {
   expected: WorkspaceSnapshot;
   deletionExpected?: WorkspaceSnapshot;
   removedTranscripts: Set<string>;
+  trashedTranscripts: string[];
   applied: number;
 }
 
@@ -154,6 +157,24 @@ function assertCommitInputs(workspace: Workspace, plan: FilePlan, state: CommitS
   }
 }
 
+async function moveTranscriptsToTrash(workspace: Workspace, plan: FilePlan, state: CommitState, trash: TrashHandler | undefined, checkInputs: () => void): Promise<void> {
+  if (plan.kind !== 'delete' || !plan.transcriptRemovals?.length) return;
+  if (!trash) throw userError('errorDeleteTrashRequired');
+  for (const transcript of plan.transcriptRemovals) {
+    try {
+      checkInputs();
+      await trash(transcript.path);
+      state.removedTranscripts.add(transcript.path);
+      state.trashedTranscripts.push(basename(transcript.path));
+    } catch (error) {
+      throw userError('errorDeleteTrashInterrupted', {
+        message: error instanceof Error ? error.message : userMessage('statusDeleteInterrupted'),
+        moved: state.trashedTranscripts.join(', ') || 'none', failed: basename(transcript.path),
+      });
+    }
+  }
+}
+
 function applyPlanChanges(workspace: Workspace, plan: FilePlan, state: CommitState, backup: ReturnType<typeof createBackup> | undefined, checkInputs: () => void): void {
   for (const change of plan.changes) {
     checkInputs();
@@ -180,8 +201,8 @@ function applyPlanChanges(workspace: Workspace, plan: FilePlan, state: CommitSta
       writeOwnedFile(join(backup.path, 'manifest.json'), encodeJson(backup.manifest));
     }
   }
-  for (const transcript of plan.transcriptRemovals ?? []) {
-    if (plan.kind !== 'delete' || !state.deletionExpected) throw userError('errorInvalidDeletePlan');
+  if (plan.kind !== 'delete') for (const transcript of plan.transcriptRemovals ?? []) {
+    if (!state.deletionExpected) throw userError('errorInvalidDeletePlan');
     checkInputs();
     // Unknown stores may hold references we cannot inspect. Delete recognized
     // indexes normally, but retain shared bodies rather than guessing ownership.
@@ -193,16 +214,17 @@ function applyPlanChanges(workspace: Workspace, plan: FilePlan, state: CommitSta
 }
 
 export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () => void): ApplyResult {
+  if (plan.kind === 'delete') throw userError('errorDeleteTrashRequired');
   assertPlanTargets(workspace, plan);
   if (plan.changes.length === 0) return { filesChanged: 0, verified: true };
   assertPlanPaths(workspace, plan);
   const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
-  const state: CommitState = { expected: workspace.snapshot, deletionExpected: plan.deletionSnapshot, removedTranscripts: new Set(), applied: 0 };
+  const state: CommitState = { expected: workspace.snapshot, deletionExpected: plan.deletionSnapshot, removedTranscripts: new Set(), trashedTranscripts: [], applied: 0 };
   let backup: ReturnType<typeof createBackup> | undefined;
   const checkInputs = () => assertCommitInputs(workspace, plan, state, guard);
   try {
     checkInputs();
-    if (plan.kind !== 'delete') backup = createBackup(workspace, plan);
+    backup = createBackup(workspace, plan);
     applyPlanChanges(workspace, plan, state, backup, checkInputs);
     checkInputs();
     if (backup) {
@@ -217,7 +239,31 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
       try { writeOwnedFile(join(backup.path, 'manifest.json'), encodeJson(backup.manifest)); } catch { /* Preserve the original error. */ }
       throw userError('errorBackupInterrupted', { message: backup.manifest.error ?? userMessage('statusDeleteInterrupted'), path: backup.path });
     }
-    if (plan.kind === 'delete' && state.applied) throw userError('errorDeleteInterrupted', { message: error instanceof Error ? error.message : userMessage('statusDeleteInterrupted'), applied: state.applied });
+    throw error;
+  } finally {
+    release();
+  }
+}
+
+export async function commitFilePlanWithTrash(workspace: Workspace, plan: FilePlan, guard: () => void, trash: TrashHandler): Promise<ApplyResult> {
+  if (plan.kind !== 'delete') return commitFilePlan(workspace, plan, guard);
+  assertPlanTargets(workspace, plan);
+  if (plan.changes.length === 0) return { filesChanged: 0, verified: true, trashCount: 0 };
+  assertPlanPaths(workspace, plan);
+  const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
+  const state: CommitState = { expected: workspace.snapshot, deletionExpected: plan.deletionSnapshot, removedTranscripts: new Set(), trashedTranscripts: [], applied: 0 };
+  const checkInputs = () => assertCommitInputs(workspace, plan, state, guard);
+  try {
+    checkInputs();
+    await moveTranscriptsToTrash(workspace, plan, state, trash, checkInputs);
+    checkInputs();
+    applyPlanChanges(workspace, plan, state, undefined, checkInputs);
+    checkInputs();
+    return { filesChanged: state.applied, verified: true, trashCount: state.trashedTranscripts.length };
+  } catch (error) {
+    if (plan.kind === 'delete' && state.applied) throw userError('errorDeleteInterrupted', {
+      message: error instanceof Error ? error.message : userMessage('statusDeleteInterrupted'), applied: state.applied,
+    });
     throw error;
   } finally {
     release();

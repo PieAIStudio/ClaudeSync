@@ -32,7 +32,7 @@ function registerIpc(): void {
   handle('check', () => checkWorkspace());
   handle('preview', (_event, request, revision) => previewOperation(request, revision));
   handle('apply', (_event, token) => applyOperation(token));
-  handle('delete-selected', (_event, request, revision) => deleteSelected(request, revision));
+  handle('delete-selected', (_event, request, revision) => deleteSelected(request, revision, (path) => shell.trashItem(path)));
   handle('preview-old-copies', (_event, ids, revision) => previewOldCopies(ids, revision));
   handle('cleanup-old-copies', (_event, token) => cleanupOldCopies(token, (path) => shell.trashItem(path)));
   handle('cloud-sessions', () => cloudSessions());

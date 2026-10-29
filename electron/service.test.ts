@@ -17,6 +17,12 @@ vi.mock('./processes', () => ({
 import { applyOperation, availableBackups, checkWorkspace, cleanupOldCopies, deleteSelected, previewOldCopies, previewOperation, previewRestore } from './service';
 import { configureFolders, rememberIdentities } from './accounts';
 
+const deleteTrash = async (path: string) => {
+  const directory = join(environment.root, 'delete-trash');
+  mkdirSync(directory, { recursive: true });
+  renameSync(path, join(directory, `${readdirSync(directory).length}-${basename(path)}`));
+};
+
 beforeEach(() => {
   environment.root = temporaryFixture(); environment.blocked = false;
   desktop.check.mockResolvedValue({ state: 'unavailable' } satisfies DesktopIdentityCheck);
@@ -35,7 +41,7 @@ it('deletes selected old-only copies even when an unrelated session changed afte
   const view = await checkWorkspace();
   editIndex(environment.root, SCOPE_A, CHAT_A, { title: 'Unrelated work continued' });
   writeFileSync(join(environment.root, 'projects/project', `${CHAT_A}.jsonl`), '{"type":"user","message":{"content":"unrelated new turn"}}\n');
-  const result = await deleteSelected({ group: 'oldOrganization', sessionIds: [CHAT_B], accountIds: [ID_A] }, view.revision);
+  const result = await deleteSelected({ group: 'oldOrganization', sessionIds: [CHAT_B], accountIds: [ID_A] }, view.revision, deleteTrash);
   expect(result.result.verified).toBe(true);
   expect(result.workspace.sessions.some((session) => session.id === CHAT_B)).toBe(false);
   expect(JSON.parse(readFileSync(indexPath(environment.root, SCOPE_A, CHAT_A), 'utf8')).title).toBe('Unrelated work continued');
@@ -151,21 +157,21 @@ it('rejects stale requests and consumes a blocked token without changing session
 it('executes only the confirmed local deletion scope without a preview, backup or restore token', async () => {
   const initial = await checkWorkspace();
   expect(() => previewOperation({ kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).toThrow('claudesync-message:errorDeleteConfirmation');
-  const result = await deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision);
+  const result = await deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision, deleteTrash);
   expect(result.result).toMatchObject({ verified: true });
   expect(result.result.backup).toBeUndefined();
   expect(result.workspace.sessions.find((session) => session.id === CHAT_A)?.presence.map((item) => item.accountId)).toEqual([ID_B]);
   expect(availableBackups()).toEqual([]);
-  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
+  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision, deleteTrash)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
 });
 
 it('blocks a direct deletion when Claude is running or the confirmed list has changed', async () => {
   const initial = await checkWorkspace();
   environment.blocked = true;
-  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).rejects.toThrow('Claude is running');
+  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision, deleteTrash)).rejects.toThrow('Claude is running');
   environment.blocked = false;
   editIndex(environment.root, SCOPE_A, CHAT_A, { isArchived: true });
-  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
+  await expect(deleteSelected({ sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision, deleteTrash)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
   expect(availableBackups()).toEqual([]);
 });
 
@@ -180,7 +186,7 @@ it('uses the verified organization for counts and management rather than letting
   expect(restore.changes).toHaveLength(1);
   desktop.check.mockResolvedValue({ state: 'unavailable' });
   expect((await checkWorkspace()).accounts.find((account) => account.id === ID_A)).toMatchObject({ active: 1, archived: 1, current: false });
-  await expect(deleteSelected({ group: 'archived', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision)).rejects.toThrow('claudesync-message:errorSharedHistoryDelete');
+  await expect(deleteSelected({ group: 'archived', sessionIds: [CHAT_A], accountIds: [ID_A] }, view.revision, deleteTrash)).rejects.toThrow('claudesync-message:errorSharedHistoryDelete');
   expect(readdirSync(join(environment.root, 'session-root', oldScope))).toContain(`local_${CHAT_A}.json`);
   expect(readFileSync(indexPath(environment.root, SCOPE_B, CHAT_A)).length).toBeGreaterThan(0);
 });

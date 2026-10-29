@@ -4,7 +4,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildCatalog } from './catalog';
 import { buildOperationPlan } from './operations';
-import { commitFilePlan } from './transaction';
+import { commitFilePlan, commitFilePlanWithTrash } from './transaction';
 import { buildWorkspacePlan } from './workspace';
 import { entryGroup } from './visibility';
 import { CHAT_A, CHAT_B, ID_A, ID_B, SCOPE_A, SCOPE_B, addScope, indexPath, loadFixtureWorkspace, temporaryFixture } from '../../tests/fixture';
@@ -24,13 +24,13 @@ it('lets the user select a surviving deletion-marked copy and explicitly restore
   commitFilePlan(workspace, buildOperationPlan(workspace, { ...sync, group: 'deleted' }), () => undefined);
   expect(load().entries.filter((entry) => entry.data.cliSessionId === CHAT_A).every((entry) => entry.eligible)).toBe(true);
 });
-function deleteFromA() {
+async function deleteFromA() {
   const workspace = load();
-  commitFilePlan(workspace, buildOperationPlan(workspace, { kind: 'delete', group: 'visible', sessionIds: [CHAT_A], accountIds: [ID_A] }), () => undefined);
+  await commitFilePlanWithTrash(workspace, buildOperationPlan(workspace, { kind: 'delete', group: 'visible', sessionIds: [CHAT_A], accountIds: [ID_A] }), () => undefined, async () => undefined);
 }
 
-it('restores an explicitly selected B session into A after A deleted it, including native visibility', () => {
-  deleteFromA();
+it('restores an explicitly selected B session into A after A deleted it, including native visibility', async () => {
+  await deleteFromA();
   const body = readFileSync(join(root, 'projects/project', `${CHAT_A}.jsonl`));
   const workspace = load();
   expect(buildWorkspacePlan(workspace).additions.every((addition) => addition.data.cliSessionId !== CHAT_A)).toBe(true);
@@ -42,8 +42,8 @@ it('restores an explicitly selected B session into A after A deleted it, includi
   expect(readFileSync(join(root, 'projects/project', `${CHAT_A}.jsonl`))).toEqual(body);
 });
 
-it('clears only relevant participating-account markers, including old organization notes, not unrelated or excluded ones', () => {
-  deleteFromA();
+it('clears only relevant participating-account markers, including old organization notes, not unrelated or excluded ones', async () => {
+  await deleteFromA();
   const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
   addScope(root, oldScope);
   const excluded = '33333333-3333-4333-8333-333333333333/dddddddd-dddd-4ddd-8ddd-dddddddddddd';
@@ -60,8 +60,8 @@ it('clears only relevant participating-account markers, including old organizati
   expect(readFileSync(join(root, 'session-root', excluded, `deleted_${CHAT_A}`), 'utf8')).toBe('earlier deletion');
 });
 
-it('does not use marker override to bypass a missing transcript or erase the deletion note alone', () => {
-  deleteFromA();
+it('does not use marker override to bypass a missing transcript or erase the deletion note alone', async () => {
+  await deleteFromA();
   rmSync(join(root, 'projects/project', `${CHAT_A}.jsonl`));
   const workspace = load();
   const plan = buildOperationPlan(workspace, sync);

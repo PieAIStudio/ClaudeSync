@@ -4,7 +4,7 @@ import { lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSy
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { CHAT_A, CHAT_B, ID_A, ID_B, indexPath, loadFixtureWorkspace, SCOPE_A, SCOPE_B, temporaryFixture } from '../../tests/fixture';
 import { buildOperationPlan } from './operations';
-import { buildRestorePlan, commitFilePlan, listBackups } from './transaction';
+import { buildRestorePlan, commitFilePlan, commitFilePlanWithTrash, listBackups } from './transaction';
 
 let root: string;
 beforeEach(() => { root = temporaryFixture(); });
@@ -37,7 +37,7 @@ function seedUnknown(): string[] {
   return paths;
 }
 
-it.each(['sync', 'archive', 'delete'] as const)('skips unknown entries and preserves their bytes, links and structure through %s and restore', (kind) => {
+it.each(['sync', 'archive', 'delete'] as const)('skips unknown entries and preserves their bytes, links and structure through %s and restore', async (kind) => {
   const paths = seedUnknown();
   const before = paths.map(structure);
   const workspace = load();
@@ -46,7 +46,9 @@ it.each(['sync', 'archive', 'delete'] as const)('skips unknown entries and prese
   for (const path of paths) expect(workspace.snapshot.files.has(relative(join(root, 'session-root'), path).replaceAll('\\', '/'))).toBe(false);
   const plan = buildOperationPlan(workspace, { kind, sessionIds: [CHAT_B], accountIds: [ID_A, ID_B] });
   expect(plan.changes.length).toBeGreaterThan(0);
-  const result = commitFilePlan(workspace, plan, () => undefined);
+  const result = kind === 'delete'
+    ? await commitFilePlanWithTrash(workspace, plan, () => undefined, async () => undefined)
+    : commitFilePlan(workspace, plan, () => undefined);
   expect(result.verified).toBe(true);
   if (kind !== 'delete') commitFilePlan(load(), buildRestorePlan(load(), basename(result.backup!)), () => undefined);
   else expect(readFileSync(join(root, 'projects/project', `${CHAT_B}.jsonl`)).length).toBeGreaterThan(0);

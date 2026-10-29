@@ -1,9 +1,9 @@
 import { basename, join } from 'node:path';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { buildCatalog } from './catalog';
 import { buildOperationPlan } from './operations';
-import { buildRestorePlan, commitFilePlan, listBackups, workspaceRevision } from './transaction';
+import { buildRestorePlan, commitFilePlan, commitFilePlanWithTrash, listBackups, workspaceRevision } from './transaction';
 import { buildWorkspacePlan } from './workspace';
 import { loadFixtureWorkspace as loadWorkspace } from '../../tests/fixture';
 import { addScope, CHAT_A, CHAT_B, editIndex, ID_A, ID_B, indexPath, SCOPE_A, SCOPE_B, temporaryFixture } from '../../tests/fixture';
@@ -13,10 +13,23 @@ let root: string;
 beforeEach(() => { root = temporaryFixture(); });
 afterEach(() => { rmSync(root, { recursive: true, force: true }); });
 const load = () => loadWorkspace(join(root, 'config.json'));
-function operation(kind: OperationRequest['kind'], sessionIds = [CHAT_A], accountIds = [ID_A, ID_B], title?: string) {
+function operation(kind: Exclude<OperationRequest['kind'], 'delete'>, sessionIds = [CHAT_A], accountIds = [ID_A, ID_B], title?: string) {
   const workspace = load();
   const plan = buildOperationPlan(workspace, { kind, sessionIds, accountIds, title });
   const result = commitFilePlan(workspace, plan, () => undefined);
+  return { plan, result };
+}
+
+async function deleteOperation(sessionIds = [CHAT_A], accountIds = [ID_A, ID_B], trashPaths: string[] = []) {
+  const workspace = load();
+  const plan = buildOperationPlan(workspace, { kind: 'delete', sessionIds, accountIds });
+  const trash = async (path: string) => {
+    trashPaths.push(path);
+    const directory = join(root, 'fake-trash');
+    mkdirSync(directory, { recursive: true });
+    renameSync(path, join(directory, `${readdirSync(directory).length}-${basename(path)}`));
+  };
+  const result = await commitFilePlanWithTrash(workspace, plan, () => undefined, trash);
   return { plan, result };
 }
 
@@ -38,7 +51,7 @@ it('syncs only selected sessions and resets copied permission state', () => {
   expect(buildWorkspacePlan(load()).additions).toHaveLength(0);
 });
 
-it('preserves native task backlog bytes through sync, archive, removal and restore', () => {
+it('preserves native task backlog bytes through sync, archive, removal and restore', async () => {
   const backlogPaths = [SCOPE_A, SCOPE_B].map((scope) => {
     const directory = join(root, 'session-root', scope, 'backlog');
     mkdirSync(directory);
@@ -47,7 +60,7 @@ it('preserves native task backlog bytes through sync, archive, removal and resto
     return [path, readFileSync(path)] as const;
   });
   for (const kind of ['sync', 'archive', 'delete'] as const) {
-    const { plan, result } = operation(kind, [CHAT_B]);
+    const { plan, result } = kind === 'delete' ? await deleteOperation([CHAT_B]) : operation(kind, [CHAT_B]);
     expect(plan.changes.every((change) => !change.path.includes('/backlog/'))).toBe(true);
     if (kind === 'delete') expect(result.backup).toBeUndefined();
     else commitFilePlan(load(), buildRestorePlan(load(), basename(result.backup!)), () => undefined);
@@ -55,7 +68,7 @@ it('preserves native task backlog bytes through sync, archive, removal and resto
   }
 });
 
-it.each(['empty', 'regular files'])('preserves native waiting-input with %s through sync, archive, removal and restore', (contents) => {
+it.each(['empty', 'regular files'])('preserves native waiting-input with %s through sync, archive, removal and restore', async (contents) => {
   const directories = [SCOPE_A, SCOPE_B].map((scope) => {
     const directory = join(root, 'session-root', scope, 'waiting-input');
     mkdirSync(directory);
@@ -64,7 +77,7 @@ it.each(['empty', 'regular files'])('preserves native waiting-input with %s thro
     return { directory, raw };
   });
   for (const kind of ['sync', 'archive', 'delete'] as const) {
-    const { plan, result } = operation(kind, [CHAT_B]);
+    const { plan, result } = kind === 'delete' ? await deleteOperation([CHAT_B]) : operation(kind, [CHAT_B]);
     expect(result.verified).toBe(true);
     expect(plan.changes.length).toBeGreaterThan(0);
     expect(plan.changes.every((change) => !change.path.includes('/waiting-input/'))).toBe(true);
@@ -169,32 +182,35 @@ it('does not let a target deletion marker resurrect a selected session', () => {
   expect(buildWorkspacePlan(load()).additions).toHaveLength(0);
 });
 
-it('deletes selected records and exclusive transcripts with native markers, without a backup or recovery data', () => {
+it('moves exclusive transcripts to Trash before changing records or markers', async () => {
   const bodyPath = join(root, 'projects/project', `${CHAT_A}.jsonl`);
-  const { result } = operation('delete', [CHAT_A]);
+  const trashPaths: string[] = [];
+  const { result } = await deleteOperation([CHAT_A], [ID_A, ID_B], trashPaths);
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(false);
   expect(existsSync(indexPath(root, SCOPE_B, CHAT_A))).toBe(false);
   expect(existsSync(bodyPath)).toBe(false);
   expect(buildWorkspacePlan(load()).additions).toHaveLength(1); // Only unrelated chat B.
   expect(result.backup).toBeUndefined();
+  expect(result.trashCount).toBe(1);
+  expect(trashPaths).toEqual([bodyPath]);
   expect(existsSync(join(root, 'backups'))).toBe(false);
   expect(listBackups(root)).toEqual([]);
   expect(existsSync(join(root, 'project'))).toBe(true);
   expect(existsSync(join(root, 'projects/project', `${CHAT_B}.jsonl`))).toBe(true);
 });
 
-it('keeps shared transcripts and unchecked accounts while deleting a selected account session', () => {
+it('keeps shared transcripts and unchecked accounts while deleting a selected account session', async () => {
   const bodyPath = join(root, 'projects/project', `${CHAT_A}.jsonl`);
   const before = readFileSync(bodyPath);
   const other = readFileSync(indexPath(root, SCOPE_B, CHAT_A));
-  operation('delete', [CHAT_A], [ID_A]);
+  await deleteOperation([CHAT_A], [ID_A]);
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(false);
   expect(readFileSync(indexPath(root, SCOPE_B, CHAT_A))).toEqual(other);
   expect(readFileSync(bodyPath)).toEqual(before);
   expect(listBackups(root)).toEqual([]);
 });
 
-it('protects transcripts claimed by a login omitted entirely from configuration', () => {
+it('protects transcripts claimed by a login omitted entirely from configuration', async () => {
   const omitted = '33333333-3333-4333-8333-333333333333/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
   addScope(root, omitted, SCOPE_A);
   const path = join(root, 'config.json');
@@ -203,25 +219,57 @@ it('protects transcripts claimed by a login omitted entirely from configuration'
   writeFileSync(path, JSON.stringify(config));
   const bodyPath = join(root, 'projects/project', `${CHAT_A}.jsonl`);
   const raw = readFileSync(bodyPath);
-  operation('delete', [CHAT_A]);
+  await deleteOperation([CHAT_A]);
   expect(readFileSync(bodyPath)).toEqual(raw);
   expect(existsSync(indexPath(root, omitted, CHAT_A))).toBe(true);
 });
 
-it('stops an interrupted direct delete with accurate partial status and no recovery copy', () => {
+it('does not allow deletion through the permanent-write transaction entry point', () => {
   const workspace = load();
   const plan = buildOperationPlan(workspace, { kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] });
-  let calls = 0;
-  expect(() => commitFilePlan(workspace, plan, () => { if (++calls === 3) throw new Error('Interrupted'); })).toThrow('claudesync-message:errorDeleteInterrupted');
-  expect(listBackups(root)).toEqual([]);
-  expect(existsSync(join(root, 'backups'))).toBe(false);
-  expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(false);
-  expect(existsSync(indexPath(root, SCOPE_B, CHAT_A))).toBe(true);
+  expect(() => commitFilePlan(workspace, plan, () => undefined)).toThrow('claudesync-message:errorDeleteTrashRequired');
+  expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(true);
+  expect(existsSync(join(root, 'projects/project', `${CHAT_A}.jsonl`))).toBe(true);
 });
 
-it('refuses deletion when its entry ID is shared history, leaving archive available', () => {
+it('keeps transcript removal behind the Trash adapter, not direct delete APIs', () => {
+  for (const file of ['./transaction.ts', './old-organization.ts']) {
+    const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+    expect(source).not.toMatch(/\b(?:unlinkSync|rmSync|fs\.rm)\b/u);
+  }
+});
+
+it('reports a Trash failure without changing indexes or deletion markers', async () => {
+  const workspace = load();
+  const plan = buildOperationPlan(workspace, { kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] });
+  const beforeA = readFileSync(indexPath(root, SCOPE_A, CHAT_A));
+  const beforeB = readFileSync(indexPath(root, SCOPE_B, CHAT_A));
+  let calls = 0;
+  const trash = async (path: string) => { calls++; if (calls === 1) throw new Error('Synthetic Trash denied'); renameSync(path, join(root, 'unused-trash')); };
+  await expect(commitFilePlanWithTrash(workspace, plan, () => undefined, trash)).rejects.toThrow('claudesync-message:errorDeleteTrashInterrupted');
+  expect(readFileSync(indexPath(root, SCOPE_A, CHAT_A))).toEqual(beforeA);
+  expect(readFileSync(indexPath(root, SCOPE_B, CHAT_A))).toEqual(beforeB);
+  expect(existsSync(join(root, 'session-root', SCOPE_A, `deleted_${CHAT_A}`))).toBe(false);
+  expect(existsSync(join(root, 'session-root', SCOPE_B, `deleted_${CHAT_A}`))).toBe(false);
+  expect(calls).toBe(1);
+});
+
+it('reports which transcript moved before a later Trash failure', async () => {
+  const workspace = load();
+  const plan = buildOperationPlan(workspace, { kind: 'delete', sessionIds: [CHAT_A, CHAT_B], accountIds: [ID_A, ID_B] });
+  expect(plan.transcriptRemovals?.length).toBeGreaterThan(1);
+  let calls = 0;
+  const moved: string[] = [];
+  const trash = async (path: string) => { if (++calls === 2) throw new Error('Synthetic second Trash denial'); moved.push(path); };
+  await expect(commitFilePlanWithTrash(workspace, plan, () => undefined, trash)).rejects.toThrow(`${basename(moved[0] ?? '')}`);
+  expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(true);
+  expect(existsSync(indexPath(root, SCOPE_B, CHAT_A))).toBe(true);
+  expect(calls).toBe(2);
+});
+
+it('refuses deletion when its entry ID is shared history, leaving archive available', async () => {
   editIndex(root, SCOPE_A, CHAT_B, { priorCliSessionIds: [CHAT_A] });
-  expect(() => operation('delete', [CHAT_A], [ID_A])).toThrow('claudesync-message:errorSharedHistoryDelete');
+  await expect(deleteOperation([CHAT_A], [ID_A])).rejects.toThrow('claudesync-message:errorSharedHistoryDelete');
   expect(existsSync(join(root, 'session-root', SCOPE_A, `deleted_${CHAT_A}`))).toBe(false);
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(true);
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_B))).toBe(true);
@@ -229,14 +277,14 @@ it('refuses deletion when its entry ID is shared history, leaving archive availa
   expect(load().entries.find((entry) => entry.data.cliSessionId === CHAT_A && entry.account.scope === SCOPE_A)?.archived).toBe(true);
 });
 
-it('protects history claimed by an unconfigured sibling folder of the same login account', () => {
+it('protects history claimed by an unconfigured sibling folder of the same login account', async () => {
   const sibling = `${ID_A}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`;
   addScope(root, sibling, SCOPE_A);
   const path = join(root, 'config.json');
   const config = JSON.parse(readFileSync(path, 'utf8'));
   config.accounts = config.accounts.filter((account: { scope: string }) => account.scope !== sibling);
   writeFileSync(path, JSON.stringify(config));
-  expect(() => operation('delete', [CHAT_A], [ID_A])).toThrow('claudesync-message:errorSharedHistoryDelete');
+  await expect(deleteOperation([CHAT_A], [ID_A])).rejects.toThrow('claudesync-message:errorSharedHistoryDelete');
   expect(existsSync(indexPath(root, sibling, CHAT_A))).toBe(true);
   expect(listBackups(root)).toHaveLength(0);
 });
@@ -257,7 +305,7 @@ it('supports starring and safely rejects invalid rename and unknown selections',
   expect(() => buildOperationPlan(load(), { kind: 'archive', sessionIds: ['wrong'], accountIds: [ID_A] })).toThrow();
 });
 
-it('blocks stale previews, running-process guards and changed transcripts before mutation', () => {
+it('blocks stale previews, running-process guards and changed transcripts before mutation', async () => {
   const workspace = load();
   const plan = buildOperationPlan(workspace, { kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A] });
   expect(() => commitFilePlan(workspace, plan, () => { throw new Error('Claude running'); })).toThrow('Claude running');
@@ -266,7 +314,7 @@ it('blocks stale previews, running-process guards and changed transcripts before
   const fresh = load();
   const newPlan = buildOperationPlan(fresh, { kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A] });
   writeFileSync(join(root, 'projects/project', `${CHAT_A}.jsonl`), '{"type":"user","message":{"content":"newer"}}\n');
-  expect(() => commitFilePlan(fresh, newPlan, () => undefined)).toThrow('claudesync-message:errorDependencySessionChanged');
+  await expect(commitFilePlanWithTrash(fresh, newPlan, () => undefined, async () => undefined)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
 });
 
 it('keeps an interrupted journal recoverable and refuses to overwrite later edits', () => {
