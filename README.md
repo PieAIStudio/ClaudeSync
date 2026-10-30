@@ -51,6 +51,8 @@ Settings, identity/organization cache and backups from non-delete operations liv
 
 The UIKit 4.0 preview uses four local synthetic result-group marks plus six approved local 3D ClaudeSync icons (hero and five page marks), each bundled at 128, 256 and 512 pixels. They contain no real account or chat data and are bundled locally; no remote image request is made.
 
+App icon source: `icon-material-20261031/apply-c/courtyard/claudesync-1024.png` (SHA-256: `29316020b8096d29019768bae510a0c0f1bec4241ffbdb3a5a64a3a8730c1c2e`).
+
 ## Development
 
 Use Node 24 and the locked pnpm version. For a fresh checkout, run `pnpm install --frozen-lockfile`.
