@@ -302,7 +302,8 @@ export function listBackups(baseDirectory: string): BackupView[] {
   return readdirSync(root, { withFileTypes: true }).filter((item) => item.isDirectory() && BACKUP_ID.test(item.name)).flatMap((item) => {
     try {
       const manifest = loadManifest(baseDirectory, item.name);
-      return [{ id: item.name, operation: manifest.operation, state: manifest.state, createdAt: manifest.createdAt, fileCount: manifest.changes.length }];
+      return [{ id: item.name, operation: manifest.operation, state: manifest.state, createdAt: manifest.createdAt, fileCount: manifest.changes.length,
+        affectedAccountIds: [...new Set(manifest.changes.map((change) => change.path.split('/')[0]!))] }];
     } catch { return []; }
   }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

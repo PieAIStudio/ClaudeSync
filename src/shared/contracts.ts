@@ -159,6 +159,8 @@ export interface OperationPreview {
   progressConflicts?: ProgressConflictView[];
   skipped: Array<{ id: string; title: string; reason: string }>;
   fileCount: number;
+  backup?: BackupView;
+  blockedReason?: string;
 }
 
 export interface BackupView {
@@ -167,6 +169,7 @@ export interface BackupView {
   operation: OperationKind;
   state: 'verified' | 'interrupted' | 'prepared';
   fileCount: number;
+  affectedAccountIds?: string[];
 }
 
 export interface ApplyResult {

@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
 import { I18nProvider } from './i18n';
+import { userMessage } from '../error-copy';
 import { AccountSidebar, DeleteConfirmation, OperationReview, SessionRows, SkippedEntriesNotice } from './components';
 import type { AccountView, SessionView } from '../shared/contracts';
 
@@ -86,6 +87,32 @@ it('explains where an archive goes and how to undo it before confirmation', () =
   }) }));
   expect(renderArchive('zh-CN')).toContain('已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。');
   expect(renderArchive('en')).toContain('Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”');
+});
+
+it('explains where an unarchive goes and how to reverse it before confirmation', () => {
+  const preview = { kind: 'unarchive' as const, token: 'fixture', group: 'archived' as const, accountIds: ['a'],
+    selected: [{ id: 'chat', title: 'Chosen session' }], changes: [{ sessionId: 'chat', title: 'Chosen session', accountId: 'a', action: 'unarchive' as const, copies: 1 }],
+    conflicts: [], skipped: [], fileCount: 1 };
+  const renderUnarchive = (locale: 'zh-CN' | 'en') => renderToStaticMarkup(createElement(I18nProvider, { locale, children: createElement(OperationReview, {
+    accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop, preview,
+  }) }));
+  expect(renderUnarchive('zh-CN')).toContain('取消归档的聊天会回到“普通会话”列表；要再次收起，请在那里选中它并选择“归档所选”。');
+  expect(renderUnarchive('en')).toContain('Unarchived chats return to the regular list; to hide one again, select it there and choose “Archive selected.”');
+});
+
+it('shows restore backup identity and keeps a blocked restore unconfirmable', () => {
+  const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(OperationReview, {
+    accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop,
+    preview: { kind: 'restore', token: '', backup: { id: 'fixture-backup', createdAt: '2026-10-28T00:00:00.000Z', operation: 'sync', state: 'verified', fileCount: 1, affectedAccountIds: ['a'] },
+      accountIds: ['a'], selected: [], changes: [], conflicts: [], skipped: [], fileCount: 0, blockedReason: userMessage('errorRestoreSessionChanged', { title: 'Chosen session' }) },
+  }) }));
+  expect(html).toContain('备份详情');
+  expect(html).toContain('同步所选');
+  expect(html).toContain('1 个文件');
+  expect(html).toContain('恢复到原本机文件位置');
+  expect(html).toContain('暂不能恢复：这条Code 会话后来又被修改过，不能覆盖：Chosen session');
+  const confirm = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)?.find((button) => button.replace(/<[^>]*>/gu, '') === '确认执行');
+  expect(confirm).toContain('disabled=""');
 });
 
 it('renders readable account counts, named session checkboxes and the exact retained set in review', () => {

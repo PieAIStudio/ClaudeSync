@@ -11,7 +11,9 @@ import { resultOutcome, type ResultOutcome } from './result-copy';
 export function CompleteStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
   const failed = Boolean(controller.error);
-  const outcome = resultOutcome(controller.deleted ? 'delete' : controller.lastPreview?.kind, controller.result);
+  const preview = controller.lastPreview;
+  const operation = preview?.kind;
+  const outcome = resultOutcome(controller.deleted ? 'delete' : operation, controller.result);
   const resultKeys: Record<ResultOutcome, TranslationKey> = {
     trash: 'resultTrash', backup: 'resultBackup', trashAndBackup: 'resultTrashAndBackup', noBackup: 'resultNoBackup', deleteNoTranscript: 'resultDeleteNoTranscript',
   };
@@ -19,13 +21,36 @@ export function CompleteStage({ controller }: { controller: AppController }) {
   const summaryKey: TranslationKey = outcome === 'trash' && trashCount === 1 ? 'resultTrashOne'
     : outcome === 'trashAndBackup' && trashCount === 1 ? 'resultTrashAndBackupOne' : resultKeys[outcome];
   const summary = t.t(summaryKey, outcome === 'trash' || outcome === 'trashAndBackup' ? { count: trashCount } : {});
-  const title = failed ? t.t('issue') : controller.lastPreview?.kind === 'sync' ? t.t(controller.lastPreview.selected.length === 1 ? 'syncCompleteCountOne' : 'syncCompleteCount', { count: controller.lastPreview.selected.length }) : t.t('operationCompleteTitle');
-  const description = failed ? controller.error : summary;
+  const changedSessionIds = new Set((preview?.selected.length ? preview.selected.map((item) => item.id) : preview?.changes.map((change) => change.sessionId) ?? []).filter(Boolean));
+  const count = changedSessionIds.size || preview?.selected.length || preview?.changes.length || 0;
+  const title = failed ? t.t('issue')
+    : operation === 'sync' ? t.t(count === 1 ? 'syncCompleteCountOne' : 'syncCompleteCount', { count })
+    : operation === 'archive' ? t.t(count === 1 ? 'archiveCompleteCountOne' : 'archiveCompleteCount', { count })
+    : operation === 'unarchive' ? t.t(count === 1 ? 'unarchiveCompleteCountOne' : 'unarchiveCompleteCount', { count })
+    : operation === 'restore' && preview?.backup ? t.t('restoreComplete', { date: t.date(preview.backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' }) })
+    : t.t('operationCompleteTitle');
+  const includedIds = [...controller.included];
+  const accountLabel = (id: string) => {
+    const index = includedIds.indexOf(id);
+    return index >= 0 ? homeAccountLabel(index, t) : t.t('unknown', { id: id.slice(0, 8) });
+  };
   const accountSeparator = t.locale === 'zh-CN' ? '、' : ', ';
-  const completedItems = controller.lastPreview?.selected.length ? controller.lastPreview.selected.map((item) => ({
-    title: item.title || t.t('untitled'),
-    targets: [...new Set(controller.lastPreview!.changes.filter((change) => change.sessionId === item.id).map((change) => homeAccountLabel([...controller.included].indexOf(change.accountId), t)))].join(accountSeparator) || controller.lastPreview!.accountIds.map((id) => homeAccountLabel([...controller.included].indexOf(id), t)).join(accountSeparator),
-  })) : [];
+  const scopeIds = preview?.backup?.affectedAccountIds?.length ? preview.backup.affectedAccountIds : preview?.accountIds ?? [];
+  const scope = [...new Set(scopeIds)].map(accountLabel).join(accountSeparator) || t.t('allAccounts');
+  const destinationKey: TranslationKey = operation === 'archive' ? 'receiptArchiveDestination'
+    : operation === 'unarchive' ? 'receiptUnarchiveDestination' : operation === 'restore' ? 'receiptRestoreDestination' : 'receiptSyncDestination';
+  const destination = t.t(destinationKey);
+  const scopedDescription = operation && ['sync', 'archive', 'unarchive', 'restore'].includes(operation)
+    ? t.t('receiptScopeDestination', { scope, destination }) : summary;
+  const description = failed ? controller.error : scopedDescription;
+  const completedItems = preview?.backup ? [{
+    title: t.t(preview.backup.fileCount === 1 ? 'backupFilesOne' : 'backupFiles', { count: preview.backup.fileCount }),
+    targets: t.t('receiptScopeDestination', { scope, destination }),
+  }] : preview?.selected.length ? preview.selected.map((item) => {
+    const itemIds = [...new Set(preview.changes.filter((change) => change.sessionId === item.id).map((change) => change.accountId))];
+    const itemScope = itemIds.map(accountLabel).join(accountSeparator) || scope;
+    return { title: item.title || t.t('untitled'), targets: t.t('receiptScopeDestination', { scope: itemScope, destination }) };
+  }) : [];
   return <PageSurface className="stage-surface stage-surface--complete" title={title} description={description}><div className="complete-layout"><aside className="complete-art"><RelayArt state={failed ? 'attention' : 'complete'} celebrate={controller.celebrate} /></aside><section className="complete-card">
     <header><h1>{title}</h1><p>{description}</p></header>{failed && <Callout tone="danger">{controller.error}</Callout>}<p className="complete-proof">{t.t(failed ? 'issue' : 'resultVerified')}</p>
     <ul className="completion-list">{completedItems.length ? completedItems.map((item) => <li key={item.title}><Icon icon="check" /><strong>{item.title}</strong><span>{item.targets}</span></li>) : <><li><Icon icon={failed ? 'alert' : 'check'} /><strong>{failed ? t.t('issue') : t.t('resultVerified')}</strong><span>{controller.workspace ? t.t('checkedAt', { time: t.date(controller.workspace.checkedAt, { timeStyle: 'short' }) }) : ''}</span></li><li><Icon icon="lock" /><strong>{t.t('localOnly')}</strong><span>{t.t('operationCompleteBody')}</span></li></>}</ul>

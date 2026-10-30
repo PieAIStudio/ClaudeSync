@@ -13,7 +13,7 @@ import { checkDesktopIdentity } from './desktop-identity';
 import { assertClaudeStopped, processBlockers } from './processes';
 import { executeOldCleanup, planOldCleanup } from '../src/core/old-organization';
 import type { OldCleanupPlan } from '../src/core/old-organization';
-import { userError, userMessage } from '../src/error-copy';
+import { parseMessage, userError, userMessage } from '../src/error-copy';
 import { pruneExpiringMap } from './expiring-map';
 
 const pending = new Map<string, { workspace: Workspace; plan: FilePlan; at: number }>();
@@ -141,8 +141,18 @@ export function availableBackups() { return listBackups(ensureConfiguredWorkspac
 export function previewRestore(id: unknown, revision: unknown) {
   if (typeof id !== 'string') throw userError('errorBackupRequired');
   const workspace = freshWorkspace(revision);
-  const plan = buildRestorePlan(workspace, id);
-  return { kind: 'restore' as const, token: savePreview(workspace, plan), changes: changeViews(plan.changes),
-    selected: [], accountIds: [...new Set(plan.changes.map((change) => change.path.split('/')[0]!))],
-    conflicts: [], skipped: [], fileCount: plan.changes.length };
+  const backup = listBackups(workspace.baseDirectory).find((item) => item.id === id);
+  const accountIds = backup?.affectedAccountIds ?? [];
+  try {
+    const plan = buildRestorePlan(workspace, id);
+    return { kind: 'restore' as const, token: savePreview(workspace, plan), backup, changes: changeViews(plan.changes),
+      selected: [], accountIds: accountIds.length ? accountIds : [...new Set(plan.changes.map((change) => change.path.split('/')[0]!))],
+      conflicts: [], skipped: [], fileCount: plan.changes.length };
+  } catch (reason) {
+    const message = reason instanceof Error ? reason.message : String(reason);
+    const blockedKeys = new Set(['errorRestoreWorkspaceMismatch', 'errorRestoreScope', 'errorRestoreSessionChanged', 'errorBackupCorrupt']);
+    if (!backup || !blockedKeys.has(parseMessage(message)?.key ?? '')) throw reason;
+    return { kind: 'restore' as const, token: '', backup, changes: [], selected: [], accountIds,
+      conflicts: [], skipped: [], fileCount: 0, blockedReason: message };
+  }
 }

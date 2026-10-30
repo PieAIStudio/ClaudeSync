@@ -136,9 +136,25 @@ it('uses a single-use preview token and provides a restore preview through the a
   expect(result.result.verified).toBe(true);
   await expect(applyOperation(preview.token)).rejects.toThrow('claudesync-message:errorPreviewExpired');
   const restore = previewRestore(basename(result.result.backup!), result.workspace.revision);
+  expect(restore.backup).toMatchObject({ operation: 'archive', fileCount: 4, affectedAccountIds: [ID_A, ID_B] });
+  expect(restore.accountIds).toEqual([ID_A, ID_B]);
   const restored = await applyOperation(restore.token);
   expect(restored.workspace.sessions.find((session) => session.id === CHAT_A)?.presence.every((presence) => presence.active)).toBe(true);
   expect(availableBackups()).toHaveLength(2);
+});
+
+it('keeps restore metadata visible while blocking a backup whose target changed later', async () => {
+  const initial = await checkWorkspace();
+  const preview = previewOperation({ kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A] }, initial.revision);
+  const result = await applyOperation(preview.token);
+  const backupId = basename(result.result.backup!);
+  editIndex(environment.root, SCOPE_A, CHAT_A, { title: 'Changed after backup' });
+  const changed = await checkWorkspace();
+  const restore = previewRestore(backupId, changed.revision);
+  expect(restore.backup).toMatchObject({ operation: 'archive', fileCount: 2, affectedAccountIds: [ID_A] });
+  expect(restore.blockedReason).toContain('errorRestoreSessionChanged');
+  expect(restore.token).toBe('');
+  expect(restore.fileCount).toBe(0);
 });
 
 it('rejects stale requests and consumes a blocked token without changing session data', async () => {

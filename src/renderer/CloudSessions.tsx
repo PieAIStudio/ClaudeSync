@@ -14,7 +14,7 @@ function useCloudSessionState(refreshKey: number, onBusy: CloudBusyHandler, t: C
   const [workspace, setWorkspace] = useState<CloudWorkspaceView>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'archived' | 'active' | 'all'>('archived');
+  const [filter, setFilter] = useState<'archived' | 'active' | 'all'>('all');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState('');

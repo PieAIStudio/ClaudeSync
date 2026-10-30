@@ -110,10 +110,18 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .claudesync-shell .shell-window-actions .game-ui-icon-button { --swimmer-paint-fill: transparent; width: 34px; min-width: 34px; height: 34px; padding: 7px; color: var(--cs-muted); }
 .claudesync-shell .shell-window-actions .game-ui-icon-button:hover { --swimmer-paint-fill: var(--cs-tint); color: var(--swimmer-text); }
 .claudesync-shell .game-ui-shell-scene { padding: 4px 40px 32px; }
-.mobile-nav-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.mobile-nav-links button { display: grid; place-items: center; gap: 2px; min-height: 50px; border: 0; border-radius: 12px; color: var(--cs-muted); background: transparent; }
-.mobile-nav-links button[data-current="true"] { color: var(--swimmer-accent-ink); background: var(--cs-tint); font-weight: 650; }
-.mobile-nav-links button span { font-size: 11px; }
+.mobile-nav-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.mobile-nav-links button, .mobile-nav-more > summary { display: grid; place-items: center; gap: 2px; min-height: 50px; border: 0; border-radius: 12px; color: var(--cs-muted); background: transparent; }
+.mobile-nav-links button[data-current="true"], .mobile-nav-more[data-current="true"] > summary { color: var(--swimmer-accent-ink); background: var(--cs-tint); font-weight: 650; }
+.mobile-nav-links button span, .mobile-nav-more > summary span { font-size: 11px; }
+.mobile-nav-more { position: relative; min-width: 0; }
+.mobile-nav-more > summary { list-style: none; cursor: pointer; }
+.mobile-nav-more > summary::-webkit-details-marker { display: none; }
+.mobile-nav-more > summary .game-ui-icon { --a: #b8b8cc; --b: #6c6c84; box-sizing: border-box; width: 26px; height: 26px; padding: 5px; border-radius: 8px; color: #fff; background: linear-gradient(150deg, var(--a), var(--b)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%), inset 0 -2px 4px rgb(0 0 0 / 16%), 0 3px 8px rgb(108 108 132 / 35%); }
+.mobile-nav-more > div { position: absolute; z-index: 30; right: 0; bottom: calc(100% + 8px); display: grid; gap: 4px; min-width: 218px; padding: 8px; border-radius: 16px; background: var(--cs-popover); box-shadow: var(--cs-popover-shadow); }
+.mobile-nav-more > div button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; min-height: 44px; padding: 8px 10px; color: var(--swimmer-text); background: transparent; text-align: left; }
+.mobile-nav-more > div button:hover, .mobile-nav-more > div button[data-current="true"] { background: var(--cs-tint); }
+.mobile-nav-more > div button .game-ui-icon { width: 22px; height: 22px; padding: 4px; border-radius: 7px; color: var(--swimmer-accent-ink); background: var(--cs-tint-strong); }
 
 /* Page frame: titles sit on the backdrop; only content gets a surface. */
 .stage-surface.game-ui-page-surface { min-height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; gap: 28px; }
@@ -179,6 +187,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .stage-surface--results .game-ui-page-surface-header { flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .stage-surface--results .game-ui-page-surface-heading { flex: none; }
 .stage-surface--results .game-ui-page-surface-content { align-content: center; padding-bottom: 6vh; }
+.stage-surface--results .results-body { padding-bottom: 8px; }
 .results-body { display: grid; gap: 28px; }
 .summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .summary-card { position: relative; display: flex; flex-direction: column; border-radius: var(--cs-radius); background: var(--cs-glass); box-shadow: var(--cs-shadow); transition: transform var(--swimmer-motion-fast) ease, background var(--swimmer-motion-fast) ease; }
@@ -423,6 +432,10 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .panel-intro { color: var(--cs-muted); line-height: 1.7; }
 .review-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 20px; padding: 16px 18px; border-radius: 14px; background: var(--cs-tint); }
 .review-facts dt { color: var(--cs-faint); font-weight: 600; }
+.restore-backup-section { display: grid; gap: 10px; }
+.restore-backup-section h3 { margin: 0; color: var(--cs-muted); font-size: 14px; font-weight: 650; }
+.restore-backup-facts { margin: 0; }
+.restore-backup-facts dd { overflow-wrap: anywhere; }
 .review-facts dd { margin: 0; overflow-wrap: anywhere; }
 .review-accounts { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .review-changes h3, .title-conflicts h3 { margin: 0 0 10px; color: var(--cs-muted); font-size: 14px; font-weight: 650; }
@@ -455,6 +468,8 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 @media (max-width: 900px) {
   /* Clear the bottom tab bar so the main button is never under it. */
   .claudesync-shell .game-ui-shell-scene { padding: 8px 18px 112px; }
+  .stage-surface--results.game-ui-page-surface { min-height: auto; }
+  .stage-surface--results .game-ui-page-surface-content { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
   .stage-surface--home.game-ui-page-surface { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "head" "art" "list" "cta"; row-gap: 20px; }
   .stage-surface--home .game-ui-page-surface-heading h1 { font-size: 2.2rem; }
   .stage-surface--home .game-ui-page-surface-heading p { margin-top: 10px; font-size: 17px; }
@@ -498,6 +513,13 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 }
 
 @media (max-width: 700px) {
+  .stage-surface--results .results-body { gap: 16px; }
+  .stage-surface--results .summary-grid { gap: 8px; }
+  .stage-surface--results .summary-card-main { min-height: 88px; padding: 12px 14px; }
+  .stage-surface--results .summary-card:has(.summary-card-sync) .summary-card-main { padding-bottom: 36px; }
+  .stage-surface--results .summary-card-sync { right: 8px; bottom: 5px; min-height: 28px; }
+  .stage-surface--results .results-cta { gap: 6px; padding-top: 0; }
+  .stage-surface--results .results-cta .game-ui-button { min-height: 52px; font-size: 17px; }
   .summary-grid { grid-template-columns: 1fr; }
   .completion-list li { grid-template-columns: 22px minmax(0, 1fr); }
   .completion-list li > span { grid-column: 2; text-align: left; }

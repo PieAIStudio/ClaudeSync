@@ -15,7 +15,17 @@ function Sidebar({ controller }: { controller: AppController }) {
 
 function MobileNav({ controller }: { controller: AppController }) {
   const t = useTranslation();
-  return <nav className="mobile-nav-links" aria-label={t.t('sources')}>{navItems.map((item) => <button key={item.stage} type="button" data-current={controller.stage === item.stage || (item.stage === 'results' && controller.stage === 'review')} onClick={() => controller.navigate(item.stage)}><Icon icon={item.icon} /><span>{t.t(item.label)}</span></button>)}</nav>;
+  const current = (stage: Stage) => controller.stage === stage || (stage === 'results' && controller.stage === 'review');
+  return <nav className="mobile-nav-links" aria-label={t.t('sources')}>
+    {navItems.map((item) => <button key={item.stage} type="button" data-current={current(item.stage)} onClick={() => controller.navigate(item.stage)}><Icon icon={item.icon} /><span>{t.t(item.label)}</span></button>)}
+    <details className="mobile-nav-more" data-current={controller.stage === 'backups' || controller.stage === 'settings'}>
+      <summary><Icon icon="menu" /><span>{t.t('mobileMore')}</span></summary>
+      <div>
+        <button type="button" data-current={controller.stage === 'backups'} onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); void controller.openBackups(); }} disabled={!controller.workspace || controller.busy}><Icon icon="history" /><span>{t.t('backupTitle')}</span></button>
+        <button type="button" data-current={controller.stage === 'settings'} onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); controller.navigate('settings'); }}><Icon icon="settings" /><span>{t.t('settings')}</span></button>
+      </div>
+    </details>
+  </nav>;
 }
 
 function WindowBar({ controller }: { controller: AppController }) {

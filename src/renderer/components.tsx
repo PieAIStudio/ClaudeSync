@@ -189,6 +189,26 @@ export function CollapsedSessionGroup({ group, sessions, accounts, selected, fil
   </div>;
 }
 
+function RestoreBackupFacts({ preview, accounts }: { preview: OperationPreview; accounts: AccountView[] }) {
+  const t = useTranslation();
+  const backup = preview.backup;
+  if (!backup) return null;
+  const accountIds = backup.affectedAccountIds?.length ? backup.affectedAccountIds : preview.accountIds;
+  const accountNames = accountIds.map((id) => accountName(accounts.find((account) => account.id === id), t));
+  const affectedAccounts = accountNames.join(t.locale === 'zh-CN' ? '、' : ', ') || t.t('unknown', { id: '?' });
+  return <section className="restore-backup-section" aria-label={t.t('restoreDetails')}>
+    <h3>{t.t('restoreDetails')}</h3>
+    <dl className="review-facts restore-backup-facts">
+      <dt>{t.t('backupDate')}</dt><dd data-backup-date>{t.date(backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</dd>
+      <dt>{t.t('backupOperation')}</dt><dd>{t.t(backup.operation as TranslationKey)}</dd>
+      <dt>{t.t('backupAccounts')}</dt><dd data-backup-accounts>{affectedAccounts}</dd>
+      <dt>{t.t('backupFilesLabel')}</dt><dd data-backup-files>{t.t(backup.fileCount === 1 ? 'backupFilesOne' : 'backupFiles', { count: backup.fileCount })}</dd>
+      <dt>{t.t('restoreDestination')}</dt><dd>{t.t('restoreDestination')}</dd>
+    </dl>
+    {preview.blockedReason && <p className="operation-warning" data-restore-blocked>{t.t('restoreBlockedLabel')}{t.locale === 'zh-CN' || t.locale === 'ja' ? '：' : ': '}{messageText(preview.blockedReason, t.locale)}</p>}
+  </section>;
+}
+
 export function OperationReview({ preview, accounts, choices, contentChoices, busy, blocked, onClose, onApply, onChooseTitle, onChooseContent }: {
   preview: OperationPreview; accounts: AccountView[]; choices?: Record<string, string>; busy: boolean; blocked: boolean; onClose(): void; onApply(): void; onChooseTitle(id: string, scope: string): void;
   contentChoices?: Record<string, string>; onChooseContent?(id: string, path: string): void;
@@ -196,13 +216,16 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
   const t = useTranslation();
   const actionKeys: Record<string, TranslationKey> = { update: 'update', add: 'add', title: 'title', archive: 'archive', unarchive: 'unarchive', delete: 'delete', star: 'star', unstar: 'unstar', restore: preview.kind === 'sync' ? 'clearDeletionNote' : 'restore' };
   const unresolved = preview.progressConflicts?.some((item) => !item.resolved);
+  const restoreBlocked = Boolean(preview.blockedReason);
   return <Modal title={t.t('previewTitle')} lead={t.t('previewBody')} onClose={onClose} busy={busy}
     actions={<>{blocked && <p className="operation-warning">{t.t('waiting')}</p>}
       <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</Button>
-      <Button variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || preview.fileCount === 0 || unresolved} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</Button></>}>
+      <Button variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || restoreBlocked || preview.fileCount === 0 || unresolved} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</Button></>}>
     <ReviewFacts action={t.t(preview.kind)} group={preview.group} accountNames={preview.accountIds.map((id) => accountName(accounts.find((account) => account.id === id), t))} />
+    <RestoreBackupFacts preview={preview} accounts={accounts} />
     {preview.kind === 'keep' && <p className="operation-warning">{t.t('keepWarning')}</p>}
     {preview.kind === 'archive' && <p className="panel-intro">{t.t('archiveUndoHelp')}</p>}
+    {preview.kind === 'unarchive' && <p className="panel-intro">{t.t('unarchiveUndoHelp')}</p>}
     {preview.kind === 'sync' && <p className="panel-intro">{t.t('selectedSyncHelp')}</p>}
     <ProgressReview preview={preview} accounts={accounts} choices={contentChoices} busy={busy} onChoose={onChooseContent} />
     {preview.conflicts.length > 0 && <section className="title-conflicts"><h3>{t.t('conflicts')}</h3>{preview.conflicts.map((conflict) => <label key={conflict.id}>
