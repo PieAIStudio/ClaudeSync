@@ -1,8 +1,8 @@
-import { expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { expect, it, vi } from 'vitest';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { acquireFileLock } from './storage';
 
 it('refuses a live operation lock and preserves the owner bytes', () => {
@@ -14,6 +14,41 @@ it('refuses a live operation lock and preserves the owner bytes', () => {
     expect(readFileSync(path, 'utf8')).toBe(`${process.pid}\n`);
     release();
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+it('recovers a lock whose PID now belongs to an unrelated live process', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'claudesync-lock-')));
+  const unrelated = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)']);
+  try {
+    const path = join(root, '.lock');
+    writeFileSync(path, `${unrelated.pid}\n`);
+    const release = acquireFileLock(path);
+    expect(readFileSync(path, 'utf8')).toBe(`${process.pid}\n`);
+    release();
+  } finally { unrelated.kill(); rmSync(root, { recursive: true, force: true }); }
+});
+
+it('recovers a pre-boot lock even when its PID is alive', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'claudesync-lock-')));
+  try {
+    const path = join(root, '.lock');
+    writeFileSync(path, `${process.pid}\n`);
+    utimesSync(path, new Date(0), new Date(0));
+    const release = acquireFileLock(path);
+    expect(readFileSync(path, 'utf8')).toBe(`${process.pid}\n`);
+    release();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+it('explains an inaccessible lock owner without exposing raw EPERM', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'claudesync-lock-')));
+  const kill = vi.spyOn(process, 'kill').mockImplementation(() => { throw Object.assign(new Error('kill EPERM'), { code: 'EPERM' }); });
+  try {
+    const path = join(root, '.lock');
+    writeFileSync(path, '1234\n');
+    expect(() => acquireFileLock(path)).toThrow('claudesync-message:errorLockOwnerUnavailable');
+    expect(readFileSync(path, 'utf8')).toBe('1234\n');
+  } finally { kill.mockRestore(); rmSync(root, { recursive: true, force: true }); }
 });
 
 it('rejects malformed lock state instead of deleting a potentially live lock', () => {

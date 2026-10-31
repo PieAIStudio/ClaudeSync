@@ -1,4 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { uptime } from 'node:os';
 import {
   chmodSync,
   closeSync,
@@ -350,6 +352,27 @@ export function writeOwnedFile(path: string, raw: Buffer): void {
   syncDirectory(dirname(path));
 }
 
+function lockOwnerRunning(pid: number, modifiedMs: number): boolean {
+  if (modifiedMs < Date.now() - uptime() * 1000) return false;
+  try { process.kill(pid, 0); }
+  catch (error) {
+    if (isRecord(error) && error.code === 'ESRCH') return false;
+    throw userError('errorLockOwnerUnavailable');
+  }
+  if (pid === process.pid) return true;
+  let command: string;
+  try {
+    command = process.platform === 'win32'
+      ? execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        `(Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}").CommandLine`], { encoding: 'utf8', timeout: 5000, windowsHide: true })
+      : execFileSync('/bin/ps', ['-p', String(pid), '-o', 'comm=', '-o', 'args='], { encoding: 'utf8', timeout: 3000 });
+  } catch (error) {
+    if (isRecord(error) && error.status === 1) return false; // The owner exited during inspection.
+    throw userError('errorLockOwnerUnavailable');
+  }
+  return /(?:^|[/\\\s])claudesync(?:\.app|\.exe)?(?:[/\\\s]|$)/iu.test(command);
+}
+
 export function acquireFileLock(path: string): () => void {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   if (existsSync(path)) {
@@ -357,13 +380,10 @@ export function acquireFileLock(path: string): () => void {
     const raw = readRegularFile(path, 64);
     const value = raw.toString('utf8').trim();
     if (!/^[1-9]\d*$/u.test(value) || !Number.isSafeInteger(Number(value))) throw userError('errorLockInvalid');
-    try { process.kill(Number(value), 0); throw userError('errorOperationAlreadyRunning'); }
-    catch (error) {
-      if (!isRecord(error) || error.code !== 'ESRCH') throw error;
-      const now = lstatSync(path);
-      if (now.dev !== before.dev || now.ino !== before.ino || !readRegularFile(path, 64).equals(raw)) throw userError('errorLockChanged');
-      unlinkSync(path);
-    }
+    if (lockOwnerRunning(Number(value), before.mtimeMs)) throw userError('errorOperationAlreadyRunning');
+    const now = lstatSync(path);
+    if (now.dev !== before.dev || now.ino !== before.ino || !readRegularFile(path, 64).equals(raw)) throw userError('errorLockChanged');
+    unlinkSync(path);
   }
   const fd = openSync(path, 'wx', 0o600);
   try {
