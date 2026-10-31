@@ -51,20 +51,23 @@ it('yields to the window and scans writers only at batch boundaries rather than 
 it('never treats a second live organization as old or imports across organizations', async () => {
   const otherScope = `${ID_A}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`;
   addScope(environment.root, otherScope, SCOPE_A);
-  rmSync(indexPath(environment.root, SCOPE_A, CHAT_B)); // A P-only conversation.
+  rmSync(indexPath(environment.root, otherScope, CHAT_B)); // CHAT_B belongs only to live org P.
   writeFileSync(join(environment.root, 'account-identities.json'), JSON.stringify({
     [ID_A]: { email: 'fixture@example.com', organizationId: otherScope.split('/')[1] },
   }));
   desktop.check.mockResolvedValue({ state: 'verified', identity: { accountId: ID_A, email: 'fixture@example.com', organizationId: otherScope.split('/')[1] } });
   const before = readFileSync(indexPath(environment.root, SCOPE_A, CHAT_A));
+  const uniqueBefore = readFileSync(indexPath(environment.root, SCOPE_A, CHAT_B));
   const view = await checkWorkspace();
-  expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ oldCopies: 0, unverified: 1 });
+  expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ oldCopies: 0, unverified: 2 });
   expect(previewOldCopies([ID_A], view.revision)).toMatchObject({ items: [], trashCount: 0, archivedToImport: 0 });
   expect(readFileSync(indexPath(environment.root, SCOPE_A, CHAT_A))).toEqual(before);
+  expect(readFileSync(indexPath(environment.root, SCOPE_A, CHAT_B))).toEqual(uniqueBefore);
+  expect(readdirSync(join(environment.root, 'session-root', otherScope))).not.toContain(`local_${CHAT_B}.json`);
   rememberIdentities([], { accountId: ID_A, email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1] });
   desktop.check.mockResolvedValue({ state: 'unavailable' });
   const switched = await checkWorkspace();
-  expect(switched.accounts.find((account) => account.id === ID_A)).toMatchObject({ visible: 1, oldCopies: 0 });
+  expect(switched.accounts.find((account) => account.id === ID_A)).toMatchObject({ visible: 2, oldCopies: 0 });
   expect(previewOldCopies([ID_A], switched.revision).items).toEqual([]);
 });
 
