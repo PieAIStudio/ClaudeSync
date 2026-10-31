@@ -311,7 +311,9 @@ export function listBackups(baseDirectory: string): BackupView[] {
 
 export function buildRestorePlan(workspace: Workspace, id: string): FilePlan {
   const manifest = loadManifest(workspace.baseDirectory, id);
-  if (manifest.root !== workspace.root || manifest.configSha256 !== sha256(workspace.configRaw)) throw userError('errorRestoreWorkspaceMismatch');
+  // Backups restore only the listed native files, not tool settings. Root,
+  // affected scopes and per-file hashes below are the restore dependencies.
+  if (manifest.root !== workspace.root) throw userError('errorRestoreWorkspaceMismatch');
   const scopes = new Set(workspace.accounts.map((account) => account.scope));
   const changes: FileChange[] = [];
   for (const change of manifest.changes) {

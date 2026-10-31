@@ -420,6 +420,30 @@ it('keeps an interrupted journal recoverable and refuses to overwrite later edit
   expect(() => buildRestorePlan(load(), '../bad')).toThrow('claudesync-message:errorInvalidBackupId');
 });
 
+it('restores affected folders after refresh adds an unrelated organization and rewrites settings', () => {
+  const before = load().snapshot.files;
+  const { result } = operation('archive', [CHAT_A], [ID_A]);
+  addScope(root, `${ID_B}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`);
+  const configPath = join(root, 'config.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.accounts.reverse();
+  config.accounts.find((account: { scope: string }) => account.scope === SCOPE_A).label = 'Renamed display label';
+  writeFileSync(configPath, JSON.stringify(config, null, 4));
+  const workspace = load();
+  const restored = commitFilePlan(workspace, buildRestorePlan(workspace, basename(result.backup!)), () => undefined);
+  expect(restored.verified).toBe(true);
+  expect(load().snapshot.files).toEqual(before);
+});
+
+it('still refuses restore when an affected folder is no longer configured', () => {
+  const { result } = operation('archive', [CHAT_A], [ID_A]);
+  const configPath = join(root, 'config.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.accounts = config.accounts.filter((account: { scope: string }) => account.scope !== SCOPE_A);
+  writeFileSync(configPath, JSON.stringify(config));
+  expect(() => buildRestorePlan(load(), basename(result.backup!))).toThrow('claudesync-message:errorRestoreScope');
+});
+
 it('skips and reports symlink indexes and unknown schemas without treating them as managed sessions', () => {
   const relative = `${SCOPE_A}/local_${CHAT_A}.json`;
   editIndex(root, SCOPE_A, CHAT_A, { priorCliSessionIds: null });
