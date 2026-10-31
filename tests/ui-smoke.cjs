@@ -17,7 +17,8 @@ const OLD = `${A}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`;
 const H1 = '10000000-0000-4000-8000-000000000001';
 const H2 = '10000000-0000-4000-8000-000000000002';
 const skippedEntriesScenario = process.env.CLAUDESYNC_UI_SCENARIO === 'skipped-entries';
-const evidenceTask = skippedEntriesScenario ? '2026-10-21-waiting-input' : '2026-10-18-claudesync-fixes';
+const securityScenario = process.env.CLAUDESYNC_UI_SCENARIO === 'security';
+const evidenceTask = securityScenario ? '2026-11-01-cloud-fixes' : skippedEntriesScenario ? '2026-10-21-waiting-input' : '2026-10-18-claudesync-fixes';
 
 if (!process.versions.electron) {
   assert(fs.existsSync(path.join(repository, 'out/main/index.js')), 'Build the application first.');
@@ -154,7 +155,7 @@ async function shot(name) {
   await js(`Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => undefined)))`);
   await sleep(250);
   const file = path.join(evidence, name + '.png');
-  fs.writeFileSync(file, (await window.webContents.capturePage()).toPNG());
+  fs.writeFileSync(file, (await window.webContents.capturePage({ stayHidden: true, stayAwake: true })).toPNG());
   screenshots.push(name + '.png');
 }
 async function refresh() {
@@ -239,12 +240,42 @@ async function runSkippedEntries() {
   successful = true;
 }
 
+async function runSecurity() {
+  assert(window.webContents.getURL().startsWith('file://'));
+  const policy = await js(`document.querySelector('meta[http-equiv="Content-Security-Policy"]').content`);
+  assert(policy.includes("default-src 'none'"));
+  assert(policy.includes("script-src 'self';"));
+  assert(policy.includes("connect-src 'none'"));
+  assert(!policy.includes('unsafe-eval'));
+  const info = await js('window.claudeSync.getInfo()');
+  assert.equal(info.configured, true); // Actual sandboxed preload/IPC, fixture config only.
+  const violation = await js(`new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('CSP did not reject inline script')), 2000);
+    document.addEventListener('securitypolicyviolation', (event) => {
+      clearTimeout(timeout);
+      resolve({ directive: event.effectiveDirective, blocked: event.blockedURI, ran: Boolean(window.__fixtureInlineRan) });
+    }, { once: true });
+    const script = document.createElement('script');
+    script.textContent = 'window.__fixtureInlineRan = true';
+    document.head.appendChild(script);
+  })`);
+  assert(violation.directive.startsWith('script-src'));
+  assert.equal(violation.blocked, 'inline');
+  assert.equal(violation.ran, false);
+  checks.push('Built file:// HTML enforces strict CSP and blocks an injected inline script');
+  checks.push('Actual sandboxed preload and main-frame IPC read only isolated fixture settings');
+  fs.writeFileSync(path.join(evidence, 'csp.json'), JSON.stringify({ policy, violation, urlScheme: 'file:', ownerDataUsed: false }, null, 2));
+  await shot('00-security-file-page');
+  successful = true;
+}
+
 async function run() {
   assert.equal(app.getPath('home'), path.join(root, 'home'));
   assert.equal(app.getPath('userData'), root);
   window.setSize(1240, 1000);
   window.webContents.setBackgroundThrottling(false);
   await js('document.fonts.ready.then(() => true)');
+  if (securityScenario) return runSecurity();
   await waitFor(`Boolean([...document.querySelectorAll('button')].find(b => ['检查聊天','重新检查'].includes(b.textContent.trim()) && !b.disabled))`, 'home check action');
   await clickButton('检查聊天');
   await waitFor(`document.body.innerText.includes('桌面版里')`, 'scan results');
@@ -342,6 +373,8 @@ async function run() {
 }
 
 app.on('browser-window-created', (_event, created) => {
+  // The isolated acceptance window must not take focus from the Owner.
+  created.show = () => created.showInactive();
   window = created;
   created.webContents.once('did-finish-load', async () => {
     try { await run(); }

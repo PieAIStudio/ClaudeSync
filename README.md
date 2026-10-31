@@ -67,6 +67,8 @@ pnpm package:mac:dir
 
 The default development entry is Electron. Tests use temporary synthetic data only. Development builds accept `CLAUDESYNC_DATA_DIR` for an isolated application-data directory; packaged builds ignore it.
 
+After building, `CLAUDESYNC_UI_SCENARIO=security node tests/ui-smoke.cjs` checks the actual built `file://` renderer, strict CSP rejection of inline scripts and sandboxed preload/IPC using fixture settings only. Its window does not take focus; evidence goes to ignored `.reports/2026-11-01-cloud-fixes/`.
+
 After building, `CLAUDESYNC_UI_SCENARIO=skipped-entries node tests/ui-smoke.cjs` checks non-blocking notices and unchanged opaque entries through sync/archive, with evidence under ignored `.reports/2026-10-21-waiting-input/`.
 
 `node tests/ui-smoke.cjs` exercises the three repair paths in the real Electron renderer/preload/IPC/core, including both old-copy actions. It creates its own synthetic home and accounts, blocks network and external commands, and substitutes a fixture-only process list and Trash. Screenshots and receipts go to ignored `.reports/2026-10-18-claudesync-fixes/`; it never accepts a user data directory. This is not native Desktop or real-account acceptance.
