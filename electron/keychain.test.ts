@@ -12,6 +12,11 @@ it('does not delegate the Keychain trust boundary to the security executable', (
   }
 });
 
+it('keeps the native package external so bundling cannot rewrite its binary loader', () => {
+  const config = readFileSync(new URL('../electron.vite.config.ts', import.meta.url), 'utf8');
+  expect(config).toMatch(/external:\s*\[[^\]]*['"]@napi-rs\/keyring['"]/u);
+});
+
 it('reads only the fixed service asynchronously in process and returns a wipeable buffer', async () => {
   const entry = { account: 'fixture-only-account', password: 'fixture-only-password' };
   const result = [entry];

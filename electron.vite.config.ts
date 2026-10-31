@@ -8,7 +8,8 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        external: ['electron'],
+        // Keep the N-API package's loader and platform binary paths intact.
+        external: ['electron', '@napi-rs/keyring'],
         input: { index: resolve(__dirname, 'electron/main.ts') },
       },
     },
