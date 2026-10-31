@@ -37,7 +37,8 @@ if (!process.versions.electron) {
   fs.renameSync(path.join(root, 'config.fixture.json'), path.join(root, 'config.json'));
   fs.mkdirSync(path.join(root, 'project'));
   fs.writeFileSync(path.join(root, 'account-identities.json'), JSON.stringify({
-    [A]: { email: 'account-a@fixture.invalid', organizationId: CHAT_A },
+    // This synthetic scenario explicitly declares OLD retired.
+    [A]: { email: 'account-a@fixture.invalid', organizationId: CHAT_A, retiredOrganizationIds: [OLD.split('/')[1]] },
     [B]: { email: 'account-b@fixture.invalid', organizationId: CHAT_B },
   }));
   if (skippedEntriesScenario) {

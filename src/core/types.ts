@@ -9,6 +9,8 @@ export type VerifiedOrganizations = Readonly<Record<string, string>>;
 
 export interface VisibilityWorkspace {
   verifiedOrganizations?: VerifiedOrganizations;
+  // Only explicit retirement evidence may authorize old-copy classification.
+  retiredOrganizationScopes?: readonly string[];
   accounts: Account[];
   snapshot: { files: Map<string, Buffer> };
 }

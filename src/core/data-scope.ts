@@ -85,7 +85,7 @@ export function assertDependencySnapshot(expected: WorkspaceSnapshot, actual: Wo
 export function selectionRevision(workspace: Workspace, selection: DataSelection): string {
   const dependencies = captureDependencies(workspace, selection);
   return sha256(JSON.stringify({ config: sha256(workspace.configRaw), accounts: workspace.accounts.map((account) => account.scope).sort(),
-    organizations: workspace.verifiedOrganizations,
+    organizations: workspace.verifiedOrganizations, retiredOrganizationScopes: [...workspace.retiredOrganizationScopes ?? []].sort(),
     files: [...dependencySnapshot(workspace.snapshot, dependencies).files].map(([path, raw]) => [path, sha256(raw)]).sort(),
     bodies: [...dependencies.ids].sort().map((id) => [id, workspace.transcripts.get(id), workspace.transcriptPaths.get(id)]),
   }));

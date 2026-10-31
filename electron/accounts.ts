@@ -11,7 +11,8 @@ import type { AccountIdentity } from './desktop-identity';
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 type IdentityEmails = Record<string, string>;
-type SavedIdentity = string | { email: string; organizationId: string };
+type SavedOrganization = { email: string; organizationId: string; retiredOrganizationIds?: string[] };
+type SavedIdentity = string | SavedOrganization;
 export function configPath(): string {
   return join(app.getPath('userData'), 'config.json');
 }
@@ -29,7 +30,11 @@ function readIdentities(): Record<string, SavedIdentity> {
       if (!UUID.test(accountId)) continue;
       if (typeof value === 'string' && EMAIL.test(value)) identities[accountId] = value;
       else if (isRecord(value) && typeof value.email === 'string' && EMAIL.test(value.email)
-        && typeof value.organizationId === 'string' && UUID.test(value.organizationId)) identities[accountId] = { email: value.email, organizationId: value.organizationId };
+        && typeof value.organizationId === 'string' && UUID.test(value.organizationId)) {
+        const retired = Array.isArray(value.retiredOrganizationIds)
+          ? value.retiredOrganizationIds.filter((id): id is string => typeof id === 'string' && UUID.test(id) && id !== value.organizationId) : [];
+        identities[accountId] = { email: value.email, organizationId: value.organizationId, ...(retired.length ? { retiredOrganizationIds: retired } : {}) };
+      }
     }
     return identities;
   } catch {
@@ -62,7 +67,10 @@ export function rememberIdentities(accounts: Account[], desktop?: AccountIdentit
     if (!identity || (identity !== desktop && !accounts.some((account) => accountIdForScope(account.scope) === identity.accountId))) continue;
     const previous = identities[identity.accountId];
     const organizationId = identity.organizationId ?? (typeof previous === 'object' ? previous.organizationId : undefined);
-    const next: SavedIdentity = organizationId ? { email: identity.email, organizationId } : identity.email;
+    const retired = typeof previous === 'object' ? previous.retiredOrganizationIds?.filter((id) => id !== organizationId) : undefined;
+    // Never infer retirement from a login/org switch. Existing explicit evidence
+    // is discarded as soon as that organization is observed live again.
+    const next: SavedIdentity = organizationId ? { email: identity.email, organizationId, ...(retired?.length ? { retiredOrganizationIds: retired } : {}) } : identity.email;
     if (JSON.stringify(previous) !== JSON.stringify(next)) { identities[identity.accountId] = next; changed = true; }
   }
   if (changed) writeOwnedFile(identityMapPath(), Buffer.from(`${JSON.stringify(identities, null, 2)}\n`, 'utf8'));
@@ -74,9 +82,11 @@ export function managedWorkspace(workspace: ReturnType<typeof loadWorkspace>): R
   // Keep the full inventory. Organization verification selects visibility and
   // write targets, not which old copies the user is allowed to inspect.
   const verifiedOrganizations = Object.fromEntries(Object.entries(identities)
-    .filter((entry): entry is [string, { email: string; organizationId: string }] => typeof entry[1] === 'object')
+    .filter((entry): entry is [string, SavedOrganization] => typeof entry[1] === 'object')
     .map(([id, identity]) => [id, identity.organizationId]));
-  return { ...workspace, verifiedOrganizations };
+  const retiredOrganizationScopes = Object.entries(identities).flatMap(([id, identity]) => typeof identity === 'object'
+    ? (identity.retiredOrganizationIds ?? []).map((organization) => `${id}/${organization}`) : []);
+  return { ...workspace, verifiedOrganizations, retiredOrganizationScopes };
 }
 
 function accountsForConfiguration(sessionRoot: string, discovered: Account[]): Account[] {

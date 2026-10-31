@@ -10,15 +10,20 @@ export const ID_B = SCOPE_B.split('/')[0]!;
 export const CHAT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 export const CHAT_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
-// Test-only verification: fixture creators explicitly choose one organization
-// per synthetic account. Production never derives verification from folders.
+// Test-only evidence: these fixture scenarios explicitly designate the first
+// organization current and the rest retired. Production never infers either
+// verification or retirement from folders or from a current-org observation.
 export function withFixtureOrganizations(workspace: Workspace): Workspace {
   const verifiedOrganizations: Record<string, string> = {};
   for (const { scope } of workspace.accounts) {
     const [id, org] = scope.split('/');
     verifiedOrganizations[id!] ??= org!;
   }
-  return { ...workspace, verifiedOrganizations };
+  const retiredOrganizationScopes = workspace.accounts.filter(({ scope }) => {
+    const [id, org] = scope.split('/');
+    return org !== verifiedOrganizations[id!];
+  }).map(({ scope }) => scope);
+  return { ...workspace, verifiedOrganizations, retiredOrganizationScopes };
 }
 export function loadFixtureWorkspace(path: string): Workspace { return withFixtureOrganizations(loadWorkspace(path)); }
 

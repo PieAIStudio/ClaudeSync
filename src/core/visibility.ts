@@ -40,7 +40,10 @@ export function hasDeletionMarker(workspace: VisibilityWorkspace, entry: Session
 export function entryGroup(workspace: VisibilityWorkspace, entry: SessionEntry): SessionGroup {
   if (hasDeletionMarker(workspace, entry)) return 'deleted';
   const organization = verifiedOrganization(workspace, accountIdForScope(entry.account.scope));
-  if (organization && entry.account.scope.split('/')[1] !== organization) return 'oldOrganization';
+  if (organization && entry.account.scope.split('/')[1] !== organization) {
+    // A current organization is not evidence that another membership ended.
+    return workspace.retiredOrganizationScopes?.includes(entry.account.scope) ? 'oldOrganization' : 'unverified';
+  }
   if (entry.data.scheduledTaskId) return 'scheduled';
   if (entry.archived) return 'archived';
   return organization ? 'visible' : 'unverified';

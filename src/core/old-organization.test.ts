@@ -109,6 +109,20 @@ it('imports an old-only session exactly once across two old organizations', asyn
   expect(buildCatalog(load()).accounts.find((account) => account.id === ID_A)).toMatchObject({ visible: 4, archived: 8, oldCopies: 0 });
 });
 
+it('cleans explicitly retired copies without importing or trashing a different live organization', async () => {
+  const liveScope = `${ID_A}/dddddddd-dddd-4ddd-8ddd-dddddddddddd`;
+  addScope(root, liveScope, OLD_SCOPE);
+  const workspace = load();
+  workspace.retiredOrganizationScopes = [OLD_SCOPE]; // Only this org has retirement evidence.
+  const liveBefore = [...workspace.snapshot.files].filter(([path]) => path.startsWith(`${liveScope}/`));
+  const plan = planOldCleanup(workspace, [ID_A]);
+  expect(plan.items).toHaveLength(10);
+  expect(plan.removals.every(({ path }) => path.startsWith(`${OLD_SCOPE}/`))).toBe(true);
+  const { trash } = fakeTrash();
+  expect(await executeOldCleanup(workspace, plan, trash, () => undefined)).toMatchObject({ trashed: 10, oldCopiesRemaining: 0 });
+  for (const [path, raw] of liveBefore) expect(readFileSync(join(root, 'session-root', path))).toEqual(raw);
+});
+
 it('does not move a source with unsupported scheduled metadata', () => {
   editIndex(root, OLD_SCOPE, syntheticId(100), { scheduledTaskId: 'fixture-run' });
   expect(() => planOldCleanup(load(), [ID_A])).toThrow('claudesync-message:errorCleanupUnsupportedRecords');

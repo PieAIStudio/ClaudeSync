@@ -32,6 +32,7 @@ interface TranscriptFailure {
 
 export interface Workspace {
   verifiedOrganizations?: VerifiedOrganizations;
+  retiredOrganizationScopes?: readonly string[];
   configPath: string;
   configRaw: Buffer;
   baseDirectory: string;

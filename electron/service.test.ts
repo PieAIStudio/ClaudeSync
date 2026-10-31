@@ -27,11 +27,32 @@ beforeEach(() => {
   environment.root = temporaryFixture(); environment.blocked = false;
   desktop.check.mockResolvedValue({ state: 'unavailable' } satisfies DesktopIdentityCheck);
   writeFileSync(join(environment.root, 'account-identities.json'), JSON.stringify({
-    [ID_A]: { email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1] },
+    // Explicit fixture retirement evidence; a current org alone never proves it.
+    [ID_A]: { email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1], retiredOrganizationIds: ['cccccccc-cccc-4ccc-8ccc-cccccccccccc'] },
     [ID_B]: { email: 'other@example.com', organizationId: SCOPE_B.split('/')[1] },
   }));
 });
 afterEach(() => { rmSync(environment.root, { recursive: true, force: true }); });
+
+it('never treats a second live organization as old or imports across organizations', async () => {
+  const otherScope = `${ID_A}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`;
+  addScope(environment.root, otherScope, SCOPE_A);
+  rmSync(indexPath(environment.root, SCOPE_A, CHAT_B)); // A P-only conversation.
+  writeFileSync(join(environment.root, 'account-identities.json'), JSON.stringify({
+    [ID_A]: { email: 'fixture@example.com', organizationId: otherScope.split('/')[1] },
+  }));
+  desktop.check.mockResolvedValue({ state: 'verified', identity: { accountId: ID_A, email: 'fixture@example.com', organizationId: otherScope.split('/')[1] } });
+  const before = readFileSync(indexPath(environment.root, SCOPE_A, CHAT_A));
+  const view = await checkWorkspace();
+  expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ oldCopies: 0, unverified: 1 });
+  expect(previewOldCopies([ID_A], view.revision)).toMatchObject({ items: [], trashCount: 0, archivedToImport: 0 });
+  expect(readFileSync(indexPath(environment.root, SCOPE_A, CHAT_A))).toEqual(before);
+  rememberIdentities([], { accountId: ID_A, email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1] });
+  desktop.check.mockResolvedValue({ state: 'unavailable' });
+  const switched = await checkWorkspace();
+  expect(switched.accounts.find((account) => account.id === ID_A)).toMatchObject({ visible: 1, oldCopies: 0 });
+  expect(previewOldCopies([ID_A], switched.revision).items).toEqual([]);
+});
 
 it('deletes selected old-only copies even when an unrelated session changed after the displayed check', async () => {
   const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -212,6 +233,10 @@ it('keeps a cleaned account empty after a cloud profile pins its organization an
   addScope(environment.root, oldScope, SCOPE_A);
   writeFileSync(join(environment.root, 'account-identities.json'), JSON.stringify({ [ID_A]: 'fixture@example.com' }));
   rememberIdentities([], { accountId: ID_A, email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1] });
+  // This scenario is about known retired copies, not merely another live org.
+  const identities = JSON.parse(readFileSync(join(environment.root, 'account-identities.json'), 'utf8'));
+  identities[ID_A].retiredOrganizationIds = [oldScope.split('/')[1]];
+  writeFileSync(join(environment.root, 'account-identities.json'), JSON.stringify(identities));
   rmSync(indexPath(environment.root, SCOPE_A, CHAT_A));
   rmSync(indexPath(environment.root, SCOPE_A, CHAT_B));
   desktop.check.mockResolvedValue({ state: 'verified', identity: { accountId: ID_B, email: 'other@example.com', organizationId: SCOPE_B.split('/')[1] } } satisfies DesktopIdentityCheck);
@@ -219,7 +244,7 @@ it('keeps a cleaned account empty after a cloud profile pins its organization an
   expect(view.accounts.find((account) => account.id === ID_A)).toMatchObject({ email: 'fixture@example.com', visible: 0, active: 0, archived: 0, total: 2, oldCopies: 2, current: false, scopes: [SCOPE_A, oldScope] });
   expect(view.accounts.find((account) => account.id === ID_B)?.current).toBe(true);
   expect(readdirSync(join(environment.root, 'session-root', oldScope))).toContain(`local_${CHAT_A}.json`);
-  expect(JSON.parse(readFileSync(join(environment.root, 'account-identities.json'), 'utf8'))[ID_A]).toEqual({ email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1] });
+  expect(JSON.parse(readFileSync(join(environment.root, 'account-identities.json'), 'utf8'))[ID_A]).toEqual({ email: 'fixture@example.com', organizationId: SCOPE_A.split('/')[1], retiredOrganizationIds: [oldScope.split('/')[1]] });
 });
 
 it('keeps CLI history separate from the verified current Desktop account and saves only email bindings', async () => {

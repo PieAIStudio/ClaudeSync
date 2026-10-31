@@ -25,7 +25,7 @@ Keep-only organizes ordinary chats in verified current organizations; scheduled-
 
 Search includes alternate titles, projects and IDs. Filters include active, archived, syncable, blocked and starred sessions. Hidden selections still participate; the interface warns about them.
 
-Removal normally stops if another session or an unconfigured sibling folder still claims the entry ID. Explicitly deleting an old-organization copy with a verified current counterpart removes only the old index, retaining the counterpart and shared history without a shared-ID deletion note. **Clean old organization copies** is the safer alternative: unique old sessions return archived before old indexes go to Trash.
+Removal normally stops if another session or an unconfigured sibling folder still claims the entry ID. Explicitly deleting an old-organization copy with a verified current counterpart removes only the old index, retaining the counterpart and shared history without a shared-ID deletion note. **Clean old organization copies** applies only to explicitly retired organizations: unique old sessions return archived before old indexes go to Trash. A different current organization alone is not retirement evidence. Without that evidence, other organization folders remain unverified and cleanup leaves them alone; the current profile lookup cannot automatically prove retirement.
 
 ## Counts and identity
 

@@ -52,7 +52,8 @@ export function planOldCleanup(workspace: Workspace, selectedAccountIds: readonl
     expectedMain[id] = count;
     const inCurrent = new Set(workspace.entries.filter((e) => e.account.scope === currentScope).map(sessionKey));
     const broughtBack = new Set<string>();
-    const old = workspace.entries.filter((e) => accountIdForScope(e.account.scope) === id && e.account.scope !== currentScope)
+    const old = workspace.entries.filter((e) => accountIdForScope(e.account.scope) === id && e.account.scope !== currentScope
+      && workspace.retiredOrganizationScopes?.includes(e.account.scope))
       .sort((a, b) => a.path.localeCompare(b.path));
     for (const entry of old) {
       if (!isUuid(entry.data.cliSessionId) || !isManageable(entry) || hasDeletionMarker(workspace, entry) || entryGroup(workspace, entry) !== 'oldOrganization')
@@ -173,6 +174,7 @@ export async function executeOldCleanup(
     check();
     const fresh = loadWorkspace(workspace.configPath);
     fresh.verifiedOrganizations = workspace.verifiedOrganizations;
+    fresh.retiredOrganizationScopes = workspace.retiredOrganizationScopes;
     const updated = buildCatalog(fresh);
     for (const addition of plan.imports) {
       const parts = addition.path.split('/');
@@ -182,7 +184,7 @@ export async function executeOldCleanup(
     }
     const mainUnchanged = plan.accountIds.every((id) => updated.accounts.find((a) => a.id === id)?.visible === plan.expectedMain[id]);
     const oldCopiesRemaining = fresh.entries.filter((e) => plan.accountIds.includes(accountIdForScope(e.account.scope))
-      && e.account.scope !== idScope(fresh, accountIdForScope(e.account.scope))).length;
+      && entryGroup(fresh, e) === 'oldOrganization').length;
     if (!mainUnchanged || oldCopiesRemaining !== 0) throw userError('errorCleanupCountMismatch');
     return { trashed, importedArchived, mainUnchanged, oldCopiesRemaining };
   } catch (error) {
@@ -191,8 +193,4 @@ export async function executeOldCleanup(
   } finally {
     release();
   }
-}
-function idScope(workspace: Workspace, id: string): string | undefined {
-  const org = verifiedOrganization(workspace, id);
-  return org ? id + '/' + org : undefined;
 }

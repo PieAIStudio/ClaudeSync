@@ -58,6 +58,7 @@ export function workspaceRevision(workspace: Workspace): string {
     config: sha256(workspace.configRaw),
     scopes: workspace.accounts.map((account) => account.scope).sort(),
     verifiedOrganizations: Object.entries(workspace.verifiedOrganizations ?? {}).sort(([a], [b]) => a.localeCompare(b)),
+    retiredOrganizationScopes: [...workspace.retiredOrganizationScopes ?? []].sort(),
     files: [...workspace.snapshot.files].sort(([a], [b]) => a.localeCompare(b)).map(([path, raw]) => [path, sha256(raw)]),
     directories: [...workspace.snapshot.directories].sort(([a], [b]) => a.localeCompare(b)),
     transcripts: [...workspace.transcripts].sort(([a], [b]) => a.localeCompare(b)),
