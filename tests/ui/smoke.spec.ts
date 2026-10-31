@@ -29,6 +29,7 @@ const NOW = '2026-10-29T00:00:00.000Z';
 const CHINESE = /[\u3400-\u9fff]/u;
 const CONFIRM_SCOPE_REPORT = join(process.cwd(), '.reports/2026-10-30-confirm-scope');
 const POLISH_REPORT = join(process.cwd(), '.reports/2026-10-30-polish-3');
+const LAYOUT_FIX_REPORT = join(process.cwd(), '.reports/2026-10-31-uikit-alpha15/fix-1');
 
 const fixtureWorkspace: FixtureWorkspace = {
   checkedAt: NOW,
@@ -223,6 +224,33 @@ async function assertNoOverlap(first: Locator, second: Locator, message: string)
   expect(overlaps, `${message} bounding boxes must not overlap`).toBe(false);
 }
 
+async function assertAlpha15ShellLayout(page: Page): Promise<void> {
+  const items = page.locator('.game-ui-tool-sidebar-nav > .game-ui-tool-sidebar-item');
+  await expect(items).toHaveCount(3);
+  for (let index = 0; index < 3; index += 1) {
+    const item = items.nth(index);
+    const icon = item.locator('.game-ui-tool-sidebar-icon .game-ui-icon');
+    const label = item.locator('.game-ui-tool-sidebar-label');
+    const message = `alpha.15 sidebar item ${index + 1}`;
+    await assertNoOverlap(icon, label, `${message} icon and label`);
+    const iconBox = await icon.boundingBox();
+    const labelBox = await label.boundingBox();
+    expect(iconBox, `${message} icon must have a layout box`).not.toBeNull();
+    expect(labelBox, `${message} label must have a layout box`).not.toBeNull();
+    if (!iconBox || !labelBox) continue;
+    expect(labelBox.x - (iconBox.x + iconBox.width), `${message} icon and label gap`).toBeGreaterThanOrEqual(8);
+  }
+
+  const themeButton = page.getByRole('button', { name: 'Dark mode', exact: true });
+  const themeBox = await themeButton.boundingBox();
+  const viewport = page.viewportSize();
+  expect(themeBox, 'theme button must have a layout box').not.toBeNull();
+  expect(viewport, 'desktop test viewport must exist').not.toBeNull();
+  if (!themeBox || !viewport) return;
+  expect(themeBox.x + themeBox.width, 'theme button must be in the desktop top-right area').toBeGreaterThanOrEqual(viewport.width - 80);
+  expect(themeBox.y + themeBox.height, 'theme button must stay in the desktop top bar').toBeLessThanOrEqual(80);
+}
+
 async function assertNoChineseSystemText(page: Page): Promise<void> {
   const text = await page.locator('.claudesync-app').evaluate((root) => {
     const copy = root.cloneNode(true) as HTMLElement;
@@ -278,6 +306,16 @@ async function openUtilityStage(page: Page, locale: Locale, stage: 'backups' | '
   }
   await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', stage);
 }
+
+test('alpha.15 layout regression — sidebar slots and theme button keep their desktop geometry', async ({ page }) => {
+  await openFixture(page, { name: 'alpha15-desktop', width: 1440, height: 900 }, 'zh-CN');
+  await assertAlpha15ShellLayout(page);
+  mkdirSync(LAYOUT_FIX_REPORT, { recursive: true });
+  await page.screenshot({ path: join(LAYOUT_FIX_REPORT, 'desktop-1440x900.png'), animations: 'disabled', fullPage: false });
+
+  await openFixture(page, { name: 'alpha15-phone', width: 390, height: 844 }, 'zh-CN');
+  await page.screenshot({ path: join(LAYOUT_FIX_REPORT, 'phone-390x844.png'), animations: 'disabled', fullPage: false });
+});
 
 for (const viewport of VIEWPORTS) {
   for (const locale of LOCALES) {

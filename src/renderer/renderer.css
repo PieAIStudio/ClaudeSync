@@ -82,7 +82,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 /* UIKit 4 alpha.12 removed the quiet/aura Shell mode. ToolWindow owns the
  * outer tool contract; the app keeps its existing light canvas and owns the
  * stage frame below. */
-.claudesync-shell.game-ui-tool-window { --swimmer-tool-text: var(--swimmer-text); --swimmer-tool-muted: var(--cs-muted); --swimmer-tool-selection: var(--cs-tint); --swimmer-tool-focus: var(--swimmer-focus); --swimmer-tool-line: var(--cs-hairline); height: 100%; min-height: 0; border-radius: 0; box-shadow: none; background: var(--swimmer-aura), var(--swimmer-bg); color: var(--swimmer-text); }
+.claudesync-shell.game-ui-tool-window { --swimmer-tool-text: var(--swimmer-text); --swimmer-tool-muted: var(--cs-muted); --swimmer-tool-selection: var(--cs-tint); --swimmer-tool-focus: var(--swimmer-focus); --swimmer-tool-line: var(--cs-hairline); grid-template-columns: 212px minmax(0, 1fr); height: 100%; min-height: 0; border-radius: 0; box-shadow: none; background: var(--swimmer-aura), var(--swimmer-bg); color: var(--swimmer-text); }
 .claudesync-shell.game-ui-tool-window::after { display: none; }
 .claudesync-shell .game-ui-tool-window-main { min-height: 0; background: transparent; }
 .claudesync-shell .game-ui-tool-window-sidebar { min-width: 0; background: transparent; }
@@ -96,6 +96,9 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .claudesync-shell .game-ui-shell-sidebar nav > button:disabled { opacity: .5; }
 .claudesync-shell .game-ui-tool-sidebar-app { gap: 10px; padding: 0 10px 26px; font-size: 17px; }
 .claudesync-shell .game-ui-tool-sidebar-app-name strong { font-weight: 700; letter-spacing: -.01em; }
+/* Alpha.15 wraps each nav icon in a 17px slot. Our glossy icon is 26px,
+ * so the slot must reserve that width or the art reaches into the label. */
+.claudesync-shell .game-ui-tool-sidebar-icon { flex: none; width: 26px; height: 26px; }
 /* Glossy tiles: each icon is a small lit object in one stop of the spectrum. */
 .claudesync-shell .game-ui-shell-sidebar nav > button .game-ui-icon, .home-scope-list li > .game-ui-icon, .mobile-nav-links button .game-ui-icon { --a: #7be4ff; --b: #8a5cff; box-sizing: border-box; width: 26px; height: 26px; padding: 5px; border-radius: 8px; color: #fff; background: linear-gradient(150deg, var(--a), var(--b)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%), inset 0 -2px 4px rgb(0 0 0 / 16%), 0 3px 8px color-mix(in srgb, var(--b) 35%, transparent); }
 .claudesync-shell .game-ui-shell-sidebar nav > button:nth-child(2) .game-ui-icon, .home-scope-list li:nth-child(2) > .game-ui-icon, .mobile-nav-links button:nth-child(2) .game-ui-icon { --a: #c08bff; --b: #f0508f; }
@@ -108,9 +111,9 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .shell-brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: #fff; background: linear-gradient(150deg, #7be4ff, #9b6bff 55%, #ff6ac0); box-shadow: inset 0 1px 0 rgb(255 255 255 / 50%), 0 3px 10px rgb(155 107 255 / 35%); }
 .shell-brand-mark .game-ui-icon { width: 16px; height: 16px; }
 .shell-sidebar-bottom { margin-top: auto; }
-.claudesync-shell .game-ui-shell-window-bar { flex: 0 0 52px; padding: 0 20px; -webkit-app-region: drag; }
+.claudesync-shell .game-ui-shell-window-bar { display: flex; flex: 0 0 52px; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; padding: 0 20px; -webkit-app-region: drag; }
 .claudesync-shell .game-ui-shell-window-bar :is(button, a) { -webkit-app-region: no-drag; }
-.shell-window-title { flex: 1; visibility: hidden; }
+.shell-window-title { flex: 1; min-width: 0; visibility: hidden; }
 .shell-window-actions { display: inline-flex; align-items: center; gap: 4px; }
 .claudesync-shell .shell-window-actions .game-ui-icon-button { --swimmer-paint-fill: transparent; width: 34px; min-width: 34px; height: 34px; padding: 7px; color: var(--cs-muted); }
 .claudesync-shell .shell-window-actions .game-ui-icon-button:hover { --swimmer-paint-fill: var(--cs-tint); color: var(--swimmer-text); }
