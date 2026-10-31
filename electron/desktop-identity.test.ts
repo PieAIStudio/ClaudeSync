@@ -8,7 +8,9 @@ import { ID_A, ID_B } from '../tests/fixture';
 const mock = vi.hoisted(() => ({ root: '', keychain: vi.fn(), fetch: vi.fn() }));
 vi.mock('electron', () => ({ app: { getPath: () => mock.root } }));
 vi.mock('node:child_process', () => ({ execFile: mock.keychain }));
-import { assertSessionCredential, checkDesktopIdentity, readSessionCredential } from './desktop-identity';
+let assertSessionCredential: typeof import('./desktop-identity').assertSessionCredential;
+let checkDesktopIdentity: typeof import('./desktop-identity').checkDesktopIdentity;
+let readSessionCredential: typeof import('./desktop-identity').readSessionCredential;
 
 const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 const PASSWORD = 'fixture-keychain-password';
@@ -27,7 +29,9 @@ function saveLogin(cache: Record<string, unknown>, accountId = ID_A) {
 }
 function validEntry() { return { token: TOKEN, expiresAt: Date.now() + 60000, refreshToken: 'fixture-refresh-token' }; }
 
-beforeEach(() => {
+beforeEach(async () => {
+  vi.resetModules(); // Each test represents a fresh app run with no shared credentials.
+  ({ assertSessionCredential, checkDesktopIdentity, readSessionCredential } = await import('./desktop-identity'));
   Object.defineProperty(process, 'platform', { value: 'darwin' });
   mock.root = mkdtempSync(join(tmpdir(), 'claudesync-identity-test-'));
   mkdirSync(join(mock.root, 'Library', 'Application Support', 'Claude'), { recursive: true });
@@ -36,6 +40,43 @@ beforeEach(() => {
   mock.fetch.mockReset().mockResolvedValue(new Response(JSON.stringify({ account: { uuid: ID_A, email: ' desktop@example.com ', ignored: 'private-profile-data' }, organization: { uuid: ID_B } })));
   vi.stubGlobal('fetch', mock.fetch);
   saveLogin({ [entryKey()]: validEntry() });
+});
+
+it('allows human time for the Keychain prompt rather than treating it as a slow command', async () => {
+  vi.useFakeTimers();
+  try {
+    mock.keychain.mockImplementation((_path, _args, options, callback) => {
+      setTimeout(() => callback(options.timeout < 10000 ? new Error('prompt killed') : null, passwordBytes), 10000);
+    });
+    const check = checkDesktopIdentity();
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(await check).toMatchObject({ state: 'verified' });
+    expect(mock.keychain.mock.calls[0]![2].timeout).toBeGreaterThanOrEqual(120000);
+  } finally { vi.useRealTimers(); }
+});
+
+it('shares one verification and Keychain read across refreshes and cloud actions until login or org changes', async () => {
+  const sessions = 'user:profile user:sessions:claude_code';
+  saveLogin({ [entryKey()]: validEntry(), [entryKey(ID_A, 'https://api.anthropic.com', sessions)]: validEntry() });
+  const [first, second] = await Promise.all([checkDesktopIdentity(), checkDesktopIdentity()]);
+  expect(first).toEqual(second);
+  expect(first.state).toBe('verified');
+  await checkDesktopIdentity();
+  await readSessionCredential(first.identity!);
+  await readSessionCredential(first.identity!);
+  expect(mock.keychain).toHaveBeenCalledTimes(1);
+  expect(mock.fetch).toHaveBeenCalledTimes(1);
+  saveLogin({ [entryKey(ID_A, 'https://api.anthropic.com', 'user:profile', ID_A)]: validEntry() });
+  mock.keychain.mockImplementation((_path, _args, _options, callback) => callback(null, Buffer.from(PASSWORD)));
+  mock.fetch.mockResolvedValue(new Response(JSON.stringify({ account: { uuid: ID_A, email: 'desktop@example.com' }, organization: { uuid: ID_A } })));
+  expect(await checkDesktopIdentity()).toMatchObject({ state: 'verified', identity: { organizationId: ID_A } });
+  expect(mock.keychain).toHaveBeenCalledTimes(2);
+  expect(mock.fetch).toHaveBeenCalledTimes(2);
+  saveLogin({ [entryKey(ID_B)]: validEntry() }, ID_B);
+  mock.fetch.mockResolvedValue(new Response(JSON.stringify({ account: { uuid: ID_B, email: 'other@example.com' }, organization: { uuid: ID_B } })));
+  expect(await checkDesktopIdentity()).toMatchObject({ state: 'verified', identity: { accountId: ID_B } });
+  expect(mock.keychain).toHaveBeenCalledTimes(3);
+  expect(mock.fetch).toHaveBeenCalledTimes(3);
 });
 
 it('does not guess Desktop organization when several current-account profile organizations are cached', async () => {
@@ -80,7 +121,7 @@ it('uses the current Desktop profile-only token in one fixed-origin read and ret
   expect(mock.fetch).toHaveBeenCalledWith('https://api.anthropic.com/api/oauth/profile', expect.objectContaining({
     method: 'GET', headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }, redirect: 'error', cache: 'no-store', signal: expect.any(AbortSignal),
   }));
-  expect(mock.keychain).toHaveBeenCalledWith('/usr/bin/security', ['find-generic-password', '-w', '-s', 'Claude Safe Storage'], expect.objectContaining({ timeout: 3000, maxBuffer: 4096 }), expect.any(Function));
+  expect(mock.keychain).toHaveBeenCalledWith('/usr/bin/security', ['find-generic-password', '-w', '-s', 'Claude Safe Storage'], expect.objectContaining({ timeout: 120000, maxBuffer: 4096 }), expect.any(Function));
   expect(passwordBytes.every((byte) => byte === 0)).toBe(true);
 });
 
