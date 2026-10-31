@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { keychainPassword } from './keychain';
 import { createDecipheriv, pbkdf2Sync } from 'node:crypto';
 import { join } from 'node:path';
 import { app } from 'electron';
@@ -38,17 +38,6 @@ function readLogin(): DesktopLogin | undefined {
   if (!isRecord(raw) || typeof raw.lastKnownAccountUuid !== 'string' || !UUID.test(raw.lastKnownAccountUuid)
     || typeof raw['oauth:tokenCacheV2'] !== 'string') return undefined;
   return { accountId: raw.lastKnownAccountUuid, encryptedCache: raw['oauth:tokenCacheV2'] };
-}
-
-function keychainPassword(): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    execFile('/usr/bin/security', ['find-generic-password', '-w', '-s', 'Claude Safe Storage'],
-      { encoding: 'buffer', timeout: 120000, maxBuffer: 4096 }, (error, stdout) => {
-        // Do not propagate child-process errors: they can contain captured credentials.
-        if (error) { stdout.fill(0); reject(new Error('Desktop identity unavailable')); }
-        else resolve(stdout);
-      });
-  });
 }
 
 function decryptTokens(encrypted: Buffer, password: Buffer, accountId: string): DesktopTokens {

@@ -20,6 +20,7 @@
   },
   "packageManager": "pnpm@11.22.0",
   "dependencies": {
+    "@napi-rs/keyring": "2.1.2",
     "@pieai/swimmer-i18n-kit": "0.2.0",
     "@pieai/swimmer-ui-kit": "4.0.0-alpha.15",
     "react": "19.2.8",

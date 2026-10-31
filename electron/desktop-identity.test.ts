@@ -7,7 +7,7 @@ import { ID_A, ID_B } from '../tests/fixture';
 
 const mock = vi.hoisted(() => ({ root: '', keychain: vi.fn(), fetch: vi.fn() }));
 vi.mock('electron', () => ({ app: { getPath: () => mock.root } }));
-vi.mock('node:child_process', () => ({ execFile: mock.keychain }));
+vi.mock('./keychain', () => ({ keychainPassword: mock.keychain }));
 let assertSessionCredential: typeof import('./desktop-identity').assertSessionCredential;
 let checkDesktopIdentity: typeof import('./desktop-identity').checkDesktopIdentity;
 let readSessionCredential: typeof import('./desktop-identity').readSessionCredential;
@@ -36,7 +36,7 @@ beforeEach(async () => {
   mock.root = mkdtempSync(join(tmpdir(), 'claudesync-identity-test-'));
   mkdirSync(join(mock.root, 'Library', 'Application Support', 'Claude'), { recursive: true });
   passwordBytes = Buffer.from(`${PASSWORD}\n`);
-  mock.keychain.mockReset().mockImplementation((_path, _args, _options, callback) => callback(null, passwordBytes));
+  mock.keychain.mockReset().mockResolvedValue(passwordBytes);
   mock.fetch.mockReset().mockResolvedValue(new Response(JSON.stringify({ account: { uuid: ID_A, email: ' desktop@example.com ', ignored: 'private-profile-data' }, organization: { uuid: ID_B } })));
   vi.stubGlobal('fetch', mock.fetch);
   saveLogin({ [entryKey()]: validEntry() });
@@ -45,13 +45,11 @@ beforeEach(async () => {
 it('allows human time for the Keychain prompt rather than treating it as a slow command', async () => {
   vi.useFakeTimers();
   try {
-    mock.keychain.mockImplementation((_path, _args, options, callback) => {
-      setTimeout(() => callback(options.timeout < 10000 ? new Error('prompt killed') : null, passwordBytes), 10000);
-    });
+    mock.keychain.mockImplementation(() => new Promise((resolve) => { setTimeout(() => resolve(passwordBytes), 10000); }));
     const check = checkDesktopIdentity();
     await vi.advanceTimersByTimeAsync(10000);
     expect(await check).toMatchObject({ state: 'verified' });
-    expect(mock.keychain.mock.calls[0]![2].timeout).toBeGreaterThanOrEqual(120000);
+    expect(mock.keychain).toHaveBeenCalledExactlyOnceWith(); // No prompt deadline is passed to the native adapter.
   } finally { vi.useRealTimers(); }
 });
 
@@ -67,7 +65,7 @@ it('shares one verification and Keychain read across refreshes and cloud actions
   expect(mock.keychain).toHaveBeenCalledTimes(1);
   expect(mock.fetch).toHaveBeenCalledTimes(1);
   saveLogin({ [entryKey(ID_A, 'https://api.anthropic.com', 'user:profile', ID_A)]: validEntry() });
-  mock.keychain.mockImplementation((_path, _args, _options, callback) => callback(null, Buffer.from(PASSWORD)));
+  mock.keychain.mockImplementation(async () => Buffer.from(PASSWORD));
   mock.fetch.mockResolvedValue(new Response(JSON.stringify({ account: { uuid: ID_A, email: 'desktop@example.com' }, organization: { uuid: ID_A } })));
   expect(await checkDesktopIdentity()).toMatchObject({ state: 'verified', identity: { organizationId: ID_A } });
   expect(mock.keychain).toHaveBeenCalledTimes(2);
@@ -121,7 +119,7 @@ it('uses the current Desktop profile-only token in one fixed-origin read and ret
   expect(mock.fetch).toHaveBeenCalledWith('https://api.anthropic.com/api/oauth/profile', expect.objectContaining({
     method: 'GET', headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }, redirect: 'error', cache: 'no-store', signal: expect.any(AbortSignal),
   }));
-  expect(mock.keychain).toHaveBeenCalledWith('/usr/bin/security', ['find-generic-password', '-w', '-s', 'Claude Safe Storage'], expect.objectContaining({ timeout: 120000, maxBuffer: 4096 }), expect.any(Function));
+  expect(mock.keychain).toHaveBeenCalledExactlyOnceWith();
   expect(passwordBytes.every((byte) => byte === 0)).toBe(true);
 });
 
@@ -144,7 +142,7 @@ it.each(['signed out', 'expired', 'other account', 'other origin', 'broader scop
 
 it.each(['keychain denied', 'offline', 'unauthorized', 'malformed profile', 'wrong UUID', 'wrong organization', 'missing email'])(
   'returns a safe unavailable status with no leaked error or fallback identity when %s', async (scenario) => {
-    if (scenario === 'keychain denied') mock.keychain.mockImplementation((_path, _args, _options, callback) => callback(new Error('fixture-secret-in-error'), Buffer.from('fixture-secret-in-output')));
+    if (scenario === 'keychain denied') mock.keychain.mockRejectedValue(new Error('fixture-secret-in-error'));
     if (scenario === 'offline') mock.fetch.mockRejectedValue(new Error('fixture-secret-in-error'));
     if (scenario === 'unauthorized') mock.fetch.mockResolvedValue(new Response('{}', { status: 401 }));
     if (scenario === 'malformed profile') mock.fetch.mockResolvedValue(new Response('not JSON'));
@@ -163,7 +161,7 @@ it('rejects a result if the user switches accounts or logs out during the profil
   });
   expect(await checkDesktopIdentity()).toEqual({ state: 'changed' });
   saveLogin({ [entryKey()]: validEntry() });
-  mock.keychain.mockImplementation((_path, _args, _options, callback) => callback(null, Buffer.from(PASSWORD)));
+  mock.keychain.mockImplementation(async () => Buffer.from(PASSWORD));
   mock.fetch.mockImplementation(async () => {
     saveLogin({});
     return new Response(JSON.stringify({ account: { uuid: ID_A, email: 'old@example.com' } }));
@@ -172,9 +170,9 @@ it('rejects a result if the user switches accounts or logs out during the profil
 });
 
 it('checks again after Keychain access so a switch prevents even the obsolete profile request', async () => {
-  mock.keychain.mockImplementation((_path, _args, _options, callback) => {
+  mock.keychain.mockImplementation(async () => {
     saveLogin({ [entryKey(ID_B)]: validEntry() }, ID_B);
-    callback(null, passwordBytes);
+    return passwordBytes;
   });
   expect(await checkDesktopIdentity()).toEqual({ state: 'changed' });
   expect(mock.fetch).not.toHaveBeenCalled();
