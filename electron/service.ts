@@ -2,7 +2,7 @@ import { captureDependencies, dependencyError, selectionRevision, type DataSelec
 import { randomUUID } from 'node:crypto';
 import { buildCatalog } from '../src/core/catalog';
 import { buildOperationPlan, changeViews } from '../src/core/operations';
-import { buildRestorePlan, commitFilePlan, commitFilePlanWithTrash, listBackups, workspaceRevision } from '../src/core/transaction';
+import { buildRestorePlan, commitFilePlanAsync, commitFilePlanWithTrash, listBackups, workspaceRevision } from '../src/core/transaction';
 import type { FilePlan } from '../src/core/transaction';
 import type { Workspace } from '../src/core/workspace';
 import { isRecord } from '../src/core/storage';
@@ -33,7 +33,11 @@ function freshWorkspace(revision: unknown, selection?: DataSelection, saved?: Wo
 }
 
 function assertOrganizationCurrent(workspace: Workspace): void {
-  if (workspaceRevision(managedWorkspace(workspace)) !== workspaceRevision(workspace)) throw userError('errorOrganizationChanged');
+  const state = (value: Workspace) => JSON.stringify({
+    current: Object.entries(value.verifiedOrganizations ?? {}).sort(([a], [b]) => a.localeCompare(b)),
+    retired: [...value.retiredOrganizationScopes ?? []].sort(),
+  });
+  if (state(managedWorkspace(workspace)) !== state(workspace)) throw userError('errorOrganizationChanged');
 }
 
 function writeScope(workspace: Workspace, selection: DataSelection) {
@@ -75,7 +79,7 @@ export async function checkWorkspace(): Promise<WorkspaceView> {
   const revision = workspaceRevision(workspace);
   pruneExpiringMap(displayed, 4);
   displayed.set(revision, { workspace, at: Date.now() });
-  return { checkedAt: new Date().toISOString(), revision, blockers: processBlockers(),
+  return { checkedAt: new Date().toISOString(), revision, blockers: await processBlockers(),
     identityState: desktop.state, skippedPaths: workspace.snapshot.skippedPaths,
     ...buildCatalog(workspace, emails, desktop.identity?.accountId) };
 }
@@ -93,9 +97,8 @@ export async function deleteSelected(value: unknown, revision: unknown, trash: (
   const request = normalizeRequest({ group: value.group, sessionIds: value.sessionIds, accountIds: value.accountIds, kind: 'delete' });
   const workspace = freshWorkspace(revision, request);
   const scope = writeScope(workspace, request);
-  assertClaudeStopped(scope);
   const plan = buildOperationPlan(workspace, request);
-  const result = await commitFilePlanWithTrash(workspace, plan, () => { assertClaudeStopped(scope); assertOrganizationCurrent(workspace); }, trash);
+  const result = await commitFilePlanWithTrash(workspace, plan, () => assertOrganizationCurrent(workspace), trash, () => assertClaudeStopped(scope));
   return { result, workspace: await checkWorkspace() };
 }
 
@@ -104,7 +107,7 @@ export async function applyOperation(token: unknown) {
   const entry = pending.get(token);
   pending.delete(token);
   if (!entry || Date.now() - entry.at > 15 * 60 * 1000) throw userError('errorPreviewExpired');
-  const result = commitFilePlan(entry.workspace, entry.plan, () => { assertClaudeStopped(); assertOrganizationCurrent(entry.workspace); });
+  const result = await commitFilePlanAsync(entry.workspace, entry.plan, () => assertOrganizationCurrent(entry.workspace), () => assertClaudeStopped());
   return { result, workspace: await checkWorkspace() };
 }
 
@@ -127,12 +130,11 @@ export async function cleanupOldCopies(token: unknown, trash: (path: string) => 
   const selection = { accountIds: saved.plan.accountIds, oldCopies: true };
   const workspace = freshWorkspace(workspaceRevision(saved.workspace), selection, saved.workspace);
   const scope = writeScope(workspace, selection);
-  assertClaudeStopped(scope);
   // Relevant bytes have matched the confirmed list. Use fresh unrelated counts
   // and archive state as the baseline, not a stale whole-workspace snapshot.
   const plan = planOldCleanup(workspace, saved.plan.accountIds);
   const result = await executeOldCleanup(workspace, plan, trash,
-    () => { assertClaudeStopped(scope); assertOrganizationCurrent(workspace); });
+    () => assertOrganizationCurrent(workspace), () => assertClaudeStopped(scope));
   return { result, workspace: await checkWorkspace() };
 }
 

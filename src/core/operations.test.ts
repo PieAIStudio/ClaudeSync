@@ -348,7 +348,10 @@ it('reports which transcript moved before a later Trash failure', async () => {
   let calls = 0;
   const moved: string[] = [];
   const trash = async (path: string) => { if (++calls === 2) throw new Error('Synthetic second Trash denial'); moved.push(path); };
-  await expect(commitFilePlanWithTrash(workspace, plan, () => undefined, trash)).rejects.toThrow(`${basename(moved[0] ?? '')}`);
+  const error = await commitFilePlanWithTrash(workspace, plan, () => undefined, trash).catch((reason: unknown) => reason);
+  expect(moved).toHaveLength(1);
+  expect(error).toBeInstanceOf(Error);
+  expect(parseMessage((error as Error).message)).toMatchObject({ key: 'errorDeleteInterrupted', params: { applied: 0, moved: basename(moved[0]!) } });
   expect(existsSync(indexPath(root, SCOPE_A, CHAT_A))).toBe(true);
   expect(existsSync(indexPath(root, SCOPE_B, CHAT_A))).toBe(true);
   expect(calls).toBe(2);

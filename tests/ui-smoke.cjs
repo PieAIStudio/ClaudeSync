@@ -91,7 +91,12 @@ cp.execFileSync = (file) => {
   if (file === '/bin/launchctl') throw Object.assign(new Error('Synthetic service absent'), { stderr: 'Could not find service' });
   throw new Error(`External command forbidden in isolated UI test: ${file}`);
 };
-cp.execFile = () => { throw new Error('External command forbidden in isolated UI test'); };
+cp.execFile = (file, args, options, callback) => {
+  setImmediate(() => {
+    try { callback(null, cp.execFileSync(file, args, options), ''); }
+    catch (error) { callback(error, '', error.stderr || ''); }
+  });
+};
 require('node:module').syncBuiltinESMExports();
 globalThis.fetch = async () => { throw new Error('Network forbidden in isolated UI test'); };
 shell.openExternal = async () => { throw new Error('External links forbidden'); };

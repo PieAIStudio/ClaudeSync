@@ -1,4 +1,7 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+const commands = vi.hoisted(() => ({ exec: vi.fn() }));
+vi.mock('node:child_process', () => ({ execFile: commands.exec, execFileSync: () => { throw new Error('Synchronous process scans forbidden'); } }));
+vi.mock('node:os', async (original) => ({ ...await original<typeof import('node:os')>(), homedir: () => '/synthetic-only-home' }));
 import { parseMessage } from '../src/error-copy';
 
 const selectedId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -22,7 +25,22 @@ it('still blocks unidentifiable writers, Desktop, interactive selection and lega
   expect(scopedWriterBlockers([{ pid: 125, command: '/Applications/Claude.app/Contents/MacOS/Claude', args: 'Claude' }], scope).length).toBeGreaterThan(0);
   expect(scopedWriterBlockers([{ pid: 126, command: 'python3', args: 'python3 /tmp/claudesync/auto_sync.py' }], scope).length).toBeGreaterThan(0);
 });
-import { classifyProcesses, scopedWriterBlockers } from './processes';
+import { classifyProcesses, scopedWriterBlockers, processBlockers } from './processes';
+
+it('enumerates processes asynchronously without blocking the event loop', async () => {
+  commands.exec.mockImplementation((file, _args, _options, callback) => {
+    setImmediate(() => {
+      if (file === '/bin/ps') callback(null, '123 /usr/bin/node /usr/bin/node idle\n');
+      else callback(Object.assign(new Error('Synthetic service absent'), { stderr: 'Could not find service' }));
+    });
+  });
+  let windowCanRespond = false;
+  setImmediate(() => { windowCanRespond = true; });
+  const pending = processBlockers();
+  expect(pending).toBeInstanceOf(Promise);
+  expect(await pending).toEqual([]);
+  expect(windowCanRespond).toBe(true);
+});
 
 it('recognizes native and npm Claude writers even when ps truncates comm', () => {
   expect(classifyProcesses([

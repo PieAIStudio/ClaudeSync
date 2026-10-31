@@ -1,6 +1,7 @@
 import { assertDependencySnapshot, dependencyError, type DataDependencies } from './data-scope';
 import { existsSync, lstatSync, mkdirSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { setImmediate as yieldToWindow } from 'node:timers/promises';
 import { basename, dirname, join } from 'node:path';
 import {
   acquireFileLock, assertPlainDirectory, isRecord, publishNewFile, readRegularFile,
@@ -25,6 +26,29 @@ export interface FileChange {
 }
 
 type TrashHandler = (absolutePath: string) => Promise<void>;
+type WriterGuard = () => void | Promise<void>;
+type Checkpoint = 'step' | 'boundary';
+
+export function createWriteCheckpoint(checkWriters: WriterGuard = () => undefined) {
+  let lastScan = -Infinity;
+  return async (boundary = false): Promise<void> => {
+    await yieldToWindow();
+    if (boundary || performance.now() - lastScan >= 1000) {
+      await checkWriters();
+      lastScan = performance.now();
+    }
+  };
+}
+
+async function finishAsync<T>(steps: Generator<Checkpoint, T>, checkpoint: ReturnType<typeof createWriteCheckpoint>): Promise<T> {
+  let step = steps.next();
+  while (!step.done) {
+    try { await checkpoint(step.value === 'boundary'); }
+    catch (error) { step = steps.throw(error); continue; }
+    step = steps.next();
+  }
+  return step.value;
+}
 
 export interface FilePlan {
   blockingReason?: string;
@@ -75,7 +99,8 @@ function assertInputsCurrent(workspace: Workspace, removedTranscripts = new Set<
   }
 }
 
-function createBackup(workspace: Workspace, plan: FilePlan): { path: string; manifest: Manifest } {
+interface Backup { path: string; manifest: Manifest }
+function* createBackup(workspace: Workspace, plan: FilePlan): Generator<Checkpoint, Backup> {
   const root = join(workspace.baseDirectory, 'backups');
   if (existsSync(root)) assertPlainDirectory(root);
   mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -84,6 +109,7 @@ function createBackup(workspace: Workspace, plan: FilePlan): { path: string; man
   mkdirSync(path, { mode: 0o700 });
   for (const change of plan.changes) {
     if (!change.before) continue;
+    yield 'step';
     const destination = safeWorkspacePath(join(path, 'before'), change.path);
     mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
     publishNewFile(destination, change.before);
@@ -158,12 +184,12 @@ function assertCommitInputs(workspace: Workspace, plan: FilePlan, state: CommitS
   }
 }
 
-async function moveTranscriptsToTrash(workspace: Workspace, plan: FilePlan, state: CommitState, trash: TrashHandler | undefined, checkInputs: () => void): Promise<void> {
+async function moveTranscriptsToTrash(workspace: Workspace, plan: FilePlan, state: CommitState, trash: TrashHandler | undefined, checkInputs: () => Promise<void>): Promise<void> {
   if (plan.kind !== 'delete' || !plan.transcriptRemovals?.length) return;
   if (!trash) throw userError('errorDeleteTrashRequired');
   for (const transcript of plan.transcriptRemovals) {
     try {
-      checkInputs();
+      await checkInputs();
       await trash(transcript.path);
       state.removedTranscripts.add(transcript.path);
       state.trashedTranscripts.push(basename(transcript.path));
@@ -176,8 +202,9 @@ async function moveTranscriptsToTrash(workspace: Workspace, plan: FilePlan, stat
   }
 }
 
-function applyPlanChanges(workspace: Workspace, plan: FilePlan, state: CommitState, backup: ReturnType<typeof createBackup> | undefined, checkInputs: () => void): void {
+function* applyPlanChanges(workspace: Workspace, plan: FilePlan, state: CommitState, backup: Backup | undefined, checkInputs: () => void): Generator<Checkpoint> {
   for (const change of plan.changes) {
+    yield 'step';
     checkInputs();
     const path = safeWorkspacePath(workspace.root, change.path);
     assertPlainDirectory(dirname(path));
@@ -204,6 +231,7 @@ function applyPlanChanges(workspace: Workspace, plan: FilePlan, state: CommitSta
   }
   if (plan.kind !== 'delete') for (const transcript of plan.transcriptRemovals ?? []) {
     if (!state.deletionExpected) throw userError('errorInvalidDeletePlan');
+    yield 'step';
     checkInputs();
     // Unknown stores may hold references we cannot inspect. Delete recognized
     // indexes normally, but retain shared bodies rather than guessing ownership.
@@ -214,19 +242,21 @@ function applyPlanChanges(workspace: Workspace, plan: FilePlan, state: CommitSta
   }
 }
 
-export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () => void): ApplyResult {
+function* commitFilePlanSteps(workspace: Workspace, plan: FilePlan, guard: () => void): Generator<Checkpoint, ApplyResult> {
   if (plan.kind === 'delete') throw userError('errorDeleteTrashRequired');
   assertPlanTargets(workspace, plan);
   if (plan.changes.length === 0) return { filesChanged: 0, verified: true };
   assertPlanPaths(workspace, plan);
   const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
   const state: CommitState = { expected: workspace.snapshot, deletionExpected: plan.deletionSnapshot, removedTranscripts: new Set(), trashedTranscripts: [], applied: 0 };
-  let backup: ReturnType<typeof createBackup> | undefined;
+  let backup: Backup | undefined;
   const checkInputs = () => assertCommitInputs(workspace, plan, state, guard);
   try {
+    yield 'boundary';
     checkInputs();
-    backup = createBackup(workspace, plan);
-    applyPlanChanges(workspace, plan, state, backup, checkInputs);
+    backup = yield* createBackup(workspace, plan);
+    yield* applyPlanChanges(workspace, plan, state, backup, checkInputs);
+    yield 'boundary';
     checkInputs();
     if (backup) {
       backup.manifest.state = 'verified';
@@ -246,20 +276,35 @@ export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () =
   }
 }
 
-export async function commitFilePlanWithTrash(workspace: Workspace, plan: FilePlan, guard: () => void, trash: TrashHandler): Promise<ApplyResult> {
-  if (plan.kind !== 'delete') return commitFilePlan(workspace, plan, guard);
+// The synchronous entry is retained for pure core callers. Electron uses the
+// yielding runner over exactly the same transaction and recovery steps.
+export function commitFilePlan(workspace: Workspace, plan: FilePlan, guard: () => void): ApplyResult {
+  const steps = commitFilePlanSteps(workspace, plan, guard);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+export async function commitFilePlanAsync(workspace: Workspace, plan: FilePlan, guard: () => void, checkWriters?: WriterGuard): Promise<ApplyResult> {
+  return finishAsync(commitFilePlanSteps(workspace, plan, guard), createWriteCheckpoint(checkWriters));
+}
+
+export async function commitFilePlanWithTrash(workspace: Workspace, plan: FilePlan, guard: () => void, trash: TrashHandler, checkWriters?: WriterGuard): Promise<ApplyResult> {
+  if (plan.kind !== 'delete') return commitFilePlanAsync(workspace, plan, guard, checkWriters);
   assertPlanTargets(workspace, plan);
   if (plan.changes.length === 0) return { filesChanged: 0, verified: true, trashCount: 0 };
   assertPlanPaths(workspace, plan);
   const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
   const state: CommitState = { expected: workspace.snapshot, deletionExpected: plan.deletionSnapshot, removedTranscripts: new Set(), trashedTranscripts: [], applied: 0 };
-  const checkInputs = () => assertCommitInputs(workspace, plan, state, guard);
+  const checkpoint = createWriteCheckpoint(checkWriters);
+  const checkFiles = () => assertCommitInputs(workspace, plan, state, guard);
+  const checkInputs = async (boundary = false) => { await checkpoint(boundary); checkFiles(); };
   try {
-    checkInputs();
+    await checkInputs(true);
     await moveTranscriptsToTrash(workspace, plan, state, trash, checkInputs);
-    checkInputs();
-    applyPlanChanges(workspace, plan, state, undefined, checkInputs);
-    checkInputs();
+    await checkInputs(true);
+    await finishAsync(applyPlanChanges(workspace, plan, state, undefined, checkFiles), checkpoint);
+    await checkInputs(true);
     return { filesChanged: state.applied, verified: true, trashCount: state.trashedTranscripts.length };
   } catch (error) {
     if (state.applied || state.trashedTranscripts.length) throw userError('errorDeleteInterrupted', {

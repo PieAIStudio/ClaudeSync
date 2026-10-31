@@ -4,7 +4,7 @@ import { accountIdForScope } from './account-identity';
 import { buildCatalog, isManageable, sessionKey } from './catalog';
 import { deterministicBranchIndexId, isUuid, portableRecord } from './record';
 import { acquireFileLock, assertPlainDirectory, assertTranscriptCurrent, publishNewFile, readRegularFile, safeWorkspacePath, snapshotWithAdded, snapshotWithRemoved, snapshotWithReplaced, replaceRegularFile, takeWorkspaceSnapshot } from './storage';
-import { encodeJson } from './transaction';
+import { createWriteCheckpoint, encodeJson } from './transaction';
 import { entryGroup, hasDeletionMarker, verifiedOrganization } from './visibility';
 import { collectTranscriptIndex, loadWorkspace } from './workspace';
 import type { Workspace } from './workspace';
@@ -117,13 +117,16 @@ export interface OldCleanupResult {
 export async function executeOldCleanup(
   workspace: Workspace, plan: OldCleanupPlan,
   trash: (absolutePath: string) => Promise<void>, guard: () => void,
+  checkWriters?: () => void | Promise<void>,
 ): Promise<OldCleanupResult> {
   if (!plan.items.length || plan.items.length !== plan.removals.length) throw userError('errorCleanupPlanInvalid');
   const release = acquireFileLock(join(workspace.baseDirectory, '.claudesync.lock'));
   let expected = workspace.snapshot;
   let trashed = 0;
   let importedArchived = 0;
-  function check() {
+  const checkpoint = createWriteCheckpoint(checkWriters);
+  async function check(boundary = false) {
+    await checkpoint(boundary);
     guard();
     if (!readRegularFile(workspace.configPath).equals(workspace.configRaw)) throw userError('errorCleanupConfigChanged');
     assertDependencySnapshot(expected, takeWorkspaceSnapshot(workspace.root, workspace.accounts), plan.dependencies);
@@ -138,10 +141,10 @@ export async function executeOldCleanup(
     }
   }
   try {
-    check();
+    await check(true);
     // All imports must be safely archived before moving any old-only source.
     for (const addition of plan.imports) {
-      check();
+      await check();
       if (expected.files.has(addition.path)) throw userError('errorCleanupCurrentNameCollision');
       const target = safeWorkspacePath(workspace.root, addition.path);
       assertPlainDirectory(dirname(target));
@@ -151,7 +154,7 @@ export async function executeOldCleanup(
     }
     // Desktop also keeps a native archive index. Save it before removing old sources.
     for (const hint of plan.archiveHints) {
-      check();
+      await check();
       const path = safeWorkspacePath(workspace.root, hint.path);
       assertPlainDirectory(dirname(path));
       if (hint.before) {
@@ -163,7 +166,7 @@ export async function executeOldCleanup(
       }
     }
     for (const removal of plan.removals) {
-      check();
+      await check();
       const path = safeWorkspacePath(workspace.root, removal.path);
       assertPlainDirectory(dirname(path));
       if (!readRegularFile(path).equals(removal.raw)) throw userError('errorCleanupOldCopyChanged');
@@ -171,7 +174,7 @@ export async function executeOldCleanup(
       expected = snapshotWithRemoved(expected, removal.path);
       trashed++;
     }
-    check();
+    await check(true);
     const fresh = loadWorkspace(workspace.configPath);
     fresh.verifiedOrganizations = workspace.verifiedOrganizations;
     fresh.retiredOrganizationScopes = workspace.retiredOrganizationScopes;

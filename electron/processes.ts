@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -49,18 +49,26 @@ export function scopedWriterBlockers(rows: ProcessRow[], scope: WriteScope): str
   return blockers;
 }
 
-export function processBlockers(scope?: WriteScope): string[] {
+function processOutput(file: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { encoding: 'utf8', timeout: 20000, windowsHide: true }, (error, stdout, stderr) => {
+      if (error) reject(Object.assign(error, { stderr: stderr ?? (isRecord(error) ? error.stderr : '') }));
+      else resolve(stdout);
+    });
+  });
+}
+
+export async function processBlockers(scope?: WriteScope): Promise<string[]> {
   const blockers: string[] = [];
   try {
     let rows: ProcessRow[];
     if (process.platform === 'win32') {
-      const output = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-        'Get-CimInstance Win32_Process | Select-Object ProcessId,Name,ExecutablePath,CommandLine | ConvertTo-Json -Compress'],
-      { encoding: 'utf8', timeout: 20000, windowsHide: true });
+      const output = await processOutput('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        'Get-CimInstance Win32_Process | Select-Object ProcessId,Name,ExecutablePath,CommandLine | ConvertTo-Json -Compress']);
       const parsed: unknown = JSON.parse(output);
       rows = (Array.isArray(parsed) ? parsed : [parsed]).filter(isRecord).map((row) => ({ pid: Number(row.ProcessId), command: String(row.ExecutablePath || row.Name || ''), args: String(row.CommandLine || '') }));
     } else {
-      const output = execFileSync('/bin/ps', ['-axo', 'pid=,comm=,args='], { encoding: 'utf8', timeout: 20000 });
+      const output = await processOutput('/bin/ps', ['-axo', 'pid=,comm=,args=']);
       rows = output.split('\n').flatMap((line) => {
         const match = /^\s*(\d+)\s+(\S+)\s*(.*)$/u.exec(line);
         return match ? [{ pid: Number(match[1]), command: match[2]!, args: match[3]! }] : [];
@@ -76,7 +84,7 @@ export function processBlockers(scope?: WriteScope): string[] {
       const label = 'local.claude-session-sync.on-exit';
       if (existsSync(join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`))) blockers.push(userMessage('statusAutoSyncLaunchAgent'));
       const service = `gui/${process.getuid?.()}/${label}`;
-      try { execFileSync('/bin/launchctl', ['print', service], { encoding: 'utf8', timeout: 20000, stdio: 'pipe' }); blockers.push(userMessage('statusAutoSyncServiceLoaded')); }
+      try { await processOutput('/bin/launchctl', ['print', service]); blockers.push(userMessage('statusAutoSyncServiceLoaded')); }
       catch (error) {
         const stderr = isRecord(error) ? String(error.stderr ?? '') : '';
         if (!stderr.includes('Could not find service')) throw new Error('无法确认旧自动同步服务已停止。');
@@ -88,7 +96,7 @@ export function processBlockers(scope?: WriteScope): string[] {
   return blockers;
 }
 
-export function assertClaudeStopped(scope?: WriteScope): void {
-  const blockers = processBlockers(scope);
+export async function assertClaudeStopped(scope?: WriteScope): Promise<void> {
+  const blockers = await processBlockers(scope);
   if (blockers.length) throw new Error(messageList(blockers));
 }

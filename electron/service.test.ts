@@ -6,13 +6,14 @@ import type { DesktopIdentityCheck } from './desktop-identity';
 
 const environment = vi.hoisted(() => ({ root: '', blocked: false }));
 const desktop = vi.hoisted(() => ({ check: vi.fn() }));
+const stopped = vi.hoisted(() => vi.fn());
 vi.mock('./desktop-identity', async (importOriginal) => ({
   ...await importOriginal<typeof import('./desktop-identity')>(), checkDesktopIdentity: desktop.check,
 }));
 vi.mock('electron', () => ({ app: { getPath: () => environment.root } }));
 vi.mock('./processes', () => ({
   processBlockers: () => environment.blocked ? ['Claude is running'] : [],
-  assertClaudeStopped: () => { if (environment.blocked) throw new Error('Claude is running'); },
+  assertClaudeStopped: stopped,
 }));
 import { applyOperation, availableBackups, checkWorkspace, cleanupOldCopies, deleteSelected, previewOldCopies, previewOperation, previewRestore } from './service';
 import { configureFolders, rememberIdentities } from './accounts';
@@ -25,6 +26,7 @@ const deleteTrash = async (path: string) => {
 
 beforeEach(() => {
   environment.root = temporaryFixture(); environment.blocked = false;
+  stopped.mockReset().mockImplementation(() => { if (environment.blocked) throw new Error('Claude is running'); });
   desktop.check.mockResolvedValue({ state: 'unavailable' } satisfies DesktopIdentityCheck);
   writeFileSync(join(environment.root, 'account-identities.json'), JSON.stringify({
     // Explicit fixture retirement evidence; a current org alone never proves it.
@@ -33,6 +35,18 @@ beforeEach(() => {
   }));
 });
 afterEach(() => { rmSync(environment.root, { recursive: true, force: true }); });
+
+it('yields to the window and scans writers only at batch boundaries rather than per file', async () => {
+  const initial = await checkWorkspace();
+  const preview = previewOperation({ kind: 'archive', sessionIds: [CHAT_A, CHAT_B], accountIds: [ID_A, ID_B] }, initial.revision);
+  expect(preview.fileCount).toBeGreaterThan(2);
+  let windowCanRespond = false;
+  setImmediate(() => { windowCanRespond = true; });
+  const applied = await applyOperation(preview.token);
+  expect(applied.result.verified).toBe(true);
+  expect(windowCanRespond).toBe(true);
+  expect(stopped).toHaveBeenCalledTimes(2);
+});
 
 it('never treats a second live organization as old or imports across organizations', async () => {
   const otherScope = `${ID_A}/cccccccc-cccc-4ccc-8ccc-cccccccccccc`;
