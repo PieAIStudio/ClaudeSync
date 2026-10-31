@@ -23,7 +23,8 @@ The preload is bundled as CommonJS `out/preload/index.cjs`, even though the main
 | Claude/CLI and legacy automatic-sync process guards | `electron/processes.ts` |
 | Local views, non-delete preview tokens and direct deletion service | `electron/service.ts` |
 | Current-account cloud list, selection guard, delete and readback | `electron/cloud-sessions.ts` |
-| Window lifecycle, sender checks, CSP, navigation and IPC whitelist | `electron/main.ts`, `preload.ts` |
+| Window lifecycle, sender checks, permission denial, navigation and IPC whitelist | `electron/main.ts`, `preload.ts`, `renderer-security.ts` |
+| Packaged file-page CSP; serve-only Vite/HMR adaptation | `index.html`, `electron/renderer-security.ts` |
 | UI state, account/sidebar/session views and operation review | `src/renderer/` |
 | Product copy in five languages | `src/i18n.ts` |
 

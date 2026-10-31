@@ -5,6 +5,7 @@ import { configPath, configureFolders, savedRoots } from './accounts';
 import { applyOperation, availableBackups, checkWorkspace, cleanupOldCopies, deleteSelected, previewOldCopies, previewOperation, previewRestore } from './service';
 import { cloudSessions, deleteCloudSessions } from './cloud-sessions';
 import { userError } from '../src/error-copy';
+import { denyRendererPermissions } from './renderer-security';
 
 app.setName('ClaudeSync');
 if (!app.isPackaged && process.env.CLAUDESYNC_DATA_DIR) {
@@ -56,13 +57,7 @@ function createWindow(): void {
     webPreferences: { preload: join(__dirname, '../preload/index.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   window.once('ready-to-show', () => window.show());
-  window.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    const development = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
-    const rendererUrl = process.env.ELECTRON_RENDERER_URL;
-    const origin = development && rendererUrl ? new URL(rendererUrl).origin : '';
-    const policy = `default-src 'self'; script-src 'self'${development ? " 'unsafe-inline'" : ''}; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'${origin ? ` ${origin} ${origin.replace(/^http/u, 'ws')}` : ''}; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'`;
-    callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [policy] } });
-  });
+  denyRendererPermissions(window.webContents.session);
   window.webContents.setWindowOpenHandler(({ url }) => {
     try {
       const parsed = new URL(url);

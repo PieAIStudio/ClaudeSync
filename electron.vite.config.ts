@@ -1,6 +1,7 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
+import { developmentCsp } from './electron/renderer-security';
 
 export default defineConfig({
   main: {
@@ -25,7 +26,7 @@ export default defineConfig({
   },
   renderer: {
     root: '.',
-    plugins: [react()],
+    plugins: [react(), developmentCsp()],
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, 'index.html') },
