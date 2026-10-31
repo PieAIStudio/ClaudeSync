@@ -79,16 +79,23 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .claudesync-app.theme-dark:is([data-stage="review"], [data-stage="cloud"], [data-stage="backups"], [data-stage="settings"]) { --swimmer-aura: radial-gradient(26% 40% at 6% 84%, rgb(122 53 232 / 34%), transparent 70%), radial-gradient(22% 32% at 0% 100%, rgb(224 64 154 / 26%), transparent 70%); }
 .claudesync-app .game-ui-shell, .claudesync-app .game-ui-shell *, .claudesync-app .game-ui-page-surface, .claudesync-app .game-ui-page-surface * { font-family: inherit; }
 
-/* Shell look="aura" (Kit) paints --swimmer-aura under sidebar and page; the app only supplies its colours. */
-.claudesync-shell.game-ui-shell[data-tool-shell="true"] { height: 100%; min-height: 0; border-radius: 0; box-shadow: none; }
-.claudesync-shell .game-ui-shell-main { min-height: 0; }
-.claudesync-shell .game-ui-shell-sidebar { gap: 0; padding: 46px 14px 18px; -webkit-app-region: drag; }
+/* UIKit 4 alpha.12 removed the quiet/aura Shell mode. ToolWindow owns the
+ * outer tool contract; the app keeps its existing light canvas and owns the
+ * stage frame below. */
+.claudesync-shell.game-ui-tool-window { --swimmer-tool-text: var(--swimmer-text); --swimmer-tool-muted: var(--cs-muted); --swimmer-tool-selection: var(--cs-tint); --swimmer-tool-focus: var(--swimmer-focus); --swimmer-tool-line: var(--cs-hairline); height: 100%; min-height: 0; border-radius: 0; box-shadow: none; background: var(--swimmer-aura), var(--swimmer-bg); color: var(--swimmer-text); }
+.claudesync-shell.game-ui-tool-window::after { display: none; }
+.claudesync-shell .game-ui-tool-window-main { min-height: 0; background: transparent; }
+.claudesync-shell .game-ui-tool-window-sidebar { min-width: 0; background: transparent; }
+.claudesync-shell .game-ui-shell-main { display: flex; flex: 1; min-width: 0; min-height: 0; flex-direction: column; }
+.claudesync-shell .game-ui-shell-sidebar { gap: 0; padding: 46px 14px 18px; background: transparent; -webkit-app-region: drag; }
 .claudesync-shell .game-ui-shell-sidebar :is(button, a, summary) { -webkit-app-region: no-drag; }
 .claudesync-shell .game-ui-shell-sidebar nav { display: grid; gap: 2px; width: 100%; }
-.claudesync-shell .game-ui-shell-sidebar nav > button { min-height: 40px; padding: 8px 12px; border-radius: 10px; color: var(--cs-muted); font-size: 15px; font-weight: 500; }
+.claudesync-shell .game-ui-shell-sidebar nav > button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 10px; color: var(--cs-muted); background: transparent; font: inherit; font-size: 15px; font-weight: 500; text-align: left; }
 .claudesync-shell .game-ui-shell-sidebar nav > button:hover { color: var(--swimmer-text); background: var(--cs-tint); }
 .claudesync-shell .game-ui-shell-sidebar nav > button[data-current="true"] { box-shadow: 0 4px 14px rgb(30 26 60 / 8%); font-weight: 650; }
 .claudesync-shell .game-ui-shell-sidebar nav > button:disabled { opacity: .5; }
+.claudesync-shell .game-ui-tool-sidebar-app { gap: 10px; padding: 0 10px 26px; font-size: 17px; }
+.claudesync-shell .game-ui-tool-sidebar-app-name strong { font-weight: 700; letter-spacing: -.01em; }
 /* Glossy tiles: each icon is a small lit object in one stop of the spectrum. */
 .claudesync-shell .game-ui-shell-sidebar nav > button .game-ui-icon, .home-scope-list li > .game-ui-icon, .mobile-nav-links button .game-ui-icon { --a: #7be4ff; --b: #8a5cff; box-sizing: border-box; width: 26px; height: 26px; padding: 5px; border-radius: 8px; color: #fff; background: linear-gradient(150deg, var(--a), var(--b)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%), inset 0 -2px 4px rgb(0 0 0 / 16%), 0 3px 8px color-mix(in srgb, var(--b) 35%, transparent); }
 .claudesync-shell .game-ui-shell-sidebar nav > button:nth-child(2) .game-ui-icon, .home-scope-list li:nth-child(2) > .game-ui-icon, .mobile-nav-links button:nth-child(2) .game-ui-icon { --a: #c08bff; --b: #f0508f; }
@@ -98,18 +105,17 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .claudesync-shell .game-ui-shell-sidebar nav > button:nth-child(2) .game-ui-icon, .mobile-nav-links button:nth-child(2) .game-ui-icon { transform: translateX(1px); }
 .claudesync-shell .shell-sidebar-bottom > button:nth-child(1) .game-ui-icon { --a: #ffd08a; --b: #ff8a5a; }
 .claudesync-shell .shell-sidebar-bottom > button:nth-child(2) .game-ui-icon { --a: #b8b8cc; --b: #6c6c84; }
-.shell-brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 26px; }
-.shell-brand strong { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
 .shell-brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: #fff; background: linear-gradient(150deg, #7be4ff, #9b6bff 55%, #ff6ac0); box-shadow: inset 0 1px 0 rgb(255 255 255 / 50%), 0 3px 10px rgb(155 107 255 / 35%); }
 .shell-brand-mark .game-ui-icon { width: 16px; height: 16px; }
 .shell-sidebar-bottom { margin-top: auto; }
-.claudesync-shell .game-ui-shell-window-bar { flex-basis: 52px; padding: 0 20px; -webkit-app-region: drag; }
+.claudesync-shell .game-ui-shell-window-bar { flex: 0 0 52px; padding: 0 20px; -webkit-app-region: drag; }
 .claudesync-shell .game-ui-shell-window-bar :is(button, a) { -webkit-app-region: no-drag; }
 .shell-window-title { flex: 1; visibility: hidden; }
 .shell-window-actions { display: inline-flex; align-items: center; gap: 4px; }
 .claudesync-shell .shell-window-actions .game-ui-icon-button { --swimmer-paint-fill: transparent; width: 34px; min-width: 34px; height: 34px; padding: 7px; color: var(--cs-muted); }
 .claudesync-shell .shell-window-actions .game-ui-icon-button:hover { --swimmer-paint-fill: var(--cs-tint); color: var(--swimmer-text); }
-.claudesync-shell .game-ui-shell-scene { padding: 4px 40px 32px; }
+.claudesync-shell .game-ui-shell-scene { flex: 1; min-height: 0; overflow: auto; padding: 4px 40px 32px; }
+.claudesync-shell .game-ui-shell-mobile-nav { display: none; }
 .mobile-nav-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .mobile-nav-links button, .mobile-nav-more > summary { display: grid; place-items: center; gap: 2px; min-height: 50px; border: 0; border-radius: 12px; color: var(--cs-muted); background: transparent; }
 .mobile-nav-links button[data-current="true"], .mobile-nav-more[data-current="true"] > summary { color: var(--swimmer-accent-ink); background: var(--cs-tint); font-weight: 650; }
@@ -122,6 +128,23 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .mobile-nav-more > div button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; min-height: 44px; padding: 8px 10px; color: var(--swimmer-text); background: transparent; text-align: left; }
 .mobile-nav-more > div button:hover, .mobile-nav-more > div button[data-current="true"] { background: var(--cs-tint); }
 .mobile-nav-more > div button .game-ui-icon { width: 22px; height: 22px; padding: 4px; border-radius: 7px; color: var(--swimmer-accent-ink); background: var(--cs-tint-strong); }
+
+/* StageFrame replaces UIKit's removed PageSurface without hiding product-owned
+ * routing, copy or action state inside a compatibility package layer. */
+.game-ui-page-surface { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 24px; min-width: 0; min-height: 100%; padding: 32px; color: var(--swimmer-text); font-family: inherit; }
+.game-ui-page-surface-header { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; min-width: 0; }
+.game-ui-page-surface-heading { flex: 20rem; min-width: 0; }
+.game-ui-page-surface-heading h1 { margin: 0; color: var(--swimmer-text); font-size: clamp(2rem, 3.2vw, 2.6rem); font-weight: 700; line-height: 1.15; }
+.game-ui-page-surface-heading p { max-width: 62ch; margin: 12px 0 0; color: var(--cs-muted); font-size: 17px; line-height: 1.5; }
+.game-ui-page-surface-eyebrow { display: block; margin-bottom: 8px; color: var(--cs-muted); font-size: 14px; letter-spacing: .04em; text-transform: uppercase; font-weight: 700; }
+.game-ui-page-surface-header-slot, .game-ui-page-surface-primary { display: flex; flex: none; align-items: center; gap: 8px; }
+.game-ui-page-surface-content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-width: 0; min-height: 0; }
+.game-ui-page-surface-body { display: grid; align-content: start; gap: 16px; min-width: 0; }
+.game-ui-page-surface-aside { display: grid; align-content: start; gap: 12px; min-width: 0; padding: 16px; border-radius: 16px; color: var(--swimmer-text); background: var(--cs-tint); }
+.game-ui-page-surface-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0; padding-top: 16px; border-top: 1px solid var(--cs-hairline); }
+.game-ui-page-surface[data-layout="split"] .game-ui-page-surface-content { grid-template-columns: minmax(12rem, .34fr) minmax(0, 1fr); }
+.game-ui-page-surface[data-layout="split"] .game-ui-page-surface-aside { min-height: 100%; }
+.game-ui-page-surface[data-layout="centered"] .game-ui-page-surface-body { width: min(100%, 64rem); margin-inline: auto; }
 
 /* Page frame: titles sit on the backdrop; only content gets a surface. */
 .stage-surface.game-ui-page-surface { min-height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; gap: 28px; }
@@ -466,6 +489,10 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 }
 
 @media (max-width: 900px) {
+  .claudesync-shell.game-ui-tool-window { grid-template-columns: minmax(0, 1fr); height: 100dvh; min-height: 100dvh; }
+  .claudesync-shell .game-ui-tool-window-sidebar { display: none; }
+  .claudesync-shell .game-ui-shell-main { padding-bottom: 112px; }
+  .claudesync-shell .game-ui-shell-mobile-nav { z-index: 40; display: block; position: absolute; right: 0; bottom: 0; left: 0; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--cs-hairline); background: color-mix(in srgb, var(--swimmer-surface-raised) 94%, transparent); backdrop-filter: blur(18px); }
   /* Clear the bottom tab bar so the main button is never under it. */
   .claudesync-shell .game-ui-shell-scene { padding: 8px 18px 112px; }
   .stage-surface--results.game-ui-page-surface { min-height: auto; }

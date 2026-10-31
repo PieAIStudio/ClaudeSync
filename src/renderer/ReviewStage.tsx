@@ -1,4 +1,5 @@
-import { Button, Callout, Icon, Input, PageSurface, Select } from '@pieai/swimmer-ui-kit';
+import { Button, Callout, Icon, Input, Select } from '@pieai/swimmer-ui-kit';
+import { StageFrame } from './StageFrame';
 import { useTranslation } from './i18n';
 import type { AppController } from './app-controller';
 import type { ReviewCategory } from './app-types';
@@ -34,7 +35,7 @@ export function ReviewStage({ controller }: { controller: AppController }) {
           <p>{t.t('actionCleanupNote')}</p><span className="count-with-tip"><Button variant="ghost" static disabled={controller.busy || !controller.listVerified || controller.grouped.oldOrganization.length === 0} onClick={() => void controller.reviewOldCopies()}>{t.t('cleanupOldButton')}</Button><TermTip term="oldCleanup" /></span>
         </section>
       </div></details></div></div>;
-  return <PageSurface className="stage-surface stage-surface--review" title={cleanupReview ? t.t('cleanupReviewTitle') : t.t('reviewTitle')} description={cleanupReview ? t.t('cleanupReviewBody', { count: controller.reviewSessions.length, archiveable: controller.eligibleToSelect.length }) : t.t('reviewBody', { count: controller.listCount, syncable: controller.syncableCount })} layout="split" header={<PageArt kind="local" />} aside={<aside className="review-aside">
+  return <StageFrame className="stage-surface stage-surface--review" title={cleanupReview ? t.t('cleanupReviewTitle') : t.t('reviewTitle')} description={cleanupReview ? t.t('cleanupReviewBody', { count: controller.reviewSessions.length, archiveable: controller.eligibleToSelect.length }) : t.t('reviewBody', { count: controller.listCount, syncable: controller.syncableCount })} layout="split" header={<PageArt kind="local" />} aside={<aside className="review-aside">
     <button type="button" className="review-category-heading" aria-pressed={controller.reviewCategory === 'all'} onClick={() => { controller.setReviewCategory('all'); controller.setSelectionGroup('visible'); }}><strong>{t.t('categoryAll')}</strong><span className="review-total">{controller.listCount}</span></button>
     <div className="review-categories">{categoryItems.map((category) => <button type="button" key={category} className={`review-category ${controller.reviewCategory === category ? 'is-active' : ''}`} aria-pressed={controller.reviewCategory === category} onClick={() => { controller.setReviewCategory(category); controller.setSelectionGroup('visible'); }}><span>{t.t(categoryLabels[category])}</span><span className="review-category-count">{controller.categories[category].sessions.length}</span></button>)}</div>
     <div className="review-scope"><details><summary>{t.t('viewScope')}</summary><AccountSidebar accounts={workspace.accounts} included={controller.included} currentFilter={controller.accountFilter} onInclude={controller.includeAccount} onFilter={(id) => { controller.setAccountFilter(id); controller.setSelected(new Set()); controller.setSelectionGroup('visible'); }} busy={controller.busy} identityState={workspace.identityState} /></details></div>
@@ -46,5 +47,5 @@ export function ReviewStage({ controller }: { controller: AppController }) {
         {(['archived', 'scheduled', 'oldOrganization', 'deleted', 'unverified'] as const).map((group) => <CollapsedSessionGroup key={`${controller.accountFilter}-${group}`} group={group} sessions={controller.grouped[group]} accounts={workspace.accounts} selected={controller.selectionGroup === group ? controller.selected : new Set()} filterId={controller.accountFilter} included={controller.included} onToggle={(id, value) => controller.toggle(group, id, value)} onCollapse={() => { if (controller.selectionGroup === group) controller.setSelected(new Set()); }} busy={controller.busy} markerCount={controller.markerCount} />)}
       </div>{!controller.targetsVerified && <div className="operation-warning count-with-tip"><span>{t.t('unverifiedWrite')}</span><TermTip term="unverified" /></div>}{controller.cleanupFeedback && <Callout tone="warning">{controller.cleanupFeedback}</Callout>}
     </section>
-  </PageSurface>;
+  </StageFrame>;
 }

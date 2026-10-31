@@ -39,7 +39,3 @@ export function useAppPreferences() {
   }, [excluded]);
   return { theme, setTheme, compact, setCompact, reducedMotion, setReducedMotion, excluded, includeAccount };
 }
-
-export function systemPlatform(): 'mac' | 'windows' {
-  return typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent) ? 'windows' : 'mac';
-}

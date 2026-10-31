@@ -1,4 +1,5 @@
-import { Badge, Button, Icon, PageSurface } from '@pieai/swimmer-ui-kit';
+import { Badge, Button, Icon } from '@pieai/swimmer-ui-kit';
+import { StageFrame } from './StageFrame';
 import { useTranslation } from './i18n';
 import type { AppController } from './app-controller';
 import { categoryLabels, categoryVisuals } from './app-types';
@@ -20,13 +21,13 @@ function ResultCard({ kind, title, count, copy, canSync, onView, onSync }: {
 
 export function ResultsStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
-  if (!controller.workspace) return <PageSurface className="stage-surface" layout="centered" title={t.t('noCheck')} description={t.t('heroBody')} header={<PageArt kind="local" />} primaryAction={<Button variant="primary" onClick={() => void controller.startCheck()}>{t.t('checkAgain')}</Button>}><div className="empty-state">{t.t('noCheck')}</div></PageSurface>;
+  if (!controller.workspace) return <StageFrame className="stage-surface" layout="centered" title={t.t('noCheck')} description={t.t('heroBody')} header={<PageArt kind="local" />} primaryAction={<Button variant="primary" onClick={() => void controller.startCheck()}>{t.t('checkAgain')}</Button>}><div className="empty-state">{t.t('noCheck')}</div></StageFrame>;
   const resultTitle = controller.listCount ? controller.listCount === 1 ? t.t('resultsTitleOne') : t.t('resultsTitle', { count: controller.listCount }) : t.t('noSessions');
   const resultBody = t.t('resultsBody');
   const otherCount = controller.scopedGroups.archived.length + controller.scopedGroups.scheduled.length + controller.scopedGroups.oldOrganization.length;
   const firstAction = controller.syncableCount ? <Button variant="primary" disabled={controller.busy || controller.included.size < 2 || !controller.targetsVerified} onClick={() => controller.openReview('all', true)}>{t.t('syncCount', { count: controller.syncableCount })}</Button>
     : <Button variant="primary" onClick={() => controller.openReview(controller.categories.attention.sessions.length ? 'attention' : 'aligned')}>{controller.categories.attention.sessions.length ? t.t('categoryAttention') : t.t('categoryAligned')}</Button>;
-  return <PageSurface className="stage-surface stage-surface--results" title={resultTitle} description={resultBody} header={<div className="page-header-tools"><PageArt kind="local" /><button type="button" className="plain-action" onClick={() => controller.navigate('settings')}>{t.t('viewScope')}</button></div>}>
+  return <StageFrame className="stage-surface stage-surface--results" title={resultTitle} description={resultBody} header={<div className="page-header-tools"><PageArt kind="local" /><button type="button" className="plain-action" onClick={() => controller.navigate('settings')}>{t.t('viewScope')}</button></div>}>
     <div className="results-body"><div className="summary-grid">{(['recent', 'older', 'attention', 'aligned'] as const).map((kind) => <ResultCard key={kind} kind={kind} title={t.t(categoryLabels[kind])} count={controller.categories[kind].sessions.length}
       copy={kind === 'recent' ? t.t('categoryRecentCopy') : kind === 'older' ? t.t('categoryOlderCopy') : kind === 'attention' ? t.t('categoryAttentionCopy') : t.t('categoryAlignedCopy')}
       canSync={kind === 'recent' || kind === 'older'} onView={() => controller.openReview(kind)} onSync={() => controller.openReview(kind, true)} />)}</div>
@@ -34,5 +35,5 @@ export function ResultsStage({ controller }: { controller: AppController }) {
       {otherCount > 0 && <details className="other-records"><summary><Icon icon="arrow-right" />{t.t(otherCount === 1 ? 'otherRecordsOne' : 'otherRecords', { count: otherCount })}</summary><div className="other-records-grid">{(['archived', 'scheduled', 'oldOrganization'] as const).map((group) => <div key={group}><strong>{t.t(groupLabels[group])}</strong><Badge tone="neutral">{controller.scopedGroups[group].length}</Badge></div>)}</div></details>}
       {controller.workspace.skippedPaths.length > 0 && <SkippedEntriesNotice paths={controller.workspace.skippedPaths} />}
     </div>
-  </PageSurface>;
+  </StageFrame>;
 }

@@ -15,8 +15,8 @@ importers:
         specifier: 0.2.0
         version: 0.2.0(react@19.2.8)
       '@pieai/swimmer-ui-kit':
-        specifier: 4.0.0-alpha.10
-        version: 4.0.0-alpha.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 4.0.0-alpha.15
+        version: 4.0.0-alpha.15(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -438,13 +438,17 @@ packages:
       react:
         optional: true
 
-  '@pieai/swimmer-ui-kit@4.0.0-alpha.10':
-    resolution: {integrity: sha512-zMCLL2n86UyX1e9i8jhGNoqqOileohO6Uf2M4QKRG4O5c2s0UBD5wHntajDZdjWxIm2ECM2+KkKggnDu7QSoHQ==}
+  '@pieai/swimmer-ui-kit@4.0.0-alpha.15':
+    resolution: {integrity: sha512-ptXQX08V62c8VX2v49+SLuSCl2MsuSoWOqlJIstN5TKeAltDJ564rTupM0cErfZel4UHgBJR+fS0NAPKLHflrg==}
     engines: {node: '>=24 <25'}
     hasBin: true
     peerDependencies:
       react: '>=19.0.0'
       react-dom: '>=19.0.0'
+      three: '>=0.185.1'
+    peerDependenciesMeta:
+      three:
+        optional: true
 
   '@playwright/test@1.64.1':
     resolution: {integrity: sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==}
@@ -2202,7 +2206,7 @@ snapshots:
     optionalDependencies:
       react: 19.2.8
 
-  '@pieai/swimmer-ui-kit@4.0.0-alpha.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@pieai/swimmer-ui-kit@4.0.0-alpha.15(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@floating-ui/react': 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8

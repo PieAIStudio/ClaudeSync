@@ -1,5 +1,6 @@
 import { useTranslation } from './i18n';
-import { Button, Input, PageSurface } from '@pieai/swimmer-ui-kit';
+import { Button, Input } from '@pieai/swimmer-ui-kit';
+import { StageFrame } from './StageFrame';
 import type { AppLocale } from './i18n';
 import type { AppController } from './app-controller';
 import { useAppController } from './app-controller';
@@ -15,7 +16,7 @@ import { PageArt } from './visuals';
 
 function CloudStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
-  return <PageSurface className="stage-surface stage-surface--cloud" title={t.t('cloudSessions')} description={t.t('cloudBody')} header={<PageArt kind="cloud" />}><CloudSessions refreshKey={controller.cloudRefresh} onBusy={controller.onCloudBusy} onRetry={controller.refreshCloud} /></PageSurface>;
+  return <StageFrame className="stage-surface stage-surface--cloud" title={t.t('cloudSessions')} description={t.t('cloudBody')} header={<PageArt kind="cloud" />}><CloudSessions refreshKey={controller.cloudRefresh} onBusy={controller.onCloudBusy} onRetry={controller.refreshCloud} /></StageFrame>;
 }
 
 function StageView({ controller }: { controller: AppController }) {

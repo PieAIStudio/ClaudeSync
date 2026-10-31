@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Callout, Icon, IconButton, Shell } from '@pieai/swimmer-ui-kit';
+import { Callout, Icon, IconButton } from '@pieai/swimmer-ui-kit';
+import { ToolSidebar, ToolWindow, type ToolSidebarItem } from '@pieai/swimmer-ui-kit/tool-worlds';
 import { useTranslation } from './i18n';
 import type { AppController } from './app-controller';
 import { navItems, type Stage } from './app-types';
@@ -7,10 +8,18 @@ import { navItems, type Stage } from './app-types';
 function Sidebar({ controller }: { controller: AppController }) {
   const t = useTranslation();
   const current = (stage: Stage) => controller.stage === stage || (stage === 'results' && controller.stage === 'review');
-  return <><div className="shell-brand"><span className="shell-brand-mark"><Icon icon="check" /></span><strong>ClaudeSync</strong></div>
-    <nav aria-label={t.t('sources')}>{navItems.map((item) => <button key={item.stage} type="button" data-current={current(item.stage)} onClick={() => controller.navigate(item.stage)}><Icon icon={item.icon} /><span>{t.t(item.label)}</span></button>)}</nav>
-    <nav className="shell-sidebar-bottom" aria-label={t.t('settings')}><button type="button" data-current={controller.stage === 'backups'} onClick={() => void controller.openBackups()} disabled={!controller.workspace || controller.busy}><Icon icon="history" /><span>{t.t('backupTitle')}</span></button>
-      <button type="button" data-current={controller.stage === 'settings'} onClick={() => controller.navigate('settings')}><Icon icon="settings" /><span>{t.t('settings')}</span></button></nav></>;
+  const items: ToolSidebarItem[] = navItems.map((item) => ({
+    id: item.stage,
+    icon: <Icon icon={item.icon} />,
+    label: t.t(item.label),
+    selected: current(item.stage),
+    onClick: () => controller.navigate(item.stage),
+  }));
+  return <ToolSidebar className="game-ui-shell-sidebar" appIcon={<span className="shell-brand-mark"><Icon icon="check" /></span>} appName={<span className="shell-brand"><strong>ClaudeSync</strong></span>} items={items} navLabel={t.t('sources')}
+    footer={<nav className="shell-sidebar-bottom" aria-label={t.t('settings')}>
+      <button type="button" data-current={controller.stage === 'backups'} onClick={() => void controller.openBackups()} disabled={!controller.workspace || controller.busy}><Icon icon="history" /><span>{t.t('backupTitle')}</span></button>
+      <button type="button" data-current={controller.stage === 'settings'} onClick={() => controller.navigate('settings')}><Icon icon="settings" /><span>{t.t('settings')}</span></button>
+    </nav>} />;
 }
 
 function MobileNav({ controller }: { controller: AppController }) {
@@ -41,5 +50,12 @@ function WindowBar({ controller }: { controller: AppController }) {
 export function AppShell({ controller, children }: { controller: AppController; children: ReactNode }) {
   const t = useTranslation();
   const feedback = <div className="shell-feedback" role="status" aria-live="polite">{controller.error && <Callout heading={t.t('issue')} tone="danger">{controller.error}</Callout>}{controller.cleanupFeedback && <Callout tone="warning">{controller.cleanupFeedback}</Callout>}</div>;
-  return <Shell title="ClaudeSync" className="claudesync-shell" look="aura" platform={controller.platform} density={controller.compact ? 'dense' : 'comfortable'} reducedMotion={controller.reducedMotion} layout="auto" sidebar={<Sidebar controller={controller} />} sidebarLabel={t.t('sources')} mobileNav={<MobileNav controller={controller} />} windowBar={<WindowBar controller={controller} />} overlay={feedback}>{children}</Shell>;
+  return <ToolWindow title="ClaudeSync" world="violet" reducedMotion={controller.reducedMotion} className="claudesync-shell" sidebar={<Sidebar controller={controller} />}>
+    <div className="game-ui-shell-main">
+      <header className="game-ui-shell-window-bar"><WindowBar controller={controller} /></header>
+      <div className="game-ui-shell-scene">{children}</div>
+      <div className="game-ui-shell-mobile-nav">{<MobileNav controller={controller} />}</div>
+      {feedback}
+    </div>
+  </ToolWindow>;
 }

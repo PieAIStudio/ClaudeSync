@@ -3,7 +3,7 @@ import { applyDocumentLanguage } from '@pieai/swimmer-i18n-kit/browser';
 import type { AppLocale } from './i18n';
 import { useTranslation } from './i18n';
 import { useWorkspace } from './useWorkspace';
-import { useAppPreferences, systemPlatform } from './app-preferences';
+import { useAppPreferences } from './app-preferences';
 import { useSessionBrowser } from './app-browser';
 import { useOldCleanup } from './app-cleanup';
 import { useAppOperations } from './app-operations';
@@ -68,7 +68,7 @@ export function useAppController(locale: AppLocale, onLocale: (locale: AppLocale
     model, info: model.info, workspace: model.workspace, api: model.api, review: model.review, request: model.request, backups: model.backups,
     error: model.error, deleted: model.deleted, result: model.result, busy, stage, setStage, theme: preferences.theme, setTheme: preferences.setTheme,
     compact: preferences.compact, setCompact: preferences.setCompact, reducedMotion: preferences.reducedMotion, setReducedMotion: preferences.setReducedMotion, includeAccount: preferences.includeAccount,
-    platform: systemPlatform(), locale, onLocale, sessionRoot: accountSessionRoot, setSessionRoot: setAccountSessionRoot, projectsRoot, setProjectsRoot,
+    locale, onLocale, sessionRoot: accountSessionRoot, setSessionRoot: setAccountSessionRoot, projectsRoot, setProjectsRoot,
     cloudRefresh, refreshCloud, onCloudBusy: setCloudBusy, navigate, openRename, openDeleteConfirmation, ...browser, ...operations, ...cleanup, saveFolders, openReview,
     renameOpen, setRenameOpen, newTitle, setNewTitle, deleting, setDeleting,
   };
