@@ -271,6 +271,30 @@ it('keeps transcript removal behind the Trash adapter, not direct delete APIs', 
   }
 });
 
+it.each([3, 4])('reports moved transcripts when guard %i stops deletion before any index change', async (stopAt) => {
+  const workspace = load();
+  const plan = buildOperationPlan(workspace, { kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] });
+  const before = new Map(plan.changes.map((change) => [change.path, change.before]));
+  const bodyPath = join(root, 'projects/project', `${CHAT_A}.jsonl`);
+  const trashPath = join(root, `trashed-${CHAT_A}.jsonl`);
+  let calls = 0;
+  const error = await commitFilePlanWithTrash(workspace, plan, () => {
+    if (++calls === stopAt) throw new Error('Quit Claude before continuing');
+  }, async (path) => { renameSync(path, trashPath); }).catch((reason: unknown) => reason);
+  expect(error).toBeInstanceOf(Error);
+  expect(parseMessage((error as Error).message)).toMatchObject({
+    key: 'errorDeleteInterrupted', params: { applied: 0, moved: basename(bodyPath), message: 'Quit Claude before continuing' },
+  });
+  for (const [path, raw] of before) {
+    const absolute = join(root, 'session-root', path);
+    if (raw) expect(readFileSync(absolute)).toEqual(raw);
+    else expect(existsSync(absolute)).toBe(false);
+  }
+  expect(existsSync(bodyPath)).toBe(false);
+  expect(existsSync(trashPath)).toBe(true);
+  expect(listBackups(root)).toEqual([]);
+});
+
 it('reports an index interruption after Trash without backup or permanent removal', async () => {
   const workspace = load();
   const plan = buildOperationPlan(workspace, { kind: 'delete', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] });
@@ -290,7 +314,7 @@ it('reports an index interruption after Trash without backup or permanent remova
   }, trash).catch((reason: unknown) => reason);
   expect(error).toBeInstanceOf(Error);
   const parsed = parseMessage((error as Error).message);
-  expect(parsed).toMatchObject({ key: 'errorDeleteInterrupted', params: { applied: 1 } });
+  expect(parsed).toMatchObject({ key: 'errorDeleteInterrupted', params: { applied: 1, moved: basename(bodyPath) } });
   expect(guardCalls).toBe(5);
   expect(trashPaths).toEqual([bodyPath]);
   expect(existsSync(bodyPath)).toBe(false);

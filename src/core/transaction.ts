@@ -261,8 +261,9 @@ export async function commitFilePlanWithTrash(workspace: Workspace, plan: FilePl
     checkInputs();
     return { filesChanged: state.applied, verified: true, trashCount: state.trashedTranscripts.length };
   } catch (error) {
-    if (plan.kind === 'delete' && state.applied) throw userError('errorDeleteInterrupted', {
+    if (state.applied || state.trashedTranscripts.length) throw userError('errorDeleteInterrupted', {
       message: error instanceof Error ? error.message : userMessage('statusDeleteInterrupted'), applied: state.applied,
+      moved: state.trashedTranscripts.join(', ') || 'none',
     });
     throw error;
   } finally {
