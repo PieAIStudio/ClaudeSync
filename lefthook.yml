@@ -4,4 +4,4 @@ pre-push:
   parallel: false
   commands:
     changed-checks:
-      run: pnpm check:changed --base=origin/main
+      run: node .pro-gov/push-gate.mjs --base origin/main

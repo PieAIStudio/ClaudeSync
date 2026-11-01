@@ -1,48 +1,140 @@
 {
   "version": 1,
-  "checks": {
-    "test:ui": [
-      "src/renderer/**",
-      "src/shared/**",
-      "index.html",
-      "electron.vite.config.ts",
-      "tests/ui/**",
-      "playwright.config.*",
-      "package.json",
-      "pnpm-lock.yaml",
-      "pnpm-workspace.yaml",
-      "lefthook.yml"
-    ],
-    "typecheck": [
-      "src/**",
-      "tests/**",
-      "electron/**",
-      "index.html",
-      "electron.vite.config.ts",
-      "tsconfig*.json",
-      "package.json",
-      "pnpm-lock.yaml"
-    ],
-    "test": [
-      "src/**",
-      "tests/**",
-      "electron/**",
-      "package.json",
-      "pnpm-lock.yaml"
-    ],
-    "build": [
-      "src/**",
-      "electron/**",
-      "index.html",
-      "electron.vite.config.ts",
-      "package.json",
-      "pnpm-lock.yaml"
-    ]
-  },
+  "rules": [
+    {
+      "paths": [
+        ".pro-gov/push-gate*",
+        "lefthook.yml",
+        ".githooks/**"
+      ],
+      "commands": [
+        "node --check .pro-gov/push-gate.mjs",
+        "node --check scripts/check-changed.mjs && node --check scripts/test-related.mjs",
+        "git diff --check \"$PUSH_GATE_BASE\" \"$PUSH_GATE_HEAD\"",
+        "node -e \"const a=require('node:assert/strict'),f=require('node:fs');a.equal(f.readlinkSync('CLAUDE.md'),'AGENTS.md');a.equal(f.readlinkSync('.claude/skills'),'../.agents/skills');a.ok(f.existsSync('../../docs/governance/agents-routing/engineering-runtime-v1.1.md'))\"",
+        "pnpm exec doc-gov --help > /dev/null && pnpm exec pro-gov --help > /dev/null"
+      ]
+    },
+    {
+      "paths": [
+        "scripts/check-map.json",
+        "scripts/check-changed.mjs",
+        "scripts/test-related.mjs"
+      ],
+      "commands": [
+        "node --check .pro-gov/push-gate.mjs",
+        "node --check scripts/check-changed.mjs && node --check scripts/test-related.mjs",
+        "git diff --check \"$PUSH_GATE_BASE\" \"$PUSH_GATE_HEAD\"",
+        "node -e \"const a=require('node:assert/strict'),f=require('node:fs');a.equal(f.readlinkSync('CLAUDE.md'),'AGENTS.md');a.equal(f.readlinkSync('.claude/skills'),'../.agents/skills');a.ok(f.existsSync('../../docs/governance/agents-routing/engineering-runtime-v1.1.md'))\"",
+        "pnpm exec doc-gov --help > /dev/null && pnpm exec pro-gov --help > /dev/null"
+      ]
+    },
+    {
+      "paths": [
+        "src/**",
+        "tests/ui/**",
+        "tests/fixture.ts",
+        "tests/sidebar-fixture.ts",
+        "tests/fixtures/**",
+        "electron/**",
+        "index.html",
+        "electron.vite.config.ts",
+        "tsconfig*.json",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
+      ],
+      "commands": [
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "paths": [
+        "src/**/*.{ts,tsx}",
+        "electron/**/*.ts"
+      ],
+      "commands": [
+        "node scripts/test-related.mjs"
+      ]
+    },
+    {
+      "paths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "vitest.config.*"
+      ],
+      "commands": [
+        "pnpm exec vitest run src/term-copy.test.ts src/error-copy.test.ts"
+      ]
+    },
+    {
+      "paths": [
+        "src/renderer/**",
+        "src/shared/**",
+        "src/{i18n,term-copy,error-copy}.ts",
+        "index.html",
+        "electron.vite.config.ts",
+        "tests/ui/**",
+        "tests/fixtures/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
+      ],
+      "commands": [
+        "pnpm test:ui --grep 'fixed renderer smoke'"
+      ]
+    },
+    {
+      "paths": [
+        "src/**",
+        "electron/**",
+        "index.html",
+        "electron.vite.config.ts",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "commands": [
+        "pnpm build"
+      ]
+    },
+    {
+      "paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README*.md",
+        "ARCHITECTURE.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        "docs/**",
+        ".agents/**",
+        ".agents/skills/.gitkeep",
+        ".claude/**",
+        ".github/workflows/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
+      ],
+      "commands": [
+        "git diff --check \"$PUSH_GATE_BASE\" \"$PUSH_GATE_HEAD\"",
+        "node -e \"const a=require('node:assert/strict'),f=require('node:fs');a.equal(f.readlinkSync('CLAUDE.md'),'AGENTS.md');a.equal(f.readlinkSync('.claude/skills'),'../.agents/skills');a.ok(f.existsSync('../../docs/governance/agents-routing/engineering-runtime-v1.1.md'))\"",
+        "pnpm exec doc-gov --help > /dev/null && pnpm exec pro-gov --help > /dev/null"
+      ]
+    },
+    {
+      "paths": [
+        ".gitignore",
+        "LICENSE"
+      ],
+      "commands": [],
+      "reason": "Repository ignore/legal metadata only."
+    }
+  ],
   "blindSpots": [
-    "Changes under scripts/ or lefthook itself do not infer a runtime check unless package.json, lefthook.yml, or the mapped source also changes.",
-    "A CSS-only change outside src/renderer/** is not selected by this map.",
-    "Native Electron IPC, OS Keychain, real Claude data, cloud deletion, signed-app and store acceptance remain explicit checks.",
-    "The renderer smoke uses a local Vite server and a browser-side API fixture; it does not prove the packaged preload or main-process adapters."
+    "Existing check-map path domains and the local fixture browser harness are reused. Unit checks now use Vitest related source paths, never the old blanket pnpm test command; static imports do not prove dynamic runtime edges.",
+    "Package/config-only changes use two bounded pure-copy unit contracts plus fixed fixture smoke and build where mapped, not all unit tests. Dependency-wide compatibility still needs explicit release verification.",
+    "Renderer acceptance selects five named fixed-smoke cases only, not all polish/flow browser tests. It uses local Vite and mocked APIs, not real Refresh/Sync, Keychain credentials, Claude data or cloud actions.",
+    "No lint/formatter command exists. The inherited router links and governance CLI presence are checked; legacy app docs have not been migrated to app-local doc-gov schema, so no full doc-gov audit is claimed.",
+    "Native Electron/keychain acceptance, tests/ui-smoke.cjs, store/signing and unlisted paths remain explicit gaps. This task changes routing/packages/gate only and never launches the actual product."
   ]
 }

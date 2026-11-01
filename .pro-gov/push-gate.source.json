@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/PieAIStudio/ProjectGovernanceSystem",
+  "commit": "ce0f30b6b547116c7728cde693978d84683bba8b",
+  "path": "packages/pro-gov/scripts/push-gate.mjs",
+  "sha256": "4df8ce84570576df1a54f84e16e1bf9e5e66a57e1967904d47e847be79c0e076",
+  "adoption": "Exact unmodified source pilot; no npm release or sibling runtime dependency. Replace with the published pro-gov push-gate command after an authorized release.",
+  "install": "pnpm exec lefthook install"
+}
