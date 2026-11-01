@@ -43,3 +43,12 @@ preferences.json
 # Private inspection evidence and counts-only local acceptance
 /docs/evidence/
 /.devspace-reports/
+
+# Generated health/task output stays local.
+result.txt
+*.log
+*.pid
+*.exit
+playwright-report/
+test-results/
+screenshots/
