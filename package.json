@@ -52,6 +52,12 @@
     "files": [
       "out/**/*"
     ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "resetAdHocDarwinSignature": true
+    },
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "build/icon.png",
