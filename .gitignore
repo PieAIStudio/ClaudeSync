@@ -30,6 +30,8 @@ node_modules/
 coverage/
 pnpm-debug.log*
 out/
+.env.local
+.env.*.local
 
 # Temporary title-resolution files
 claudesync-title-resolutions-*.json

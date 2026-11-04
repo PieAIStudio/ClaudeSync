@@ -6,6 +6,13 @@ import { applyOperation, availableBackups, checkWorkspace, cleanupOldCopies, del
 import { cloudSessions, deleteCloudSessions } from './cloud-sessions';
 import { userError } from '../src/error-copy';
 import { denyRendererPermissions } from './renderer-security';
+import { startTelemetry } from './telemetry';
+
+const telemetry = startTelemetry({ key: process.env.CLAUDESYNC_POSTHOG_KEY ?? import.meta.env.MAIN_VITE_POSTHOG_KEY,
+  host: process.env.CLAUDESYNC_POSTHOG_HOST ?? import.meta.env.MAIN_VITE_POSTHOG_HOST,
+  disabled: process.env.CLAUDESYNC_TELEMETRY_DISABLED === '1' });
+const jobEvents = { check: 'sessions_checked', apply: 'changes_applied', 'delete-selected': 'local_sessions_deleted',
+  'cloud-sessions': 'cloud_sessions_checked', 'delete-cloud-sessions': 'cloud_sessions_deleted' } as const;
 
 app.setName('ClaudeSync');
 if (!app.isPackaged && process.env.CLAUDESYNC_DATA_DIR) {
@@ -16,12 +23,22 @@ if (!app.isPackaged && process.env.CLAUDESYNC_DATA_DIR) {
 
 function registerIpc(): void {
   function handle(channel: string, handler: (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown) {
-    ipcMain.handle(`claudesync:${channel}`, (event, ...args: unknown[]) => {
+    ipcMain.handle(`claudesync:${channel}`, async (event, ...args: unknown[]) => {
       const window = BrowserWindow.fromWebContents(event.sender);
       if (!window || event.senderFrame !== event.sender.mainFrame) throw userError('errorInvalidWindow');
-      return handler(event, ...args);
+      const job = jobEvents[channel as keyof typeof jobEvents];
+      try {
+        const result = await handler(event, ...args);
+        if (job) telemetry.event(job, 'success');
+        return result;
+      } catch (error) {
+        if (job) telemetry.event(job, 'failure');
+        telemetry.error(error);
+        throw error;
+      }
     });
   }
+  handle('report-error', (_event, stack) => { if (typeof stack === 'string') telemetry.error({ stack: stack.slice(0, 4000) }); });
   handle('info', () => ({ version: app.getVersion(), configured: existsSync(configPath()),
     suggestedSessionRoot: savedRoots().sessionRoot, suggestedProjectsRoot: savedRoots().projectsRoot }));
   handle('choose-directory', async (event) => {
@@ -85,4 +102,5 @@ else {
     app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
   });
   app.on('window-all-closed', () => app.quit());
+  app.on('will-quit', () => { void telemetry.shutdown(); });
 }

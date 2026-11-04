@@ -37,6 +37,6 @@ pnpm package:mac:dir
 
 テストは一時的な合成データのみ使用。開発版は `CLAUDESYNC_DATA_DIR` で分離できます。配布用ビルドはこの指定を無視します。
 
-現在のローカルパッケージは未署名 Apple silicon `.app`。他の OS、Intel Mac、署名と公証は別途確認が必要。5言語 UI。現在の版には広告・追跡・課金・自動同期はありません。CI は手動のみ。旧 Python/Tk/Web コードは現在のソースから整理しましたが、Git 履歴と旧公開版は保持しています。
+現在のローカルパッケージは未署名 Apple silicon `.app`。他の OS、Intel Mac、署名と公証は別途確認が必要。5言語 UI。広告・行動追跡・課金・自動同期はありません。Owner の 2026-11-04 決定により、設定済みの場合のみ匿名 PostHog 診断（5種類の操作件数・匿名化したエラーと数値のみのスタック位置）を送信します。ファイル名・パス・メール・アカウント名・URL・会話内容は送信しません。キーと地域ホストは Git 外の起動環境で `CLAUDESYNC_POSTHOG_KEY` / `CLAUDESYNC_POSTHOG_HOST` に指定。未設定時は無効、`CLAUDESYNC_TELEMETRY_DISABLED=1` で停止できます。[詳細](README.md#anonymous-diagnostics)。CI は手動のみ。旧 Python/Tk/Web コードは現在のソースから整理しましたが、Git 履歴と旧公開版は保持しています。
 
 [構成](ARCHITECTURE.md) · [開発](CONTRIBUTING.md) · [セキュリティ](SECURITY.md) · [計画](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)

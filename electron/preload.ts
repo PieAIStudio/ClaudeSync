@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { ClaudeSyncApi } from '../src/shared/contracts';
 
 const api: ClaudeSyncApi = {
+  reportError: (stack) => ipcRenderer.invoke('claudesync:report-error', stack),
   getInfo: () => ipcRenderer.invoke('claudesync:info'),
   chooseDirectory: () => ipcRenderer.invoke('claudesync:choose-directory'),
   configure: (sessionRoot, projectsRoot) => ipcRenderer.invoke('claudesync:configure', sessionRoot, projectsRoot),

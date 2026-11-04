@@ -180,6 +180,7 @@ export interface ApplyResult {
 }
 
 export interface ClaudeSyncApi {
+  reportError?(stack: string): Promise<void>;
   getInfo(): Promise<AppInfo>;
   chooseDirectory(): Promise<string | null>;
   configure(sessionRoot: string, projectsRoot: string): Promise<void>;

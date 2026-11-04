@@ -37,6 +37,6 @@ pnpm package:mac:dir
 
 Os testes usam dados sintéticos temporários. O desenvolvimento permite isolamento com `CLAUDESYNC_DATA_DIR`; os pacotes finais ignoram esse ajuste.
 
-O pacote local é uma `.app` Apple silicon sem assinatura. Windows, Intel Mac, Linux, assinatura e notarização precisam de validação separada. Cinco idiomas; a versão atual não tem anúncios, rastreamento, pagamentos ou sincronização automática. CI só manual; enviar código não publica. O antigo Python/Tk/Web foi retirado do código atual, preservando histórico Git e versões anteriores.
+O pacote local é uma `.app` Apple silicon sem assinatura. Windows, Intel Mac, Linux, assinatura e notarização precisam de validação separada. Cinco idiomas; não há anúncios, rastreamento comportamental, pagamentos ou sincronização automática. Pela decisão do Owner de 2026-11-04, PostHog envia apenas cinco contadores de tarefas e erros anonimizados com posições numéricas da pilha, sem nomes/caminhos de arquivos, e-mails, contas, URLs ou conteúdo. O conductor configura `CLAUDESYNC_POSTHOG_KEY` e `CLAUDESYNC_POSTHOG_HOST` no ambiente de inicialização fora do Git; sem configuração não há cliente nem rede. Desative com `CLAUDESYNC_TELEMETRY_DISABLED=1`. [Detalhes](README.md#anonymous-diagnostics). CI só manual; enviar código não publica. O antigo Python/Tk/Web foi retirado do código atual, preservando histórico Git e versões anteriores.
 
 [Arquitetura](ARCHITECTURE.md) · [Contribuir](CONTRIBUTING.md) · [Segurança](SECURITY.md) · [Plano](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)

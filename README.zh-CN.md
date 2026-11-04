@@ -43,7 +43,7 @@ A 删过而 B 还留着的会话，可以在 B 选中后点“同步所选”带
 
 macOS 上“重新检查”通过 Claude Desktop 现有的仅限资料读取授权查询当前邮箱与组织 ID，不使用 CLI 登录冒充 Desktop。钥匙串由维护中的 `@napi-rs/keyring` 在 ClaudeSync 进程内异步读取，不借用共享命令行客户端；提示窗口没有应用设置的响应时限。同一次应用运行中，登录或加密缓存未变时复用验证与内存授权，不每次检查都重复提示。核实一个当前组织不代表其他组织已退出。验证结果只记在本机；验证失败或切号时清除当前登录标记。本机查看和整理仍能离线使用；Windows/Linux 自动 Desktop 验证暂未支持。发现遗漏的当前账号只补入 ClaudeSync 配置，保留参与勾选，不修改 Claude 文件。
 
-“本机聊天”和“云端聊天”分别计数、分别选择，不能直接相加。云端只读当前已核实账号和组织，用现有且未过期的 Code 会话授权，显示返回的前 100 条；达到上限时明确提醒。这些第一方联网读取是小工具默认离线的维护例外，无自建后端、模型调用、广告、追踪或支付 SDK。
+“本机聊天”和“云端聊天”分别计数、分别选择，不能直接相加。云端只读当前已核实账号和组织，用现有且未过期的 Code 会话授权，显示返回的前 100 条；达到上限时明确提醒。这些第一方联网读取是小工具默认离线的维护例外，无自建后端、模型调用、广告或支付 SDK；按 Owner 2026-11-04 决定增加可关闭的匿名 PostHog 诊断，见下文。
 
 ## 删除与保护
 
@@ -75,6 +75,6 @@ pnpm package:mac:dir
 
 运行 `node tests/ui-smoke.cjs` 可在实际 Electron 界面复现本次三条路径。入口只创建自己的假账号和 home，禁止网络、钥匙串和外部命令；进程列表与废纸篓用隔离替身。截图和收据保存在忽略提交的 `.reports/2026-10-18-claudesync-fixes/`。它不会接收真实账号路径；真实 Desktop 续聊效果仍需使用者自己点验。
 
-当前本机包为未签名 Apple silicon `.app`；Windows、Intel Mac、Linux、签名与公证仍需单独验收。界面保留五种语言。当前版本没有广告、追踪、内购或后台自动同步。提交代码不会触发云端 CI 或发布，CI 只接受手动启动。
+当前本机包为未签名 Apple silicon `.app`；Windows、Intel Mac、Linux、签名与公证仍需单独验收。界面保留五种语言。当前版本没有广告、行为追踪、内购或后台自动同步。配置 `CLAUDESYNC_POSTHOG_KEY` 和 `CLAUDESYNC_POSTHOG_HOST` 后仅上报五种工作计数与脱敏错误；堆栈仅留数字位置，不含文件名、路径、邮箱、账号、URL 或聊天内容。密钥由总指挥通过 Git 外的启动环境提供；未配置不联网，`CLAUDESYNC_TELEMETRY_DISABLED=1` 可关闭。详见 [匿名诊断](README.md#anonymous-diagnostics)。提交代码不会触发云端 CI 或发布，CI 只接受手动启动。
 
 维护说明：[ARCHITECTURE.md](ARCHITECTURE.md)；执行边界与未完成事项：[计划](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)。旧 Python/Tk/Web 代码与构建入口已从当前源码移除，历史可从 Git 的 v1 版本或本机重构前快照找回。
