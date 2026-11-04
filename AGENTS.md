@@ -67,6 +67,11 @@ checks for related code, input or environment changes, failures or unresolved
 questions. Report actual evidence; once acceptance and required gates are met,
 stop expanding the task.
 
+## Test Tools
+Web: use Playwright tests; explore with `playwright-cli`.
+Phone: explore with the `mobile-mcp` server; keep Mobilewright tests in tests/mobile/; run `npx mobilewright test`.
+Log each phone-tool use in <HQ-control-plane-on-Mac>/conductor/projects/HQ/mobile-mcp-install-20261104/USAGE.md.
+
 <!-- PGS-ROUTER:END -->
 
 Follow the shared MatrixAPPs rules in [../../AGENTS.md](../../AGENTS.md).

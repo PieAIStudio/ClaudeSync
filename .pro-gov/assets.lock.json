@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "host": "codex",
+  "scope": "project",
+  "registryProvenance": {
+    "schema": "agent-assets-registry",
+    "version": 1,
+    "hash": "sha256:f1a52839eb9e6258b736f7ce3af2f4c3bec51d549c1b651f3c8de5bf6ad434c6",
+    "assetCount": 2
+  },
+  "assets": [
+    {
+      "id": "npx-skills/mobilewright",
+      "sourcePath": "skills/npx-skills/.agents/skills/mobilewright",
+      "delivery": "symlink",
+      "contentHash": "sha256:fd972a18db8b88ed7029d222476534e9bdacd10b6035de90c5c5c1932478a53f",
+      "placement": "auto",
+      "targetPath": ".agents/skills/mobilewright"
+    },
+    {
+      "id": "npx-skills/playwright-cli",
+      "sourcePath": "skills/npx-skills/.agents/skills/playwright-cli",
+      "delivery": "symlink",
+      "contentHash": "sha256:6be12bb66dbfa6d2459e1747058a386b499d4e1db57e802e86aa7395686d58dd",
+      "placement": "auto",
+      "targetPath": ".agents/skills/playwright-cli"
+    }
+  ]
+}

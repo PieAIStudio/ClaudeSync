@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "host": "codex",
+  "scope": "project",
+  "assets": [
+    {
+      "id": "npx-skills/mobilewright",
+      "placement": "auto"
+    },
+    {
+      "id": "npx-skills/playwright-cli",
+      "placement": "auto"
+    }
+  ]
+}
