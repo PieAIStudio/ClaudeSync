@@ -6,7 +6,7 @@ import { anonymousError } from '../src/shared/telemetry';
 const events = ['sessions_checked', 'changes_applied', 'local_sessions_deleted', 'cloud_sessions_checked', 'cloud_sessions_deleted'] as const;
 type JobEvent = typeof events[number];
 type Client = Pick<PostHog, 'capture' | 'captureException' | 'shutdown' | 'flush'> & { on?: PostHog['on'] };
-type Options = { key?: string; host?: string; disabled?: boolean; runtime?: EventEmitter; createClient?: (key: string, options: ConstructorParameters<typeof PostHog>[1]) => Client };
+type Options = { key?: string; host?: string; disabled?: boolean; runtime?: EventEmitter; createClient?: (key: string, options: NonNullable<ConstructorParameters<typeof PostHog>[1]>) => Client };
 
 export function startTelemetry({ key, host, disabled, runtime = process, createClient = (key, options) => new PostHog(key, options) }: Options) {
   // No region guessing, persistent identity, person profiles, flags or raw SDK autocapture.
