@@ -20,6 +20,7 @@ export function sessionsInGroup(sessions: SessionView[], group: SessionGroup, ac
     return [{ ...session, presence, title: preferred.title, project: preferred.project,
       updatedAt: records.flatMap((record) => record.updatedAt ? [record.updatedAt] : []).sort().at(-1),
       starred: records.some((record) => record.starred), manageable: records.every((record) => record.manageable),
+      deletable: records.every((record) => record.deletable ?? record.manageable),
     }];
   });
 }

@@ -6,7 +6,7 @@ ClaudeSync muestra y organiza listas locales de sesiones de Claude Code entre cu
 
 ## Uso
 
-1. Abre `ClaudeSync.app` o el lanzador del código fuente. Actualiza.
+1. En macOS, usa `pnpm package:mac:dir` y abre `dist/electron/mac-arm64/ClaudeSync.app`, no la copia antigua de la raíz ni `Sync.command`. Actualiza.
 2. Marca las cuentas que quieras incluir. Pulsa una cuenta para ver sus sesiones, o consulta la lista combinada sin duplicados.
 
 Para conservar las mismas diez sesiones en todas las cuentas, elige esas diez y **Conservar solo las elegidas**. Se añaden donde faltan, se desarchivan las elegidas y se archivan las demás. Si falta alguna conversación o un destino está bloqueado, se detiene antes de archivar otras sesiones. **Elegir 10 recientes sincronizables** solo cambia la selección.
@@ -14,6 +14,8 @@ Para conservar las mismas diez sesiones en todas las cuentas, elige esas diez y 
 Las tareas remotas o programadas activas también bloquean esta operación. Gestiona primero esas tareas en Claude y después organiza las sesiones locales.
 
 ## Borrado y conteo
+
+**Borrar copias locales restantes** limpia las sesiones borradas y ejecuciones programadas con texto local. Una confirmación lista los títulos; solo los textos van a la papelera y se conservan las marcas de borrado. No cambia tareas en la nube ni proyectos; un registro solo en la nube no ocupa espacio de texto local.
 
 **Borrar sesiones elegidas** borra conversaciones, no cuentas. Abre una confirmación breve con consejo según su estado: archivar una sesión activa o cancelar para conservar una ya archivada. Los textos exclusivos se mueven a la papelera del sistema y se pueden devolver desde allí. El borrado local se limita al grupo y las cuentas elegidos, sin incluir copias antiguas ocultas, y al JSONL principal si ninguna otra sesión lo usa. Conserva contenido compartido, proyectos, worktrees y archivos auxiliares de CLI; los índices solo cambian después de mover todos los textos previstos a la papelera. Otras operaciones mantienen revisión, copias y recuperación protegida.
 

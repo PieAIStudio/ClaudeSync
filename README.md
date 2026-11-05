@@ -6,7 +6,7 @@ ClaudeSync shows and organizes local Claude Code sessions across accounts and th
 
 ## Use
 
-1. Open `ClaudeSync.app`, or run the source launcher for your platform. Refresh.
+1. On macOS, open `dist/electron/mac-arm64/ClaudeSync.app` directly, not the old root `ClaudeSync.app` or legacy `Sync.command` launcher. Refresh.
 2. Check the accounts to include. Click an account to see its sessions, or view the deduplicated union.
 3. Search, filter and select sessions. Sync, archive and other local changes have a review. **Delete selected sessions** opens a short confirmation with the account, count and state-specific advice; exclusive transcript files move to the system Trash, so you can put them back from the Trash.
 4. Save work before changing local files. Sync and other organizing actions require quitting Claude/Code. Selected deletion and old-copy cleanup allow positively identified unrelated CLI sessions; relevant or unidentifiable writers and Desktop must be closed as directed. Viewing one account restricts deletion to that account. Use **Cloud sessions** for the current Desktop login’s cloud history; cloud deletion does not require quitting Claude.
@@ -19,6 +19,7 @@ Keep-only organizes ordinary chats in verified current organizations; scheduled-
 
 - Sync selected sessions, including copies already present. The review shows the source, target and known turn difference. Proven continuations advance resume state; forks or uncertain ancestry require choosing a version. Shared transcript bytes and destination permissions stay intact. Explicit sync can bring a deleted session back from a surviving copy; relevant native deletion notes in included accounts are removed in the reviewed transaction. Bulk keep-only retains anti-resurrection protection.
 - Archive or unarchive; rename one session across included accounts; star or unstar.
+- **Delete leftover copies** cleans selected deleted-session copies and local scheduled-task runs with one confirmation listing their titles. Only exclusive main JSONL transcripts move to Trash; local list entries are removed and deletion notes are retained to prevent automatic return. Cloud-only scheduled records use no local transcript space and cannot be deleted here; a removed task may leave no deletion entry in Claude. No cloud task is deleted or stopped.
 - Delete selected local sessions within the selected group; exclusive main JSONL transcripts move to the system Trash, and hidden old copies are not silently included. Shared entry IDs can block partial-copy deletion; use archive instead. Other claimed content and project/worktree files stay untouched. Indexes and deletion markers change only after every planned transcript reaches Trash; a failed Trash move leaves them unchanged.
 - Select and delete verified, idle Remote Control cloud Code records, including archived Wakeup history, through the same session DELETE endpoint used by the installed Desktop.
 - Preview/restore backups from other local operations. Later edits to affected files block restoration; unrelated settings/folder additions do not.
@@ -70,6 +71,8 @@ pnpm test
 pnpm build
 pnpm package:mac:dir
 ```
+
+`pnpm package:mac:dir` is the single macOS app-build path; open `dist/electron/mac-arm64/ClaudeSync.app`. After quitting the old root `ClaudeSync.app`, move that old copy to Trash (never while it is running).
 
 The default development entry is Electron. Tests use temporary synthetic data only. Development builds accept `CLAUDESYNC_DATA_DIR` for an isolated application-data directory; packaged builds ignore it.
 

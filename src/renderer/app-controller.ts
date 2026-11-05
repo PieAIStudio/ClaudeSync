@@ -23,7 +23,7 @@ export function useAppController(locale: AppLocale, onLocale: (locale: AppLocale
   const [projectsRoot, setProjectsRoot] = useState('');
   const [renameOpen, setRenameOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [deleting, setDeleting] = useState<(DeleteSelection & { revision: string; names: string[] })>();
+  const [deleting, setDeleting] = useState<(DeleteSelection & { revision: string; names: string[]; titles: string[] })>();
   const included = useMemo(() => new Set(model.workspace?.accounts.filter((account) => !preferences.excluded.includes(account.id)).map((account) => account.id) ?? []), [model.workspace, preferences.excluded]);
   useEffect(() => applyDocumentLanguage(t.locale, t.direction), [t.locale, t.direction]);
   useEffect(() => { if (model.info) { setAccountSessionRoot(model.info.suggestedSessionRoot); setProjectsRoot(model.info.suggestedProjectsRoot); } }, [model.info]);
@@ -47,6 +47,7 @@ export function useAppController(locale: AppLocale, onLocale: (locale: AppLocale
   function openDeleteConfirmation() {
     if (!model.workspace) return;
     setDeleting({ ...browser.deleteTargets, revision: model.workspace.revision,
+      titles: browser.scopedGroups[browser.selectionGroup].filter((session) => browser.deleteTargets.sessionIds.includes(session.id)).map((session) => session.title || t.t('untitled')),
       names: browser.deleteTargets.accountIds.map((id) => accountName(model.workspace?.accounts.find((account) => account.id === id), t)) });
   }
 

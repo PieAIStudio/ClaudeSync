@@ -40,7 +40,7 @@ export function useSessionBrowser(workspace: WorkspaceView | undefined, included
   const markerCount = displayedAccounts.reduce((sum, account) => sum + account.deletedMarkers, 0);
   const reviewSessions = reviewCategory === 'all' ? grouped.visible : grouped.visible.filter((session) => categories[reviewCategory].ids.has(session.id));
   const eligibleToSelect = reviewSessions.filter((session) => session.manageable && session.presence.some((item) => included.has(item.accountId) && item.eligible));
-  const hiddenSelected = [...selected].filter((id) => !reviewSessions.some((session) => session.id === id)).length;
+  const hiddenSelected = [...selected].filter((id) => !(selectionGroup === 'visible' ? reviewSessions : grouped[selectionGroup]).some((session) => session.id === id)).length;
   const deleteTargets = useMemo(() => ({ ...deletionSelection(scopedGroups[selectionGroup], selected, included, accountFilter), group: selectionGroup }), [scopedGroups, selectionGroup, selected, included, accountFilter]);
   const listCount = categories.all.sessions.length;
   const syncableCount = categories.recent.sessions.length + categories.older.sessions.length;
@@ -52,7 +52,7 @@ export function useSessionBrowser(workspace: WorkspaceView | undefined, included
   }, [scopedGroups, selectionGroup, included]);
 
   function toggle(group: SessionGroup, id: string, value: boolean) {
-    if (!grouped[group].some((session) => session.id === id && session.manageable && session.presence.some((item) => included.has(item.accountId)))) return;
+    if (!grouped[group].some((session) => session.id === id && (session.manageable || (group === 'scheduled' || group === 'deleted') && session.deletable) && session.presence.some((item) => included.has(item.accountId)))) return;
     setSelected((current) => { const next = selectionGroup === group ? new Set(current) : new Set<string>(); if (value) next.add(id); else next.delete(id); return next; });
     setSelectionGroup(group);
   }

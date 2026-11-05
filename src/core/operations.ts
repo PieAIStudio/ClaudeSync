@@ -1,7 +1,7 @@
 import { captureDependencies } from './data-scope';
 import { reconcileProgress } from './sync-progress';
 import { accountIdForScope } from './account-identity';
-import { isManageable, sessionKey } from './catalog';
+import { isLocallyDeletable, isManageable, sessionKey } from './catalog';
 import { entryGroup, verifiedTargets } from './visibility';
 import { buildWorkspacePlan, entryEligibility } from './workspace';
 import type { Workspace } from './workspace';
@@ -67,9 +67,9 @@ function createPlanContext(workspace: Workspace, request: OperationRequest): Pla
   const targetScopes = request.kind === 'sync' || request.kind === 'keep'
     ? new Set(verifiedTargets(workspace.accounts.filter((account) => accountIds.has(accountIdForScope(account.scope))), workspace.verifiedOrganizations).map((account) => account.scope)) : undefined;
   const selectedEntries = entries.filter((entry) => selectedIds.has(sessionKey(entry)) && (!request.group || entryGroup(workspace, entry) === request.group));
-  if (request.group === 'deleted' && request.kind !== 'sync') throw userError('errorDeletedSessionSyncOnly');
+  if (request.group === 'deleted' && request.kind !== 'sync' && request.kind !== 'delete') throw userError('errorDeletedSessionSyncOnly');
   if ([...selectedIds].some((id) => !selectedEntries.some((entry) => sessionKey(entry) === id))) throw userError('errorSessionNotInAccounts');
-  if (selectedEntries.some((entry) => !isManageable(entry))) throw userError('errorUnsupportedSession');
+  if (selectedEntries.some((entry) => !(request.kind === 'delete' ? isLocallyDeletable(entry, workspace) : isManageable(entry)))) throw userError('errorUnsupportedSession');
   if (request.kind === 'rename' && (selectedIds.size !== 1 || typeof request.title !== 'string'
     || !request.title.trim() || request.title.length > 500 || /[\u0000-\u001f]/u.test(request.title))) throw userError('errorRenameOneSession');
   if ((request.kind === 'sync' || request.kind === 'keep') && accountIds.size < 2) throw userError('errorSyncTwoAccounts');
@@ -128,7 +128,7 @@ function appendOldCopies(context: PlanContext, snapshot: WorkspaceSnapshot): voi
     const copy: SessionEntry = { path, raw, data, account: { scope, label: scope },
       archived: Boolean(data.isArchived || archives.get(scope)?.has(data.sessionId)), eligible: false };
     if (request.group && entryGroup(workspace, copy) !== request.group) continue;
-    if (!isManageable(copy)) throw userError('errorUnsafeOldCopy');
+    if (!isLocallyDeletable(copy, workspace)) throw userError('errorUnsafeOldCopy');
     selectedEntries.push(copy);
   }
 }

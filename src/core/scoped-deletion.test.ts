@@ -1,7 +1,8 @@
 import { beforeEach, afterEach, expect, it } from 'vitest';
 import { join } from 'node:path';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { buildOperationPlan } from './operations';
+import { buildCatalog } from './catalog';
 import { commitFilePlanWithTrash } from './transaction';
 import { CHAT_A, CHAT_B, ID_A, SCOPE_A, SCOPE_B, addScope, editIndex, indexPath, loadFixtureWorkspace, temporaryFixture } from '../../tests/fixture';
 let root: string;
@@ -9,6 +10,51 @@ beforeEach(() => { root = temporaryFixture(); });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 const load = () => loadFixtureWorkspace(join(root, 'config.json'));
 const request = { kind: 'delete' as const, group: 'visible' as const, sessionIds: [CHAT_B], accountIds: [ID_A] };
+it.each(['deleted', 'scheduled'] as const)('trashes only selected %s transcripts and retains deletion protection', async (group) => {
+  const marker = join(root, 'session-root', SCOPE_A, `deleted_${CHAT_B}`);
+  if (group === 'deleted') writeFileSync(marker, 'original deletion note');
+  else editIndex(root, SCOPE_A, CHAT_B, { scheduledTaskId: 'removed-fixture-task', cloudSessionId: 'fixture-linked-cloud-record' });
+  const workspace = load();
+  expect(buildCatalog(workspace).sessions.find((session) => session.id === CHAT_B)?.deletable).toBe(true);
+  const body = join(root, 'projects/project', `${CHAT_B}.jsonl`);
+  const bytes = readFileSync(body);
+  const untouched = join(root, 'project', 'keep.txt');
+  writeFileSync(untouched, 'project file');
+  const trash = join(root, '.Trash'); mkdirSync(trash);
+  const moved: string[] = [];
+  const result = await commitFilePlanWithTrash(workspace, buildOperationPlan(workspace, { ...request, group }), () => undefined, async (path) => {
+    moved.push(path); renameSync(path, join(trash, `${CHAT_B}.jsonl`));
+  });
+  expect(moved).toEqual([body]);
+  expect(readFileSync(join(trash, `${CHAT_B}.jsonl`))).toEqual(bytes);
+  expect(existsSync(indexPath(root, SCOPE_A, CHAT_B))).toBe(false);
+  expect(existsSync(marker)).toBe(true);
+  if (group === 'deleted') expect(readFileSync(marker, 'utf8')).toBe('original deletion note');
+  expect(readFileSync(untouched, 'utf8')).toBe('project file');
+  expect(load().tombstones.has(CHAT_B)).toBe(true);
+  expect(result.trashCount).toBe(1);
+  expect(result.backup).toBeUndefined();
+});
+it.each(['deleted', 'scheduled'] as const)('retains the shared entry-ID guard for %s cleanup', (group) => {
+  if (group === 'deleted') writeFileSync(join(root, 'session-root', SCOPE_A, `deleted_${CHAT_B}`), 'original');
+  else editIndex(root, SCOPE_A, CHAT_B, { scheduledTaskId: 'removed-fixture-task' });
+  addScope(root, ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc', SCOPE_A);
+  const peer = indexPath(root, ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc', CHAT_B);
+  // Keep the peer outside the selected group even when deletion has precedence.
+  const record = JSON.parse(readFileSync(peer, 'utf8'));
+  record.cliSessionId = CHAT_A;
+  writeFileSync(peer, JSON.stringify(record));
+  expect(() => buildOperationPlan(load(), { ...request, group })).toThrow('claudesync-message:errorSharedHistoryDelete');
+  expect(existsSync(join(root, 'projects/project', `${CHAT_B}.jsonl`))).toBe(true);
+});
+it.each([false, true])('does not offer local cleanup with no scheduled transcript (cloud metadata: %s)', (cloud) => {
+  editIndex(root, SCOPE_A, CHAT_B, { scheduledTaskId: 'removed-fixture-task', ...(cloud ? { cloudSessionId: 'fixture-cloud-only' } : {}) });
+  const body = join(root, 'projects/project', `${CHAT_B}.jsonl`);
+  renameSync(body, `${body}.not-a-local-transcript`);
+  const workspace = load();
+  expect(buildCatalog(workspace).sessions.find((session) => session.id === CHAT_B)).toMatchObject({ manageable: false, deletable: false });
+  expect(() => buildOperationPlan(workspace, { ...request, group: 'scheduled' })).toThrow('claudesync-message:errorUnsupportedSession');
+});
 it('can directly remove an old duplicate without tombstoning its verified current counterpart', async () => {
   const oldScope = ID_A + '/cccccccc-cccc-4ccc-8ccc-cccccccccccc';
   addScope(root, oldScope, SCOPE_A);

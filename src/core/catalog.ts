@@ -1,5 +1,5 @@
 import { accountIdForScope } from './account-identity';
-import { isUuid, REMOTE_KEYS } from './record';
+import { historyIds, isUuid, REMOTE_KEYS } from './record';
 import { titleOrigin } from './title-policy';
 import { deletionMarkers, entryGroup, verifiedOrganization } from './visibility';
 import type { Workspace } from './workspace';
@@ -13,6 +13,11 @@ export function sessionKey(entry: SessionEntry): string {
 export function isManageable(entry: SessionEntry): boolean {
   return isUuid(entry.data.cliSessionId) && !entry.data.scheduledTaskId
     && !REMOTE_KEYS.some((key) => Boolean(entry.data[key]));
+}
+
+export function isLocallyDeletable(entry: SessionEntry, workspace: Workspace): boolean {
+  return isManageable(entry) || Boolean(entry.data.scheduledTaskId) && isUuid(entry.data.cliSessionId)
+    && [...historyIds(entry.data)].some((id) => workspace.transcriptPaths.get(id)?.length);
 }
 
 function timestamp(value: unknown): string | undefined {
@@ -40,6 +45,7 @@ export function buildCatalog(workspace: Workspace, emails: Record<string, string
       project: typeof preferred.data.cwd === 'string' ? preferred.data.cwd : '',
       updatedAt: dates.at(-1), starred: entries.some((entry) => entry.data.isStarred),
       manageable: entries.some((entry) => isManageable(entry)),
+      deletable: entries.some((entry) => isLocallyDeletable(entry, workspace)),
       presence: accountIds.map((accountId) => {
         const copies = entries.filter((entry) => accountIdForScope(entry.account.scope) === accountId);
         const records: SessionCopyView[] = copies.map((entry) => ({
@@ -47,7 +53,7 @@ export function buildCatalog(workspace: Workspace, emails: Record<string, string
           project: typeof entry.data.cwd === 'string' ? entry.data.cwd : '',
           updatedAt: timestamp(entry.data.lastActivityAt ?? entry.data.createdAt),
           archived: Boolean(entry.archived), eligible: entry.eligible,
-          manageable: isManageable(entry), starred: Boolean(entry.data.isStarred),
+          manageable: isManageable(entry), deletable: isLocallyDeletable(entry, workspace), starred: Boolean(entry.data.isStarred),
           reasons: entry.syncIssue ? [entry.syncIssue] : [],
         }));
         return {

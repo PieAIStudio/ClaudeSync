@@ -20,6 +20,7 @@ export interface SessionCopyView {
   archived: boolean;
   eligible: boolean;
   manageable: boolean;
+  deletable?: boolean;
   starred: boolean;
   reasons: string[];
 }
@@ -60,6 +61,7 @@ export interface SessionView {
   updatedAt?: string;
   starred: boolean;
   manageable: boolean;
+  deletable?: boolean;
   presence: SessionPresence[];
 }
 

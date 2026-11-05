@@ -319,7 +319,8 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .filter-drawer > div { top: calc(100% + 6px); right: 0; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 330px; padding: 14px; }
 .selection-menu > div { top: calc(100% + 6px); left: 0; min-width: 220px; }
 .more-actions > div { right: 0; bottom: calc(100% + 10px); min-width: 260px; }
-.action-group { display: grid; gap: 3px; padding: 6px 2px; }
+.action-group { display: grid; gap: 3px; margin: 0; padding: 6px 2px; border: 0; min-width: 0; }
+.delete-titles { padding-left: 22px; overflow-wrap: anywhere; }
 .action-group + .action-group { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--cs-hairline); }
 .action-group h3 { margin: 0 8px 3px; color: var(--cs-faint); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .action-group p { margin: 2px 8px 5px; color: var(--cs-muted); font-size: 12px; line-height: 1.45; white-space: normal; }
@@ -524,10 +525,11 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
   .complete-card { width: 100%; max-width: 640px; padding: 26px 22px 20px; }
   /* Keep the review footer in the scene; the list/content area owns its scrolling. */
   .stage-surface--review.game-ui-page-surface { height: 100%; min-height: 0; }
-  .stage-surface--review .game-ui-page-surface-content { grid-template-columns: 1fr; min-height: 0; overflow: auto; padding: 10px 10px 0; }
+  .stage-surface--review .game-ui-page-surface-content { display: flex; flex-direction: column; min-height: 0; overflow: auto; padding: 10px 10px 0; }
+  .stage-surface--review .game-ui-page-surface-body { flex: none; min-height: 360px; }
   .stage-surface--review .game-ui-page-surface-footer { position: sticky; bottom: 0; margin-top: 0; }
 
-  .stage-surface--review .game-ui-page-surface-aside { order: 2; }
+  .stage-surface--review.game-ui-page-surface[data-layout="split"] .game-ui-page-surface-aside { flex: none; min-height: 0; order: 2; }
   /* A wrapped flex toolbar can keep its old single-row height and let the
    * search input paint over the select-all row. Use a real one-column flow so
    * every control contributes its height before the list starts. */

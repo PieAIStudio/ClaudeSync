@@ -6,7 +6,7 @@ ClaudeSync mostra e organiza listas locais de sessões do Claude Code entre cont
 
 ## Uso
 
-1. Abra `ClaudeSync.app` ou o iniciador do código-fonte. Atualize.
+1. No macOS, use `pnpm package:mac:dir` e abra `dist/electron/mac-arm64/ClaudeSync.app`, não a cópia antiga na raiz nem `Sync.command`. Atualize.
 2. Marque as contas que deseja incluir. Clique na conta para ver as sessões, ou use a lista combinada sem duplicatas.
 
 Para manter as mesmas dez sessões em todas as contas, escolha essas dez e **Manter só as escolhidas**. Elas são adicionadas onde faltam e desarquivadas; o restante é arquivado. Se faltar uma conversa ou houver destino bloqueado, a operação para antes de arquivar outras sessões. **Escolher 10 recentes sincronizáveis** altera somente a seleção.
@@ -14,6 +14,8 @@ Para manter as mesmas dez sessões em todas as contas, escolha essas dez e **Man
 Tarefas remotas ou agendadas ativas também bloqueiam essa operação. Gerencie primeiro essas tarefas no Claude e depois organize as sessões locais.
 
 ## Exclusão e contagem
+
+**Excluir cópias locais restantes** limpa sessões excluídas e execuções agendadas com histórico local. Uma confirmação lista os títulos; só os históricos vão para a Lixeira e as marcas de exclusão ficam. Não altera tarefas na nuvem nem projetos; registros só na nuvem não ocupam espaço de histórico local.
 
 **Excluir sessões escolhidas** exclui conversas, não contas. Abre uma confirmação breve com orientação pelo estado: arquive uma sessão ativa ou cancele para preservar uma já arquivada. Os históricos exclusivos são movidos para a Lixeira do sistema e podem ser devolvidos de lá. A exclusão local se limita ao grupo e às contas escolhidos, sem incluir cópias antigas ocultas, e ao JSONL principal quando nenhuma outra sessão o utiliza. Conteúdo compartilhado, projetos, worktrees e arquivos auxiliares da CLI ficam intactos; os índices só mudam depois que todos os históricos previstos chegam à Lixeira. Outras operações mantêm revisão, backup e recuperação protegida.
 

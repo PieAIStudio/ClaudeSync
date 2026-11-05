@@ -59,19 +59,21 @@ export function accountName(account: AccountView | undefined, t: ReturnType<type
   return account?.email ?? t.t('unknown', { id: account?.id.slice(0, 8) ?? '?' });
 }
 
-export function DeleteConfirmation({ count, accountNames, state, group, source = 'local', busy, blocked = false, onClose, onDelete }: {
-  count: number; accountNames: string[]; state: DeleteState; group?: SessionGroup; source?: 'local' | 'cloud';
+export function DeleteConfirmation({ count, accountNames, titles = [], state, group, source = 'local', busy, blocked = false, onClose, onDelete }: {
+  count: number; accountNames: string[]; titles?: string[]; state: DeleteState; group?: SessionGroup; source?: 'local' | 'cloud';
   busy: boolean; blocked?: boolean; onClose(): void; onDelete(): void;
 }) {
   const t = useTranslation();
-  return <Modal title={t.t(count === 1 ? 'deleteConfirmTitleOne' : 'deleteConfirmTitle', { count })} lead={t.t(source === 'local' ? 'deleteLocalScope' : 'deleteCloudScope')} onClose={onClose} busy={busy}
+  const leftovers = source === 'local' && (group === 'deleted' || group === 'scheduled');
+  return <Modal title={t.t(leftovers ? 'deleteLeftovers' : count === 1 ? 'deleteConfirmTitleOne' : 'deleteConfirmTitle', { count })} lead={t.t(source === 'local' ? 'deleteLocalScope' : 'deleteCloudScope')} onClose={onClose} busy={busy}
     actions={<>{blocked && <p className="operation-warning">{t.t('waiting')}</p>}
       <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('cancel')}</Button>
       <Button variant="danger" disabled={busy || blocked || count === 0} onClick={onDelete}>{t.t(busy ? 'deleting' : 'confirmDelete')}</Button></>}>
     <ReviewFacts group={group} accountNames={accountNames} />
+    {titles.length > 0 && <ul className="delete-titles">{titles.map((title, index) => <li key={index}>{title}</li>)}</ul>}
     <p className="operation-warning">{t.t('deleteNoRecovery')}</p>
     {source === 'local' && <p className="panel-intro">{t.t('scopedWriteCheck')}</p>}
-    <p className="panel-intro">{t.t(source === 'local' && group === 'oldOrganization' ? 'oldDeleteAdvice' : state === 'archived' ? 'deleteArchivedAdvice' : state === 'mixed' ? 'deleteMixedAdvice' : 'deleteActiveAdvice')}</p>
+    <p className="panel-intro">{t.t(leftovers ? 'leftoverDeleteNote' : source === 'local' && group === 'oldOrganization' ? 'oldDeleteAdvice' : state === 'archived' ? 'deleteArchivedAdvice' : state === 'mixed' ? 'deleteMixedAdvice' : 'deleteActiveAdvice')}</p>
   </Modal>;
 }
 
@@ -133,8 +135,8 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
   </aside>;
 }
 
-export function SessionRows({ sessions, accounts, selected, filterId, included, onToggle, busy, idPrefix = 'session', statusMode = 'sync' }: {
-  sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string; statusMode?: 'sync' | 'cleanup';
+export function SessionRows({ sessions, accounts, selected, filterId, included, onToggle, busy, idPrefix = 'session', statusMode = 'sync', group = 'visible' }: {
+  sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string; statusMode?: 'sync' | 'cleanup'; group?: SessionGroup;
 }) {
   const t = useTranslation();
   if (!sessions.length) return <p className="empty-state">{t.t('noSessions')}</p>;
@@ -142,14 +144,15 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
     const presence = session.presence.filter((item) => filterId === 'all' ? included.has(item.accountId) : item.accountId === filterId);
     const active = presence.some((item) => item.active);
     const eligible = presence.some((item) => item.eligible);
-    const reasons = [...new Set(presence.flatMap((item) => item.reasons))];
+    const scheduledNotice = group === 'scheduled' ? session.deletable ? 'scheduledLocalCopy' : 'scheduledCloudOnly' : undefined;
+    const reasons = scheduledNotice ? [] : [...new Set(presence.flatMap((item) => item.reasons))];
     const selectedRestore = session.manageable && reasons.some((reason) => hasReason(reason, reasonKeys.deleted, '删除标记') || reason.includes('曾被删除'));
     const projectName = session.project.split(/[\\/]/u).filter(Boolean).at(-1) || '—';
     const projectMissing = presence.some((item) => item.reasons.some((reason) => hasReason(reason, reasonKeys.project, '工作目录')))
       || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu.test(projectName);
     const status = selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? statusMode === 'cleanup' ? 'cleanupReady' : 'syncable' : 'blocked';
     return <li key={session.id} className={`session-row ${selected.has(session.id) ? 'is-selected' : ''}`}>
-      <input id={`${idPrefix}-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !session.manageable || !session.presence.some((item) => included.has(item.accountId))}
+      <input id={`${idPrefix}-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !(session.manageable || (group === 'scheduled' || group === 'deleted') && session.deletable) || !session.presence.some((item) => included.has(item.accountId))}
         onChange={(event) => onToggle(session.id, event.target.checked)} />
       <div className="session-copy">
         <label className="session-title" htmlFor={`${idPrefix}-${session.id}`}>
@@ -158,17 +161,18 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
         <div className="session-meta"><span title={projectMissing ? t.t('projectMissing') : session.project}>{projectMissing ? t.t('projectMissing') : projectName}</span>
           {session.updatedAt && <time dateTime={session.updatedAt}>{t.date(session.updatedAt, { dateStyle: 'medium' })}</time>}
         </div>
+        {scheduledNotice && <p className="session-reason">{t.t(scheduledNotice)}</p>}
       </div>
       <span className={`session-status session-status--${status}`}>{t.t(status)}</span>
       <details className="session-details"><summary><span>{t.t('rowDetails')}</span><span aria-hidden="true">›</span></summary><div>
         {reasons.length > 0 && <p className="session-detail-reason">{reasons.map((reason) => <span key={reason}>{reasonText(reason, t)}</span>)}</p>}
         <p>{t.t('project')}: {session.project || '—'}</p><p>ID: {session.id}</p>
-        {!session.manageable && <p>{t.t('unsupported')}</p>}
+        {!session.manageable && !scheduledNotice && <p>{t.t('unsupported')}</p>}
         {session.presence.map((item) => <div className="presence-detail" key={item.accountId}>
           <strong>{accountName(accounts.find((account) => account.id === item.accountId), t)}</strong>
           <span>{t.t(item.active ? 'active' : 'archived')} · {item.copies === 1 ? t.t('copyOne') : t.t('copies', { count: item.copies })}</span>
           <p>{t.t('titleVariants')}: {item.titles.filter(Boolean).join(' / ') || t.t('untitled')}</p>
-          {item.reasons.map((reason) => <p key={reason}>{reasonText(reason, t)}</p>)}
+          {!scheduledNotice && item.reasons.map((reason) => <p key={reason}>{reasonText(reason, t)}</p>)}
         </div>)}
       </div></details>
     </li>;
@@ -183,7 +187,7 @@ export function CollapsedSessionGroup({ group, sessions, accounts, selected, fil
   return <div className="supplementary-section">
     <details className="supplementary-group" data-group={group} onToggle={(event) => { if (!event.currentTarget.open) onCollapse(); }}>
       <summary>{t.t(groupLabels[group])} <span>{sessions.length}</span></summary>
-      <SessionRows sessions={sessions} accounts={accounts} selected={selected} filterId={filterId} included={included} onToggle={onToggle} busy={busy} idPrefix={`group-${group}`} />
+      <SessionRows sessions={sessions} accounts={accounts} selected={selected} filterId={filterId} included={included} onToggle={onToggle} busy={busy} group={group} idPrefix={`group-${group}`} />
     </details>
     <span className="group-tip"><TermTip term={group} /></span>
   </div>;

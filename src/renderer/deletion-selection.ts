@@ -9,7 +9,7 @@ export function deletionSelection(sessions: SessionView[], selected: Set<string>
   let active = false;
   let archived = false;
   for (const session of sessions) {
-    if (!selected.has(session.id) || !session.manageable) continue;
+    if (!selected.has(session.id) || !(session.deletable ?? session.manageable)) continue;
     const targets = session.presence.filter((item) => included.has(item.accountId) && (accountId === 'all' || item.accountId === accountId));
     if (!targets.length) continue;
     sessionIds.push(session.id);

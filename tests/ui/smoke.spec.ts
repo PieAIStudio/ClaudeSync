@@ -101,7 +101,7 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-async function installFixture(page: Page, locale: Locale): Promise<void> {
+async function installFixture(page: Page, locale: Locale, initialWorkspace = fixtureWorkspace): Promise<void> {
   await page.addInitScript(({ initialWorkspace, cloud, selectedLocale }) => {
     localStorage.setItem('claudesync.locale', selectedLocale);
     localStorage.setItem('claudesync.theme', 'light');
@@ -156,7 +156,19 @@ async function installFixture(page: Page, locale: Locale): Promise<void> {
         pendingPreview = undefined;
         return { result: { filesChanged: current?.fileCount ?? 1, verified: true, backup: 'fixture-backup-after' }, workspace: copy(workspace) };
       },
-      deleteSelected: async () => ({ result: { filesChanged: 1, verified: true, trashCount: 1 }, workspace: copy(workspace) }),
+      deleteSelected: async (request: { group: string; sessionIds: string[]; accountIds: string[] }) => {
+        (window as any).__fixtureDeletes = [...((window as any).__fixtureDeletes ?? []), copy(request)];
+        workspace.sessions = workspace.sessions.flatMap((session: any) => {
+          if (!request.sessionIds.includes(session.id)) return [session];
+          const presence = session.presence.flatMap((item: any) => {
+            if (!request.accountIds.includes(item.accountId)) return [item];
+            const records = item.records.filter((record: any) => record.group !== request.group);
+            return records.length ? [{ ...item, records }] : [];
+          });
+          return presence.length ? [{ ...session, presence }] : [];
+        });
+        return { result: { filesChanged: 1, verified: true, trashCount: 1 }, workspace: copy(workspace) };
+      },
       previewOldCopies: async () => ({ items: [], accountIds: [], trashCount: 0, archivedToImport: 0 }),
       cleanupOldCopies: async () => ({ result: { trashed: 0, importedArchived: 0, mainUnchanged: true, oldCopiesRemaining: 0 }, workspace: copy(workspace) }),
       cloudSessions: async () => copy(cloudState),
@@ -174,12 +186,12 @@ async function installFixture(page: Page, locale: Locale): Promise<void> {
       openBackups: async () => undefined,
     };
     Object.defineProperty(window, 'claudeSync', { configurable: true, value: api });
-  }, { initialWorkspace: fixtureWorkspace, cloud: fixtureCloud, selectedLocale: locale });
+  }, { initialWorkspace, cloud: fixtureCloud, selectedLocale: locale });
 }
 
-async function openFixture(page: Page, viewport: Viewport, locale: Locale): Promise<void> {
+async function openFixture(page: Page, viewport: Viewport, locale: Locale, workspace = fixtureWorkspace): Promise<void> {
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
-  await installFixture(page, locale);
+  await installFixture(page, locale, workspace);
   await page.goto('/', { waitUntil: 'networkidle' });
   await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'home');
   await expect(page.locator('.shell-brand strong')).toHaveText('ClaudeSync');
@@ -305,6 +317,70 @@ async function openUtilityStage(page: Page, locale: Locale, stage: 'backups' | '
     await button.click();
   }
   await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', stage);
+}
+
+function leftoverWorkspace(): FixtureWorkspace {
+  const workspace = clone(fixtureWorkspace);
+  for (const [id, group, deletable] of [['deleted-1', 'deleted', true], ['deleted-2', 'deleted', true], ['scheduled-local', 'scheduled', true], ['scheduled-cloud', 'scheduled', false]] as const) {
+    const session = clone(fixtureWorkspace.sessions[0]) as any;
+    session.id = id; session.title = `Synthetic ${id}`;
+    session.manageable = group === 'deleted'; session.deletable = deletable;
+    session.presence[0] = { ...session.presence[0], active: false, eligible: false,
+      titles: [session.title], records: [{ ...session.presence[0].records[0], title: session.title, group,
+        manageable: session.manageable, deletable, eligible: false }] };
+    workspace.sessions.push(session);
+  }
+  return workspace;
+}
+
+async function confirmLeftoverGroup(page: Page, locale: Locale, group: 'deleted' | 'scheduled'): Promise<void> {
+  const panel = page.locator(`[data-group="${group}"]`);
+  await panel.locator('summary').first().click();
+  if (group === 'scheduled') {
+    await expect(panel.getByText(locale === 'zh-CN' ? '这条只在云端，Claude 里已没有入口删除；不占本机空间' : 'This record is cloud-only, with no delete entry left in Claude; it takes no local space.', { exact: true })).toBeVisible();
+    await expect(panel.getByRole('checkbox', { name: 'Synthetic scheduled-cloud' })).toBeDisabled();
+    await expect(panel).not.toContainText(locale === 'zh-CN' ? '请在 Claude 内管理' : 'Manage it in Claude');
+  }
+  const ids = group === 'deleted' ? ['deleted-1', 'deleted-2'] : ['scheduled-local'];
+  for (const id of ids) await panel.getByRole('checkbox', { name: `Synthetic ${id}` }).check();
+  const action = locale === 'zh-CN' ? '彻底删除本机副本' : 'Delete leftover copies';
+  const button = page.getByRole('button', { name: action, exact: true }).first();
+  await assertInsideViewport(page, button, 'leftover cleanup action');
+  const report = process.env.UI_CLEAN_REPORT ?? join(process.cwd(), '.reports/2026-11-06-leftovers');
+  if (locale === 'zh-CN') {
+    mkdirSync(report, { recursive: true });
+    if (group === 'scheduled') await panel.getByRole('checkbox', { name: 'Synthetic scheduled-cloud' }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(report, `${group}-panel-${page.viewportSize()!.width}.png`), animations: 'disabled' });
+  }
+  await button.click();
+  const dialog = page.getByRole('dialog', { name: action, exact: true });
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  for (const id of ids) await expect(dialog.locator('.delete-titles')).toContainText(`Synthetic ${id}`);
+  await expect(dialog).toContainText(locale === 'zh-CN' ? '保留删除标记' : 'Keep deletion notes');
+  if (locale === 'zh-CN' && group === 'deleted') await page.screenshot({ path: join(report, `deleted-confirm-${page.viewportSize()!.width}.png`), animations: 'disabled' });
+  await dialog.getByRole('button', { name: locale === 'zh-CN' ? '确定删除' : 'Delete', exact: true }).click();
+  await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'complete');
+}
+
+for (const viewport of [{ name: 'phone', width: 390, height: 844 }, { name: 'desktop', width: 1920, height: 1080 }]) {
+  for (const locale of LOCALES) {
+    test(`fixed renderer smoke — leftover cleanup / ${viewport.name} / ${locale}`, async ({ page }) => {
+      await openFixture(page, viewport, locale, leftoverWorkspace());
+      for (const group of ['deleted', 'scheduled'] as const) {
+        await openStage(page, locale, 'local');
+        await page.locator('.summary-card--older .summary-card-main').click();
+        await confirmLeftoverGroup(page, locale, group);
+      }
+      const requests = await page.evaluate(() => (window as any).__fixtureDeletes);
+      expect(requests).toHaveLength(2);
+      expect(requests[0]).toMatchObject({ group: 'deleted', sessionIds: ['deleted-1', 'deleted-2'], accountIds: [ACCOUNT_A] });
+      expect(requests[1]).toMatchObject({ group: 'scheduled', sessionIds: ['scheduled-local'], accountIds: [ACCOUNT_A] });
+      await openStage(page, locale, 'local');
+      await page.locator('.summary-card--older .summary-card-main').click();
+      await expect(page.getByRole('checkbox', { name: 'Synthetic deleted-1' })).toHaveCount(0);
+      await expect(page.getByRole('checkbox', { name: 'Synthetic scheduled-local' })).toHaveCount(0);
+    });
+  }
 }
 
 test('alpha.15 layout regression — sidebar slots and theme button keep their desktop geometry', async ({ page }) => {
