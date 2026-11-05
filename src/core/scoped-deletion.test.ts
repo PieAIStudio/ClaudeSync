@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, expect, it } from 'vitest';
 import { join } from 'node:path';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { buildOperationPlan } from './operations';
 import { buildCatalog } from './catalog';
 import { commitFilePlanWithTrash } from './transaction';
@@ -10,6 +10,37 @@ beforeEach(() => { root = temporaryFixture(); });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 const load = () => loadFixtureWorkspace(join(root, 'config.json'));
 const request = { kind: 'delete' as const, group: 'visible' as const, sessionIds: [CHAT_B], accountIds: [ID_A] };
+const finderBytes = () => Buffer.concat([Buffer.from([0, 0, 0, 1, 66, 117, 100, 49]), Buffer.alloc(28)]);
+it('retains valid Finder metadata without treating it as an unknown session store', async () => {
+  const paths = ['', ID_A, SCOPE_A, `${SCOPE_A}/backlog`, `${SCOPE_A}/waiting-input`].map(p => join(root, 'session-root', p, '.DS_Store'));
+  for (const path of paths) { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, finderBytes()); }
+  const workspace = load(), plan = buildOperationPlan(workspace, request);
+  expect(plan.deletionSnapshot?.skippedPaths).toEqual([]);
+  expect(plan.transcriptRemovals).toHaveLength(1);
+  await commitFilePlanWithTrash(workspace, plan, () => undefined, async path => renameSync(path, `${path}.fixture-trash`));
+  for (const path of paths) expect(readFileSync(path)).toEqual(finderBytes());
+});
+it.each(['malformed', 'symlink', 'directory', 'oversized'])('keeps %s Finder-named entries conservative', (kind) => {
+  const path = join(root, 'session-root', '.DS_Store');
+  if (kind === 'symlink') symlinkSync(indexPath(root, SCOPE_A, CHAT_B), path);
+  else if (kind === 'directory') mkdirSync(path);
+  else writeFileSync(path, kind === 'malformed' ? Buffer.from('{}') : Buffer.concat([finderBytes(), Buffer.alloc(1024 * 1024)]));
+  const plan = buildOperationPlan(load(), request);
+  expect(plan.deletionSnapshot?.skippedPaths).toContain('.DS_Store');
+  expect(plan.transcriptRemovals).toEqual([]);
+});
+it.each(['corrupt-finder', 'unknown-store'])('refuses Trash if %s appears after the preview', async kind => {
+  const path = join(root, 'session-root', '.DS_Store');
+  writeFileSync(path, finderBytes());
+  const workspace = load(), plan = buildOperationPlan(workspace, request);
+  expect(plan.transcriptRemovals).toHaveLength(1);
+  writeFileSync(kind === 'corrupt-finder' ? path : join(root, 'session-root', 'unknown-store'), '{}');
+  const moved: string[] = [];
+  await expect(commitFilePlanWithTrash(workspace, plan, () => undefined, async p => { moved.push(p); })).rejects.toThrow('claudesync-message:errorOtherAccountChanged');
+  expect(moved).toEqual([]);
+  expect(existsSync(indexPath(root, SCOPE_A, CHAT_B))).toBe(true);
+  expect(existsSync(join(root, 'projects/project', `${CHAT_B}.jsonl`))).toBe(true);
+});
 it.each(['deleted', 'scheduled'] as const)('trashes only selected %s transcripts and retains deletion protection', async (group) => {
   const marker = join(root, 'session-root', SCOPE_A, `deleted_${CHAT_B}`);
   if (group === 'deleted') writeFileSync(marker, 'original deletion note');

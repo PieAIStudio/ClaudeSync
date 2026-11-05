@@ -166,6 +166,9 @@ function assertCommitInputs(workspace: Workspace, plan: FilePlan, state: CommitS
   else if (!sameSnapshot(state.expected, current)) throw userError('errorWorkspaceChanged');
   if (state.deletionExpected) {
     const allAccounts = takeDeletionSnapshot(workspace.root);
+    if (allAccounts.skippedPaths.length && plan.transcriptRemovals?.some((check) => !state.removedTranscripts.has(check.path))) {
+      throw userError('errorOtherAccountChanged');
+    }
     if (plan.dependencies) assertDependencySnapshot(state.deletionExpected, allAccounts, plan.dependencies);
     else if (!sameSnapshot(state.deletionExpected, allAccounts)) throw userError('errorOtherAccountChanged');
   }

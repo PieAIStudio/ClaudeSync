@@ -159,9 +159,21 @@ export function takeWorkspaceSnapshot(root: string, accounts: Account[]): Worksp
       return true;
     } catch { skipped.add(path); return false; }
   }
+  // Finder's bounded, regular binary metadata is not a session-reference store.
+  // Keep its bytes in the snapshot; malformed files and links remain unknown.
+  function finderMetadata(path: string): boolean {
+    if (basename(path) !== '.DS_Store') return false;
+    try {
+      const raw = readRegularFile(join(root, path), SAMPLE_BYTES);
+      if (raw.length < 36 || !raw.subarray(0, 8).equals(Buffer.from([0, 0, 0, 1, 66, 117, 100, 49]))) return false;
+      files.set(path, raw);
+      return true;
+    } catch { return false; }
+  }
   // Inspect names/types only: never follow an unknown login's link or recurse
   // into an unrecognized store. Configured write targets are checked separately.
   for (const name of readdirSync(root).sort()) {
+    if (finderMetadata(name)) continue;
     try {
       if (!UUID.test(name)) skipped.add(name);
       else assertPlainDirectory(join(root, name));
@@ -176,6 +188,7 @@ export function takeWorkspaceSnapshot(root: string, accounts: Account[]): Worksp
     directories.set(organization, plainAccounts);
     for (const accountName of accountsInOrganization) {
       const scope = `${organization}/${accountName}`;
+      if (finderMetadata(scope)) continue;
       if (!UUID.test(accountName)) { skipped.add(scope); continue; }
       const names = members(scope);
       if (!names) continue;
@@ -184,6 +197,7 @@ export function takeWorkspaceSnapshot(root: string, accounts: Account[]): Worksp
       directories.set(scope, retained);
       for (const name of names) {
         const path = `${scope}/${name}`;
+        if (finderMetadata(path)) continue;
         if (name === 'backlog' || name === 'waiting-input') {
           // Desktop owns these auxiliary stores. Snapshot regular bytes only;
           // neither their contents nor skipped entries become chat records.
@@ -194,6 +208,7 @@ export function takeWorkspaceSnapshot(root: string, accounts: Account[]): Worksp
           directories.set(path, plainChildren);
           for (const child of children) {
             const childPath = `${path}/${child}`;
+            if (finderMetadata(childPath)) continue;
             if (name === 'backlog' && child !== 'tasks.json') { skipped.add(childPath); continue; }
             if (retain(childPath, name === 'backlog' ? MAX_BACKLOG_BYTES : MAX_INDEX_BYTES)) plainChildren.push(child);
           }
