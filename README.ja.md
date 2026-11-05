@@ -35,6 +35,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm package:mac:dir
+open dist/electron/mac-arm64/ClaudeSync.app
 ```
 
 テストは一時的な合成データのみ使用。開発版は `CLAUDESYNC_DATA_DIR` で分離できます。配布用ビルドはこの指定を無視します。

@@ -35,6 +35,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm package:mac:dir
+open dist/electron/mac-arm64/ClaudeSync.app
 ```
 
 Os testes usam dados sintéticos temporários. O desenvolvimento permite isolamento com `CLAUDESYNC_DATA_DIR`; os pacotes finais ignoram esse ajuste.

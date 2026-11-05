@@ -70,6 +70,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm package:mac:dir
+open dist/electron/mac-arm64/ClaudeSync.app
 ```
 
 `pnpm package:mac:dir` is the single macOS app-build path; open `dist/electron/mac-arm64/ClaudeSync.app`. After quitting the old root `ClaudeSync.app`, move that old copy to Trash (never while it is running).

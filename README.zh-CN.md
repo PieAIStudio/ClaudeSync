@@ -67,6 +67,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm package:mac:dir
+open dist/electron/mac-arm64/ClaudeSync.app
 ```
 
 `pnpm package:mac:dir` 是唯一的 macOS 应用构建入口。退出根目录的旧 `ClaudeSync.app` 后，再把旧包移到废纸篓；运行中不移动。
