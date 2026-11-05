@@ -11,6 +11,13 @@ describe('signed Desktop writer identity', () => {
     expect(probe.verify).toHaveBeenCalledWith('/private/updates/New Build.app', DESKTOP_BUNDLE);
     expect(probe.verify).toHaveBeenCalledWith(executable);
   });
+  it('recognizes updated bundle paths without depending on extension case', () => {
+    expect(identifyDesktopProcesses([{ pid: 44, executable: '/private/updates/New Build.APP/Contents/MacOS/Claude' }], inspector())).toHaveLength(1);
+  });
+  it('rejects an impostor even after its outer app directory is renamed', () => {
+    const probe = inspector(); probe.bundle = () => ({ bundleId: 'fixture.impostor', version: '1' });
+    expect(() => identifyDesktopProcesses([{ pid: 43, executable: '/private/updates/New Build.app/Contents/MacOS/Other' }, { pid: 44, executable: '/private/updates/New Build.app/Contents/MacOS/Claude' }], probe)).toThrow();
+  });
   it('counts the signed updater as an open Desktop writer', () => {
     const executable = '/Applications/Claude.app/Contents/Frameworks/Squirrel.framework/Resources/ShipIt';
     expect(identifyDesktopProcesses([{ pid: 43, executable }], inspector())).toHaveLength(1);

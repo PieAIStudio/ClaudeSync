@@ -15,7 +15,7 @@ export interface SignatureInspector {
 export function desktopBundleRoots(executable: string): string[] {
   // Stock command paths are not application paths, even if arguments were appended.
   if (/^\/(?:usr\/)?s?bin\//u.test(executable)) return [];
-  return [...executable.matchAll(/\.app\/Contents\//gu)].map((m) => executable.slice(0, m.index! + 4));
+  return [...executable.matchAll(/\.app\/Contents\//giu)].map((m) => executable.slice(0, m.index! + 4));
 }
 export function identifyDesktopProcesses(processes: ProcessPath[], inspector: SignatureInspector) {
   const bundles = new Map<string, BundleIdentity | null>();
@@ -30,11 +30,13 @@ export function identifyDesktopProcesses(processes: ProcessPath[], inspector: Si
       if (!bundles.has(root)) {
         const identity = inspector.bundle(root);
         if (identity?.bundleId === DESKTOP_BUNDLE) inspector.verify(root, DESKTOP_BUNDLE);
-        else if (/^Claude(?:[ .-]|$)/u.test(basename(root))) throw new Error('Unverifiable Desktop bundle; no cleanup');
         bundles.set(root, identity);
       }
       const identity = bundles.get(root);
-      if (identity?.bundleId !== DESKTOP_BUNDLE) continue;
+      if (identity?.bundleId !== DESKTOP_BUNDLE) {
+        if (/^Claude(?:[ .-]|$)/u.test(basename(root)) || /^Claude(?:[ (.-]|$)/u.test(basename(process.executable))) throw new Error('Unverifiable Desktop bundle; no cleanup');
+        continue;
+      }
       if (!verifiedExecutables.has(process.executable)) {
         inspector.verify(process.executable);
         verifiedExecutables.add(process.executable);
