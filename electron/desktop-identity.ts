@@ -5,6 +5,7 @@ import { app } from 'electron';
 import { isRecord, readRegularFile } from '../src/core/storage';
 import type { DesktopIdentityState } from '../src/shared/contracts';
 import { userError } from '../src/error-copy';
+import { assertClaudeDataPath, claudeRootOverride } from './claude-root';
 
 export interface AccountIdentity { accountId: string; email: string; organizationId?: string }
 export interface DesktopIdentityCheck { state: DesktopIdentityState; identity?: AccountIdentity }
@@ -18,9 +19,10 @@ const PROFILE_URL = 'https://api.anthropic.com/api/oauth/profile';
 
 export function desktopDataPath(): string {
   const home = app.getPath('home');
-  return process.platform === 'darwin' ? join(home, 'Library', 'Application Support', 'Claude')
-    : process.platform === 'win32' ? join(process.env.APPDATA || join(home, 'AppData', 'Roaming'), 'Claude')
-      : join(process.env.XDG_CONFIG_HOME || join(home, '.config'), 'Claude');
+  const explicit = claudeRootOverride();
+  return assertClaudeDataPath(process.platform === 'darwin' ? join(home, 'Library', 'Application Support', 'Claude')
+    : process.platform === 'win32' ? join((!explicit && process.env.APPDATA) || join(home, 'AppData', 'Roaming'), 'Claude')
+      : join((!explicit && process.env.XDG_CONFIG_HOME) || join(home, '.config'), 'Claude'));
 }
 
 interface DesktopLogin { accountId: string; encryptedCache: string }

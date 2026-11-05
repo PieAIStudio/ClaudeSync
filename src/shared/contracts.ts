@@ -6,6 +6,7 @@ export interface AppInfo {
   configured: boolean;
   suggestedSessionRoot: string;
   suggestedProjectsRoot: string;
+  nativePaths?: { home: string; userData: string; desktopData: string };
 }
 
 export const SESSION_GROUPS = ['visible', 'archived', 'scheduled', 'oldOrganization', 'deleted', 'unverified'] as const;

@@ -7,14 +7,17 @@ import { cloudSessions, deleteCloudSessions } from './cloud-sessions';
 import { userError } from '../src/error-copy';
 import { denyRendererPermissions } from './renderer-security';
 import { startTelemetry } from './telemetry';
+import { initializeClaudeRoot } from './claude-root';
+import { desktopDataPath } from './desktop-identity';
 
+app.setName('ClaudeSync');
+initializeClaudeRoot(app);
 const telemetry = startTelemetry({ key: process.env.CLAUDESYNC_POSTHOG_KEY ?? import.meta.env.MAIN_VITE_POSTHOG_KEY,
   host: process.env.CLAUDESYNC_POSTHOG_HOST ?? import.meta.env.MAIN_VITE_POSTHOG_HOST,
   disabled: process.env.CLAUDESYNC_TELEMETRY_DISABLED === '1' });
 const jobEvents = { check: 'sessions_checked', apply: 'changes_applied', 'delete-selected': 'local_sessions_deleted',
   'cloud-sessions': 'cloud_sessions_checked', 'delete-cloud-sessions': 'cloud_sessions_deleted' } as const;
 
-app.setName('ClaudeSync');
 if (!app.isPackaged && process.env.CLAUDESYNC_DATA_DIR) {
   const path = resolve(process.env.CLAUDESYNC_DATA_DIR);
   mkdirSync(path, { recursive: true, mode: 0o700 });
@@ -40,7 +43,8 @@ function registerIpc(): void {
   }
   handle('report-error', (_event, stack) => { if (typeof stack === 'string') telemetry.error({ stack: stack.slice(0, 4000) }); });
   handle('info', () => ({ version: app.getVersion(), configured: existsSync(configPath()),
-    suggestedSessionRoot: savedRoots().sessionRoot, suggestedProjectsRoot: savedRoots().projectsRoot }));
+    suggestedSessionRoot: savedRoots().sessionRoot, suggestedProjectsRoot: savedRoots().projectsRoot,
+    nativePaths: { home: app.getPath('home'), userData: app.getPath('userData'), desktopData: desktopDataPath() } }));
   handle('choose-directory', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)!;
     const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'] });

@@ -8,6 +8,7 @@ import type { Account } from '../src/core/types';
 import { desktopDataPath } from './desktop-identity';
 import { userError, userMessage } from '../src/error-copy';
 import type { AccountIdentity } from './desktop-identity';
+import { assertClaudeDataPath, claudeRootOverride } from './claude-root';
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 type IdentityEmails = Record<string, string>;
@@ -44,7 +45,7 @@ function readIdentities(): Record<string, SavedIdentity> {
 
 function cliIdentity(): AccountIdentity | undefined {
   try {
-    const raw: unknown = JSON.parse(readRegularFile(join(app.getPath('home'), '.claude.json')).toString('utf8'));
+    const raw: unknown = JSON.parse(readRegularFile(assertClaudeDataPath(join(app.getPath('home'), '.claude.json'))).toString('utf8'));
     if (!isRecord(raw) || !isRecord(raw.oauthAccount)) return undefined;
     const accountId = raw.oauthAccount.accountUuid;
     const email = raw.oauthAccount.emailAddress;
@@ -116,10 +117,10 @@ function defaultRoots(): { sessionRoot: string; projectsRoot: string } {
   const sessionRoot = candidates.find((candidate) => {
     try { return lstatSync(candidate).isDirectory(); } catch { return false; }
   }) ?? candidates[0]!;
-  const configOverride = process.env.CLAUDE_CONFIG_DIR?.trim();
+  const configOverride = claudeRootOverride() ? undefined : process.env.CLAUDE_CONFIG_DIR?.trim();
   return {
-    sessionRoot,
-    projectsRoot: configOverride ? join(configOverride, 'projects') : join(home, '.claude', 'projects'),
+    sessionRoot: assertClaudeDataPath(sessionRoot),
+    projectsRoot: assertClaudeDataPath(configOverride ? join(configOverride, 'projects') : join(home, '.claude', 'projects')),
   };
 }
 
@@ -145,6 +146,12 @@ function discoverAccounts(sessionRoot: string, currentId?: string): Account[] {
 export function ensureConfiguredWorkspace(): ReturnType<typeof loadWorkspace> {
   const target = configPath();
   if (!existsSync(target)) throw userError('errorFoldersNotConfigured');
+  if (claudeRootOverride()) {
+    const saved: unknown = JSON.parse(readRegularFile(target).toString('utf8'));
+    if (isRecord(saved) && typeof saved.session_root === 'string' && typeof saved.projects_root === 'string') {
+      assertClaudeDataPath(saved.session_root); assertClaudeDataPath(saved.projects_root);
+    }
+  }
   return loadWorkspace(target);
 }
 
@@ -169,7 +176,7 @@ export function savedRoots(): { sessionRoot: string; projectsRoot: string } {
   try {
     const saved: unknown = JSON.parse(readRegularFile(target).toString('utf8'));
     if (isRecord(saved) && typeof saved.session_root === 'string' && typeof saved.projects_root === 'string') {
-      return { sessionRoot: saved.session_root, projectsRoot: saved.projects_root };
+      return { sessionRoot: assertClaudeDataPath(saved.session_root), projectsRoot: assertClaudeDataPath(saved.projects_root) };
     }
   } catch { /* The read-only check will report malformed saved settings. */ }
   return fallback;
@@ -178,8 +185,8 @@ export function savedRoots(): { sessionRoot: string; projectsRoot: string } {
 
 export function configureFolders(sessionRootValue: unknown, projectsRootValue: unknown): void {
   if (typeof sessionRootValue !== 'string' || typeof projectsRootValue !== 'string') throw userError('errorChooseFolders');
-  const sessionRoot = resolve(sessionRootValue);
-  const projectsRoot = resolve(projectsRootValue);
+  const sessionRoot = assertClaudeDataPath(resolve(sessionRootValue));
+  const projectsRoot = assertClaudeDataPath(resolve(projectsRootValue));
   const accounts = accountsForConfiguration(sessionRoot, discoverAccounts(sessionRoot));
   if (!accounts.length) throw userError('errorNoAccounts');
   if (accounts.length > 50) throw userError('errorTooManyAccounts');

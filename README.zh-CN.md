@@ -76,6 +76,14 @@ open dist/electron/mac-arm64/ClaudeSync.app
 
 `pnpm dev` 默认打开 Electron。测试只改临时合成数据。开发版可用 `CLAUDESYNC_DATA_DIR` 指定隔离的应用资料目录；正式安装包忽略这个覆盖项。
 
+开发版和安装包都支持 `--claude-root <path>`，也可用 `CLAUDESYNC_CLAUDE_ROOT`；命令行优先。目录须已存在，并按用户主目录结构放置 `.claude.json`、`.claude/projects` 和对应系统的 Desktop 资料。未指定时保持原行为；指定后忽略宿主的 Claude 路径环境覆盖，拒绝目录外或经过符号链接的 Claude 路径。配合 Electron 的 `--user-data-dir` 隔离 ClaudeSync 设置：
+
+```sh
+dist/electron/mac-arm64/ClaudeSync.app/Contents/MacOS/ClaudeSync --claude-root /path/to/profile-home --user-data-dir=/path/to/claudesync-profile
+```
+
+这不会重定向系统钥匙串、关闭写入保护或开启测试模式。安装包验收只用不含 Desktop 凭据的合成资料，并关闭遥测。
+
 构建后运行 `CLAUDESYNC_UI_SCENARIO=skipped-entries node tests/ui-smoke.cjs` 可定向检查跳过提示和同步/归档后未知内容不变，证据保存在忽略提交的 `.reports/2026-10-21-waiting-input/`。
 
 运行 `node tests/ui-smoke.cjs` 可在实际 Electron 界面复现本次三条路径。入口只创建自己的假账号和 home，禁止网络、钥匙串和外部命令；进程列表与废纸篓用隔离替身。截图和收据保存在忽略提交的 `.reports/2026-10-18-claudesync-fixes/`。它不会接收真实账号路径；真实 Desktop 续聊效果仍需使用者自己点验。

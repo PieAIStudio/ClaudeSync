@@ -40,6 +40,14 @@ open dist/electron/mac-arm64/ClaudeSync.app
 
 テストは一時的な合成データのみ使用。開発版は `CLAUDESYNC_DATA_DIR` で分離できます。配布用ビルドはこの指定を無視します。
 
+両ビルドで `--claude-root <path>` または `CLAUDESYNC_CLAUDE_ROOT` を指定できます（引数優先）。既存フォルダーはホームと同じ構造にし、`.claude.json`、`.claude/projects`、OS 別の Desktop データを置きます。未指定時は従来どおりです。指定時はホストの Claude パス環境変数を無視し、範囲外やシンボリックリンク経由のパスを拒否します。ClaudeSync の設定も分離する場合は `--user-data-dir` を併用します。
+
+```sh
+dist/electron/mac-arm64/ClaudeSync.app/Contents/MacOS/ClaudeSync --claude-root /path/to/profile-home --user-data-dir=/path/to/claudesync-profile
+```
+
+OS のキーチェーンや書き込み保護は変更しません。検証には Desktop 認証情報のない合成プロフィールを使い、テレメトリーを無効にします。
+
 現在のローカルパッケージは未署名 Apple silicon `.app`。他の OS、Intel Mac、署名と公証は別途確認が必要。5言語 UI。広告・行動追跡・課金・自動同期はありません。Owner の 2026-11-04 決定により、設定済みの場合のみ匿名 PostHog 診断（5種類の操作件数・匿名化したエラーと数値のみのスタック位置）を送信します。ファイル名・パス・メール・アカウント名・URL・会話内容は送信しません。キーと地域ホストは Git 外の起動環境で `CLAUDESYNC_POSTHOG_KEY` / `CLAUDESYNC_POSTHOG_HOST` に指定。未設定時は無効、`CLAUDESYNC_TELEMETRY_DISABLED=1` で停止できます。[詳細](README.md#anonymous-diagnostics)。CI は手動のみ。旧 Python/Tk/Web コードは現在のソースから整理しましたが、Git 履歴と旧公開版は保持しています。
 
 [構成](ARCHITECTURE.md) · [開発](CONTRIBUTING.md) · [セキュリティ](SECURITY.md) · [計画](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)

@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { isRecord } from '../src/core/storage';
 import { messageList, userMessage } from '../src/error-copy';
+import { assertClaudeDataPath, claudeRootOverride } from './claude-root';
 
 export function classifyProcesses(rows: Array<{ command: string; args: string }>): { writers: number; automatic: boolean } {
   let writers = 0;
@@ -82,7 +83,7 @@ export async function processBlockers(scope?: WriteScope): Promise<string[]> {
     }
     if (process.platform === 'darwin') {
       const label = 'local.claude-session-sync.on-exit';
-      if (existsSync(join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`))) blockers.push(userMessage('statusAutoSyncLaunchAgent'));
+      if (existsSync(assertClaudeDataPath(join(claudeRootOverride() ?? homedir(), 'Library', 'LaunchAgents', `${label}.plist`)))) blockers.push(userMessage('statusAutoSyncLaunchAgent'));
       const service = `gui/${process.getuid?.()}/${label}`;
       try { await processOutput('/bin/launchctl', ['print', service]); blockers.push(userMessage('statusAutoSyncServiceLoaded')); }
       catch (error) {

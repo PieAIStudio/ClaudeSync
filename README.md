@@ -77,6 +77,14 @@ open dist/electron/mac-arm64/ClaudeSync.app
 
 The default development entry is Electron. Tests use temporary synthetic data only. Development builds accept `CLAUDESYNC_DATA_DIR` for an isolated application-data directory; packaged builds ignore it.
 
+Both builds accept `--claude-root <path>` (or `CLAUDESYNC_CLAUDE_ROOT`) for an existing home-shaped Claude profile: `.claude.json`, `.claude/projects` and the platform's Desktop data layout. The argument wins over the environment. Without it, defaults are unchanged. With it, host Claude path environment overrides are ignored and saved/selected Claude folders outside the root or through symlinks are rejected. Use Electron's `--user-data-dir` alongside it to keep ClaudeSync settings separate:
+
+```sh
+dist/electron/mac-arm64/ClaudeSync.app/Contents/MacOS/ClaudeSync --claude-root /path/to/profile-home --user-data-dir=/path/to/claudesync-profile
+```
+
+This does not redirect OS Keychain, disable writer guards or create a test mode. Fixture acceptance must use synthetic profiles without Desktop credentials and disable telemetry.
+
 After building, `CLAUDESYNC_UI_SCENARIO=security node tests/ui-smoke.cjs` checks the actual built `file://` renderer, strict CSP rejection of inline scripts and sandboxed preload/IPC using fixture settings only. Its window does not take focus; evidence goes to ignored `.reports/2026-11-01-cloud-fixes/`.
 
 After building, `CLAUDESYNC_UI_SCENARIO=skipped-entries node tests/ui-smoke.cjs` checks non-blocking notices and unchanged opaque entries through sync/archive, with evidence under ignored `.reports/2026-10-21-waiting-input/`.

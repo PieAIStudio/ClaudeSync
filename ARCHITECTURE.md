@@ -19,6 +19,7 @@ The preload is bundled as CommonJS `out/preload/index.cjs`, even though the main
 | Plain files, path boundaries, atomic write/delete, snapshots, exclusive lock | `src/core/storage.ts` |
 | Typed IPC payloads | `src/shared/contracts.ts` |
 | OS folders, discovery and verified local email cache | `electron/accounts.ts` |
+| Explicit Claude home launch option and confined data paths | `electron/claude-root.ts` |
 | Read-only macOS Desktop login verification, Keychain decryption and profile request | `electron/desktop-identity.ts`, `keychain.ts` |
 | Claude/CLI and legacy automatic-sync process guards | `electron/processes.ts` |
 | Local views, non-delete preview tokens and direct deletion service | `electron/service.ts` |
@@ -27,6 +28,12 @@ The preload is bundled as CommonJS `out/preload/index.cjs`, even though the main
 | Packaged file-page CSP; serve-only Vite/HMR adaptation | `index.html`, `electron/renderer-security.ts` |
 | UI state, account/sidebar/session views and operation review | `src/renderer/` |
 | Product copy in five languages | `src/i18n.ts` |
+
+## Claude data location
+
+Before telemetry, IPC or credential discovery, `main.ts` applies `--claude-root <path>` (also `--claude-root=<path>`, or `CLAUDESYNC_CLAUDE_ROOT`; argument wins). An explicit root must be an existing directory and is canonicalized, then assigned to native `app.getPath('home')`. Desktop data, CLI identity/projects and legacy agent-file discovery use that home. Host `APPDATA`, `XDG_CONFIG_HOME` and `CLAUDE_CONFIG_DIR` cannot redirect Claude paths in this mode; saved/selected roots outside it and symlinked child paths fail closed. Without the option, existing discovery/configuration behavior is unchanged.
+
+`--user-data-dir` independently selects ClaudeSync settings. `getInfo().nativePaths` reports native home/userData/Desktop paths for acceptance. A fixture launch must prove both home and userData inside its temporary root before configuring synthetic accounts. `HOME`/`CFFIXED_USER_HOME` alone did not relocate Electron's native home on macOS. This option is not a test bypass: OS Keychain and all process/revision/shared-history guards remain unchanged; credential-free fixtures avoid Keychain and cloud calls.
 
 ## Identity and counting
 

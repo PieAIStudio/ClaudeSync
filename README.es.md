@@ -40,6 +40,14 @@ open dist/electron/mac-arm64/ClaudeSync.app
 
 Las pruebas usan datos sintéticos temporales. El modo de desarrollo permite aislarlos con `CLAUDESYNC_DATA_DIR`; los paquetes finales ignoran ese ajuste.
 
+Ambas versiones aceptan `--claude-root <ruta>` o `CLAUDESYNC_CLAUDE_ROOT` (prioridad al argumento). La carpeta existente debe tener estructura de inicio: `.claude.json`, `.claude/projects` y los datos Desktop del sistema. Sin la opción nada cambia. Con ella se ignoran las rutas Claude del entorno y se rechazan carpetas externas o enlaces simbólicos. Combine con `--user-data-dir` para separar los ajustes de ClaudeSync:
+
+```sh
+dist/electron/mac-arm64/ClaudeSync.app/Contents/MacOS/ClaudeSync --claude-root /path/to/profile-home --user-data-dir=/path/to/claudesync-profile
+```
+
+No cambia el llavero del sistema ni desactiva protecciones. La validación usa solo perfiles sintéticos sin credenciales Desktop, con telemetría desactivada.
+
 El paquete local es una `.app` Apple silicon sin firma. Windows, Intel Mac, Linux, firma y notarización necesitan validación aparte. Cinco idiomas; no hay anuncios, seguimiento de comportamiento, pagos ni sincronización automática. Por decisión del Owner del 2026-11-04, PostHog envía solo cinco contadores de tareas y errores anonimizados con posiciones numéricas de pila, sin nombres/rutas de archivos, correos, cuentas, URL ni contenido. El conductor configura `CLAUDESYNC_POSTHOG_KEY` y `CLAUDESYNC_POSTHOG_HOST` en el entorno de inicio fuera de Git; sin configuración no hay cliente ni red. Se desactiva con `CLAUDESYNC_TELEMETRY_DISABLED=1`. [Detalles](README.md#anonymous-diagnostics). CI solo manual; subir código no publica. El antiguo código Python/Tk/Web se retiró del código actual, conservando historial Git y versiones anteriores.
 
 [Arquitectura](ARCHITECTURE.md) · [Contribuir](CONTRIBUTING.md) · [Seguridad](SECURITY.md) · [Plan](docs/PLAN-TS-CROSSPLATFORM-COMMERCIAL.md)
