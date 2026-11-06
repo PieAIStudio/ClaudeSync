@@ -172,7 +172,7 @@ export function SessionRows({ sessions, accounts, catalog, missingAccounts = [],
         </div>
         <div className="session-account-chips" aria-label={t.t('accounts')}>
           {accounts.filter((account) => presentIds.has(account.id)).map((account) => <span key={account.id} className="session-account-chip" title={accountName(account, t)}>{accountName(account, t)}</span>)}
-          {missingNames.length > 0 && <span className="session-missing-accounts">{t.t('sessionMissingAccounts', { accounts: missingNames.join(', ') })}</span>}
+          {missingNames.length > 0 && <span className="session-missing-accounts">{t.t('sessionMissingAccounts', { accounts: missingNames.join(t.locale === 'zh-CN' ? '、' : ', ') })}</span>}
         </div>
         {scheduledNotice && <p className="session-reason">{t.t(scheduledNotice)}</p>}
       </div>
@@ -258,7 +258,7 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
     {preview.fileCount === 0 ? <p>{t.t(unresolved ? 'chooseVersion' : 'noChanges')}</p> : <section className="review-changes">
       <h3>{t.t('planned')}</h3><ul>{preview.changes.map((item, index) => <li key={`${item.accountId}-${item.sessionId}-${item.action}-${index}`}>
         <span><strong>{item.title || t.t('untitled')}</strong><small>{accountName(accounts.find((account) => account.id === item.accountId), t)}</small></span>
-        <Badge tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</Badge>
+        <Badge className="review-change-chip" tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</Badge>
       </li>)}</ul>
     </section>}
     {preview.selected.length > 0 && <details className="review-more" open={preview.kind === 'keep'}><summary><span>{preview.selected.length === 1 ? t.t('selectedCountOne') : t.t('selectedCount', { count: preview.selected.length })}</span><Icon icon="chevron-down" size="sm" /></summary>

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AppInfo, ApplyResult, BackupView, DeleteRequest, OperationPreview, OperationRequest, WorkspaceView } from '../shared/contracts';
-import { errorMessage, interruptedOperation, type InterruptedOperation } from './errors';
+import { errorKey as getErrorKey, errorMessage, interruptedOperation, type InterruptedOperation } from './errors';
 import type { AppLocale } from './i18n';
 
 const api = window.claudeSync;
 
-function useWorkspaceBootstrap(locale: AppLocale, setInfo: (value: AppInfo) => void, setWorkspace: (value: WorkspaceView) => void, setError: (value: string) => void): void {
+function useWorkspaceBootstrap(setInfo: (value: AppInfo) => void, setWorkspace: (value: WorkspaceView) => void, onError: (reason: unknown) => void): void {
   useEffect(() => {
     if (!api) return;
     let active = true;
@@ -16,7 +16,7 @@ function useWorkspaceBootstrap(locale: AppLocale, setInfo: (value: AppInfo) => v
         const view = await api.check();
         if (active) setWorkspace(view);
       }
-    }).catch((reason: unknown) => { if (active) setError(errorMessage(reason, locale)); });
+    }).catch((reason: unknown) => { if (active) onError(reason); });
     return () => { active = false; };
   }, []);
 }
@@ -30,22 +30,28 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
   const [backups, setBackups] = useState<BackupView[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [errorKey, setErrorKey] = useState<string>();
   const [completed, setCompleted] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [result, setResult] = useState<ApplyResult>();
   const [interruption, setInterruption] = useState<InterruptedOperation & { explanation: string }>();
   const running = useRef(false);
-  useWorkspaceBootstrap(locale, setInfo, setWorkspace, setError);
+  useWorkspaceBootstrap(setInfo, setWorkspace, setFailure);
+
+  function setFailure(reason: unknown) {
+    setErrorKey(getErrorKey(reason));
+    setError(errorMessage(reason, locale));
+  }
 
   async function run(action: () => Promise<void>): Promise<boolean> {
     if (running.current) return false;
     running.current = true;
-    setBusy(true); setError(''); setCompleted(false); setDeleted(false); setResult(undefined);
+    setBusy(true); setError(''); setErrorKey(undefined); setCompleted(false); setDeleted(false); setResult(undefined);
     try { await action(); return true; }
     catch (reason) {
       const evidence = interruptedOperation(reason);
       if (evidence) setInterruption({ ...evidence, explanation: errorMessage(reason, locale) });
-      setError(errorMessage(reason, locale));
+      setFailure(reason);
       return false;
     }
     finally { running.current = false; setBusy(false); }
@@ -134,8 +140,8 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
   async function chooseDirectory() {
     if (!api || running.current) return null;
     try { return await api.chooseDirectory(); }
-    catch (reason) { setError(errorMessage(reason, locale)); return null; }
+    catch (reason) { setFailure(reason); return null; }
   }
-  return { api, info, workspace, accountCheckFailed, review, request, backups, busy, error, completed, deleted, result, interruption, refresh, refreshReview, configure, preview, apply, deleteSelected,
+  return { api, info, workspace, accountCheckFailed, review, request, backups, busy, error, errorKey, completed, deleted, result, interruption, refresh, refreshReview, configure, preview, apply, deleteSelected,
     loadBackups, restore, openBackups, chooseDirectory, closeReview: () => setReview(undefined) };
 }

@@ -62,7 +62,7 @@ it('confirms only sessions with planned changes, even across multiple account co
   const buttons = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)?.map((button) => button.replace(/<[^>]*>/gu, ''));
   expect(buttons).toContain('同步 1 条会话');
   expect(buttons).not.toContain('同步 3 条会话');
-  expect(html).toContain('已选 3 条 Code 会话');
+  expect(html).toContain('已选 3 条会话');
 });
 
 it('shows source, destination and turn delta and blocks unresolved version conflicts', () => {
@@ -86,7 +86,7 @@ it.each([
 ] as const)('explains %s deletion with the right alternative and explicit Trash recovery scope', (state, advice) => {
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(DeleteConfirmation,
     { count: 3, accountNames: ['fixture@example.com'], state, busy: false, onClose: noop, onDelete: noop }) }));
-  expect(html).toContain('确定要删除这 3 条 Code 会话吗');
+  expect(html).toContain('确定要删除这 3 条会话吗');
   expect(html).toContain('fixture@example.com');
   expect(html).toContain(advice);
   expect(html).toContain('废纸篓');
@@ -128,7 +128,7 @@ it('shows restore backup identity and keeps a blocked restore unconfirmable', ()
   expect(html).toContain('同步所选');
   expect(html).toContain('1 个文件');
   expect(html).toContain('恢复到原本机文件位置');
-  expect(html).toContain('暂不能恢复：这条Code 会话后来又被修改过，不能覆盖：Chosen session');
+  expect(html).toContain('暂不能恢复：这条会话后来又被修改过，不能覆盖：Chosen session');
   const confirm = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)?.find((button) => button.replace(/<[^>]*>/gu, '') === '确认执行');
   expect(confirm).toContain('disabled=""');
 });
@@ -143,7 +143,7 @@ it('renders readable account counts, named session checkboxes and the exact reta
   expect(html).toContain('10 条普通会话');
   expect(html).toContain('归档 2');
   expect(html).toContain('for="session-chat"');
-  expect(html).toContain('已选 1 条 Code 会话');
+  expect(html).toContain('已选 1 条会话');
   expect(html).toContain('fixture@example.com');
   expect(html).not.toContain('43 条可检查');
 });

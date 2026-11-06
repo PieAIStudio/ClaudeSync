@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -10,9 +11,11 @@ const C = '33333333-3333-4333-8333-333333333333';
 const EMAIL_A = 'alex@fixture.invalid';
 const EMAIL_B = 'research@fixture.invalid';
 const TITLES = ['Draft the account plan', 'Prepare the product release', 'Review the migration checklist', 'Write the support handoff'];
-const REPORT = process.env.UI_ACCOUNTS_REPORT ?? join(process.cwd(), '.reports/2026-11-06-accounts-r3');
+const REPORT = process.env.UI_ACCOUNTS_REPORT ?? join(process.cwd(), '.reports/2026-11-06-accounts-r4');
 const NOW = '2026-11-06T12:00:00.000Z';
-test.use({ viewport: { width: 1240, height: 860 }, deviceScaleFactor: 2, screenshot: 'off' });
+const DPR = Number(process.env.UI_ACCOUNTS_DPR ?? '1');
+if (DPR !== 1 && DPR !== 2) throw new Error('UI_ACCOUNTS_DPR must be 1 or 2');
+test.use({ viewport: { width: 1240, height: 860 }, deviceScaleFactor: DPR, screenshot: 'off' });
 
 function account(id: string, email: string | undefined, visible: number | null, current = false) {
   return { id, email, scopes: [id + '/fixture-org'], active: visible ?? 0, archived: id === B ? 1 : 0,
@@ -106,8 +109,58 @@ async function openList(page: Page, locale: Locale = 'en') {
   await page.getByRole('button', { name: locale === 'en' ? 'On this Mac' : '本机会话', exact: true }).click();
   await expect(viewing(page)).toBeVisible();
 }
+async function assertReviewChips(page: Page) {
+  const chips = page.locator('.review-changes .review-change-chip');
+  for (const chip of await chips.all()) {
+    await expect(chip).toBeVisible();
+    await expect(chip.locator(':scope > .game-ui-droplet')).toBeHidden();
+    const paint = await chip.evaluate(item => {
+      const css = getComputedStyle(item);
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = css.backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      return { radius: parseFloat(css.borderTopLeftRadius), height: item.getBoundingClientRect().height,
+        alpha: context.getImageData(0, 0, 1, 1).data[3], shadow: css.boxShadow, opacity: css.opacity };
+    });
+    expect(paint.radius, 'Review actions have a regular pill edge').toBeGreaterThanOrEqual(paint.height / 2);
+    expect(paint.alpha, 'Review pills use opaque paint on every row').toBe(255);
+    expect(paint.shadow).toBe('none');
+    expect(paint.opacity).toBe('1');
+  }
+}
+
+async function assertResultPlacement(page: Page) {
+  const card = page.locator('.complete-card');
+  if (!(await card.count())) return;
+  const primary = card.locator('.receipt-primary');
+  await expect(primary).toBeInViewport({ ratio: 1 });
+  const edges = await card.evaluate(item => {
+    const box = item.getBoundingClientRect();
+    const css = getComputedStyle(item);
+    return { left: box.left + parseFloat(css.borderLeftWidth) + parseFloat(css.paddingLeft),
+      right: box.right - parseFloat(css.borderRightWidth) - parseFloat(css.paddingRight) };
+  });
+  const box = (await primary.boundingBox())!;
+  expect(Math.abs(box.x + box.width - edges.right), 'Result primary aligns with the content right edge').toBeLessThanOrEqual(2);
+  const quiet = card.locator('.receipt-back');
+  if (await quiet.count()) {
+    await expect(quiet).toBeInViewport({ ratio: 1 });
+    const back = (await quiet.boundingBox())!;
+    expect(Math.abs(back.x - edges.left), 'Quiet return action aligns with the content left edge').toBeLessThanOrEqual(2);
+    expect(await quiet.evaluate(item => parseFloat(getComputedStyle(item).paddingLeft))).toBe(0);
+  }
+}
+
 async function capture(page: Page, name: string, narrow = false) {
+  const only = process.env.UI_ACCOUNTS_CAPTURE;
+  if (only && !new RegExp(only).test(name)) return;
   mkdirSync(REPORT, { recursive: true });
+  const locale = name.includes('zh-CN') ? 'zh-CN' : 'en';
+  await expect(page.locator('.shell-window-title')).toHaveText(name.startsWith('accounts')
+    ? locale === 'en' ? 'Accounts' : '账号'
+    : locale === 'en' ? 'On this Mac' : '本机会话');
   const original = page.viewportSize()!;
   const sizes = [original, ...(narrow ? [{ width: 1024, height: 768 }] : [])];
   for (const [index, size] of sizes.entries()) {
@@ -116,15 +169,24 @@ async function capture(page: Page, name: string, narrow = false) {
     expect(bar, 'Neutral window bar must have a layout box').not.toBeNull();
     if (bar) await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height / 2);
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-    await expect(page.locator('.session-row:hover, .account-card:hover')).toHaveCount(0);
+    await expect(page.locator('button:hover, input:hover, select:hover, summary:hover, .session-row:hover, .account-card:hover')).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
+    await assertResultPlacement(page);
+    await assertReviewChips(page);
     await expect.poll(() => page.locator('img').evaluateAll(images => images.every(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0))).toBe(true);
-    expect(await page.evaluate(() => window.devicePixelRatio), 'Evidence uses a genuine 2x browser context').toBe(2);
-    const path = join(REPORT, name + (index ? '-1024x768' : '') + '-2x.png');
+    const actualDpr = await page.evaluate(() => window.devicePixelRatio);
+    expect(actualDpr, 'Evidence uses a genuine device-scale browser context').toBe(DPR);
+    const path = join(REPORT, name + (index ? '-1024x768' : '') + '-' + DPR + 'x.png');
     const png = await page.screenshot({ path, animations: 'disabled', fullPage: false, scale: 'device' });
     // PNG IHDR dimensions prove that the capture retains device pixels, without upscaling.
-    expect(png.readUInt32BE(16)).toBe(size.width * 2);
-    expect(png.readUInt32BE(20)).toBe(size.height * 2);
+    const pixels = { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+    expect(pixels.width).toBe(size.width * DPR);
+    expect(pixels.height).toBe(size.height * DPR);
+    writeFileSync(path.replace(/\.png$/, '.json'), JSON.stringify({ schemaVersion: 1,
+      state: name, capturedAt: new Date().toISOString(), viewport: size, devicePixelRatio: actualDpr,
+      png: pixels, scale: 'device', sha256: createHash('sha256').update(png).digest('hex'),
+      browser: page.context().browser()?.version(), hoveredContent: false,
+    }, null, 2) + '\n');
   }
   if (narrow) await page.setViewportSize(original);
 }
@@ -142,7 +204,20 @@ function afterSyncWorkspace() {
   return data;
 }
 
-async function installApplyGate(page: Page) {
+async function leaveParticipantUnchanged(page: Page, accountId: string) {
+  await page.evaluate(unchangedId => {
+    const api = (window as any).claudeSync;
+    const preview = api.preview;
+    api.preview = async (request: any) => {
+      const plan = await preview(request);
+      plan.changes = plan.changes.filter((change: any) => change.accountId !== unchangedId);
+      plan.fileCount = plan.changes.length;
+      return plan;
+    };
+  }, accountId);
+}
+
+async function installApplyGate(page: Page, completedWorkspace = afterSyncWorkspace()) {
   await page.evaluate(({ response, accountA, accountB }) => {
     const controls = (window as any).__accountEvidence;
     controls.applyStarted = false;
@@ -160,17 +235,22 @@ async function installApplyGate(page: Page) {
         })));
       });
     };
-  }, { response: { result: { filesChanged: 3, verified: true, backup: 'fixture-backup' }, workspace: afterSyncWorkspace() }, accountA: A, accountB: B });
+  }, { response: { result: { filesChanged: 3, verified: true, backup: 'fixture-backup' }, workspace: completedWorkspace }, accountA: A, accountB: B });
 }
 
-async function openSyncReview(page: Page, locale: Locale) {
+async function openSyncReview(page: Page, locale: Locale, changeCount = 3) {
   await openList(page, locale);
   await page.getByRole('checkbox', { name: TITLES[0], exact: true }).check();
   await page.getByRole('button', { name: locale === 'en' ? 'Review sync' : '预览同步', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('heading', { name: locale === 'en' ? 'Review sync' : '预览同步', exact: true })).toBeVisible();
-  await expect(dialog.locator('.review-changes li')).toHaveCount(3);
+  await expect(dialog.locator('.review-changes li')).toHaveCount(changeCount);
+  await expect(dialog.locator('.review-change-chip')).toHaveText([
+    locale === 'en' ? 'Update to latest' : '更新为最新版本',
+    ...Array(changeCount - 1).fill(locale === 'en' ? 'Add to this account' : '添加到此账号'),
+  ]);
+  await expect(dialog.locator('.review-more > summary')).toHaveText(locale === 'en' ? '1 session selected' : '已选 1 条会话');
   await expect(dialog.locator('.review-accounts > span')).toHaveCount(3);
   for (const name of [EMAIL_A, EMAIL_B, '33333333']) await expect(dialog.locator('.review-accounts')).toContainText(name);
   return dialog;
@@ -189,6 +269,9 @@ async function assertReceipt(page: Page, locale: Locale, verified: boolean) {
     await expect(targets).toContainText(locale === 'en' ? 'Added to' : '已补充到');
     await expect(targets).toContainText(locale === 'en' ? 'Updated in' : '已更新');
     await expect(receipt.locator('.complete-card header p')).toHaveCount(0);
+    await expect(receipt.locator('.complete-proof')).toHaveText(locale === 'en' ? 'Verified' : '已核对');
+    await expect(receipt.locator('.receipt-recovery')).toHaveText(locale === 'en' ? 'A backup was created.' : '已创建备份。');
+    expect(((await receipt.innerText()).match(locale === 'en' ? /\bVerified\b/g : /已核对/g) ?? []).length).toBe(1);
     const layout = await title.evaluate(item => {
       const box = item.getBoundingClientRect();
       const style = getComputedStyle(item);
@@ -242,7 +325,7 @@ for (const locale of ['en', 'zh-CN'] as const) for (const theme of ['light', 'da
     await expect(card(page, A)).toContainText(locale === 'en' ? 'Signed in on Desktop' : 'Desktop 当前登录');
     await expect(card(page, B)).toContainText(locale === 'en' ? 'Not signed in on Desktop' : '未在 Desktop 登录');
     for (const id of [A, B, C]) await expect(card(page, id).locator('.account-session-link')).toBeInViewport({ ratio: 1 });
-    await capture(page, 'accounts-' + locale + '-' + theme, true);
+    await capture(page, 'accounts-' + locale + '-' + theme);
     await card(page, A).locator('.account-session-link').click();
     await expect(viewing(page)).toHaveValue(A);
     await expect(page.locator('.session-row')).toHaveCount(3);
@@ -258,6 +341,18 @@ for (const locale of ['en', 'zh-CN'] as const) for (const theme of ['light', 'da
         return copy.textContent;
       });
       expect(text).not.toMatch(/[\u3400-\u9fff]/u);
+    }
+    if (theme === 'dark') {
+      const paint = (selector: string) => page.locator(selector).evaluate(item => {
+        const css = getComputedStyle(item);
+        return { color: css.color, weight: css.fontWeight };
+      });
+      expect(await paint('.list-refresh')).toEqual(await paint('.filter-drawer > summary'));
+    }
+    if (locale === 'zh-CN') {
+      const missing = page.locator('.session-row').filter({ hasText: TITLES[0] }).locator('.session-missing-accounts');
+      await expect(missing).toContainText('、');
+      await expect(missing).not.toContainText(', ');
     }
     await capture(page, 'sessions-' + locale + '-' + theme);
   });
@@ -297,7 +392,7 @@ test('account-first — filters disclose hidden selections and groups clear them
   await page.getByRole('checkbox', { name: TITLES[0], exact: true }).check();
   await page.locator('.list-toolbar input[type="search"]').fill('support handoff');
   await expect(page.locator('.session-row')).toHaveCount(1);
-  await expect(page.locator('.selection-summary')).toContainText('1 selected Code sessions are hidden by filters and still included.');
+  await expect(page.locator('.selection-summary')).toContainText('Hidden by filters: 1 selected, still included.');
   await expect(page.locator('.selection-summary strong')).toHaveText('1 selected · from 1 account');
   await viewing(page).selectOption(B);
   await expect(page.locator('.selection-summary strong')).toContainText('0');
@@ -369,11 +464,23 @@ for (const { locale, theme } of EVIDENCE_VARIANTS) {
   test('account-first evidence — checking / ' + suffix, async ({ page }) => {
     await boot(page, locale, theme, false, 'checking');
     await expect(page.locator('.account-card')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: locale === 'en' ? 'Check accounts' : '检查账号', exact: true })).toBeDisabled();
+    const check = page.getByRole('button', { name: locale === 'en' ? 'Check accounts' : '核对账号', exact: true });
+    await expect(check).toBeDisabled();
+    const disabledPaint = await check.evaluate(item => {
+      const css = getComputedStyle(item);
+      return [css.color, css.backgroundColor, css.opacity].join('|');
+    });
+    await expect(page.locator('.stage-surface--accounts').getByText(locale === 'en' ? 'Checking accounts…' : '正在核对账号…', { exact: true })).toHaveCount(1);
     await expect(page.locator('.account-spinner')).toBeVisible();
     await expect(page.locator('.account-placeholder')).toHaveCount(3);
     await capture(page, 'accounts-checking-' + suffix);
     await page.evaluate(() => (window as any).__accountEvidence.releaseCheck());
+    await expect(check).toBeEnabled();
+    const enabledPaint = await check.evaluate(item => {
+      const css = getComputedStyle(item);
+      return [css.color, css.backgroundColor, css.opacity].join('|');
+    });
+    expect(disabledPaint, 'Checking must visibly disable the action').not.toBe(enabledPaint);
     await expect(page.locator('.account-card')).toHaveCount(3);
     await expect(page.locator('.stage-surface--accounts')).toHaveAttribute('data-account-state', 'missing');
   });
@@ -381,12 +488,13 @@ for (const { locale, theme } of EVIDENCE_VARIANTS) {
   test('account-first evidence — Desktop verification failed / ' + suffix, async ({ page }) => {
     await boot(page, locale, theme, true);
     await expect(page.locator('.stage-surface--accounts')).toHaveAttribute('data-account-state', 'unverified');
-    await expect(page.locator('.stage-surface--accounts h1')).toHaveText(locale === 'en' ? 'Desktop sign-in not verified' : 'Desktop 登录状态未核实');
+    await expect(page.locator('.stage-surface--accounts h1')).toHaveText(locale === 'en' ? 'Desktop sign-in not verified' : 'Desktop 登录状态未核对');
+    await expect(page.locator('.stage-surface--accounts .relay-art[data-relay-state="attention"] .relay-badge')).toBeVisible();
     await expect(page.locator('.account-status[data-status="current"]')).toHaveCount(0);
     await expect(page.locator('.account-status[data-status="accountUnchecked"]')).toHaveCount(0);
     await expect(card(page, C).locator('.account-count strong')).toHaveText('—');
     await expect(page.locator('.account-heading-actions .missing-filter')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: locale === 'en' ? 'Check accounts' : '检查账号', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: locale === 'en' ? 'Check accounts' : '核对账号', exact: true })).toBeEnabled();
     await expect(card(page, C).getByText(locale === 'en' ? 'Count unavailable' : '数量暂不可用', { exact: true })).toHaveCount(1);
     await capture(page, 'accounts-failed-check-' + suffix);
   });
@@ -403,6 +511,7 @@ for (const { locale, theme } of EVIDENCE_VARIANTS) {
     await boot(page, locale, theme, false, 'aligned');
     await expect(page.locator('.stage-surface--accounts')).toHaveAttribute('data-account-state', 'aligned');
     await expect(page.locator('.stage-surface--accounts h1')).toHaveText(locale === 'en' ? 'All syncable sessions are present' : '可同步会话的副本已齐全');
+    await expect(page.locator('.stage-surface--accounts').getByText(locale === 'en' ? 'Versions will be checked before syncing' : '同步前会核对版本', { exact: true })).toHaveCount(1);
     await expect(page.locator('.account-count strong')).toHaveText(['4', '4', '4']);
     await expect(page.locator('.account-difference strong')).toHaveText(Array(3).fill(locale === 'en' ? 'No missing copies' : '副本无缺失'));
     await expect(page.locator('.account-heading-actions .missing-filter')).toHaveCount(0);
@@ -427,6 +536,7 @@ for (const { locale, theme } of EVIDENCE_VARIANTS) {
     await openList(page, locale);
     await page.locator('.list-toolbar input[type="search"]').fill('no matching session');
     await expect(page.locator('.session-row')).toHaveCount(0);
+    await expect(page.locator('.select-line > label, .select-line .selection-menu')).toHaveCount(0);
     await expect(page.getByRole('button', { name: locale === 'en' ? 'Review sync' : '预览同步', exact: true })).toBeDisabled();
     const clear = page.getByRole('button', { name: locale === 'en' ? 'Clear search' : '清除搜索', exact: true });
     await expect(clear).toBeVisible();
@@ -442,6 +552,7 @@ for (const { locale, theme } of EVIDENCE_VARIANTS) {
     await viewing(page).selectOption(A);
     await group(page).selectOption('archived');
     await expect(page.locator('.session-row')).toHaveCount(0);
+    await expect(page.locator('.select-line > label, .select-line .selection-menu')).toHaveCount(0);
     await expect(page.getByRole('button', { name: locale === 'en' ? 'Unarchive selected' : '取消归档', exact: true })).toBeDisabled();
     await expect(page.locator('.list-empty-state')).toHaveText(locale === 'en' ? 'No archived sessions' : '暂无已归档会话');
     await capture(page, 'sessions-empty-group-' + suffix);
@@ -456,13 +567,22 @@ for (const { locale, theme } of EVIDENCE_VARIANTS) {
     await dialog.getByRole('button', { name: locale === 'en' ? 'Sync 1 session' : '同步 1 条会话', exact: true }).click();
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'progress');
     expect(await page.evaluate(() => (window as any).__accountEvidence.applyStarted)).toBe(true);
-    await expect(page.locator('.progress-cancel-note')).toHaveText(locale === 'en' ? 'This operation cannot be stopped safely. Keep ClaudeSync open until verification finishes.' : '处理开始后无法安全停止。请保持 ClaudeSync 打开，直到核验完成。');
+    await expect(page.locator('.progress-cancel-note')).toHaveText(locale === 'en' ? 'This can’t be stopped safely. Keep ClaudeSync open until it finishes.' : '此操作无法安全停止。请保持 ClaudeSync 打开直到完成。');
+    const badgePaint = await page.locator('.stage-surface--progress .relay-badge').evaluate(item => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = getComputedStyle(item).backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      return { alpha: context.getImageData(0, 0, 1, 1).data[3], opacity: getComputedStyle(item).opacity };
+    });
+    expect(badgePaint, 'Progress badge obscures the artwork beneath it').toEqual({ alpha: 255, opacity: '1' });
     await capture(page, 'sessions-progress-' + suffix, true);
     await page.evaluate(() => (window as any).__accountEvidence.finishApply());
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'complete');
     await expect(page.locator('.complete-proof')).toHaveText(locale === 'en' ? 'Verified' : '已核对');
     const back = await assertReceipt(page, locale, true);
-    await capture(page, 'sessions-done-' + suffix);
+    await capture(page, 'sessions-done-' + suffix, true);
     await page.setViewportSize({ width: 1024, height: 768 });
     await assertReceipt(page, locale, true);
     await back.click();
@@ -477,16 +597,20 @@ for (const { locale, theme } of EVIDENCE_VARIANTS) {
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'progress');
     await page.evaluate(() => (window as any).__accountEvidence.failApply());
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'complete');
-    await expect(page.locator('.complete-proof')).toHaveText(locale === 'en' ? 'Changes could not be verified' : '未能核实改动');
-    await expect(page.locator('.complete-card h1')).toHaveText(locale === 'en' ? 'An issue to resolve' : '需要处理的问题');
+    await expect(page.locator('.complete-proof')).toHaveText(locale === 'en' ? 'Changes could not be verified' : '未能核对改动');
+    await expect(page.locator('.complete-card h1')).toHaveText(locale === 'en' ? 'Sessions changed before syncing' : '同步前会话已变化');
+    await expect(page.locator('.complete-card').getByText(locale === 'en'
+      ? 'These sessions changed after your review. Changes stopped; refresh to review again.'
+      : '这些会话在预览后已发生变化，已停止修改。请刷新后重新预览。', { exact: true })).toBeVisible();
     await assertReceipt(page, locale, false);
-    await capture(page, 'sessions-error-' + suffix);
+    await capture(page, 'sessions-error-' + suffix, true);
   });
 
-  test('account-first evidence — interrupted operation reports only recorded accounts / ' + suffix, async ({ page }) => {
+  test('account-first evidence — interrupted operation distinguishes recorded, pending and unchanged accounts / ' + suffix, async ({ page }) => {
     await boot(page, locale, theme);
     await installApplyGate(page);
-    const dialog = await openSyncReview(page, locale);
+    await leaveParticipantUnchanged(page, C);
+    const dialog = await openSyncReview(page, locale, 2);
     await dialog.getByRole('button', { name: locale === 'en' ? 'Sync 1 session' : '同步 1 条会话', exact: true }).click();
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'progress');
     await page.evaluate(() => (window as any).__accountEvidence.partialApply());
@@ -494,12 +618,16 @@ for (const { locale, theme } of EVIDENCE_VARIANTS) {
     await expect(receipt).toHaveAttribute('data-verified', 'false');
     await expect(receipt.locator('.complete-card h1')).toHaveText(locale === 'en' ? 'Sync interrupted' : '同步已中断');
     const rows = receipt.locator('.partial-account-list li');
-    await expect(rows).toHaveCount(2);
-    await expect(rows.filter({ hasText: EMAIL_A })).toContainText(locale === 'en' ? 'Changes recorded · not verified' : '已记录改动 · 未核验');
-    await expect(rows.filter({ hasText: EMAIL_B })).toContainText(locale === 'en' ? 'Needs checking' : '需要检查');
-    await expect(rows.filter({ hasText: '33333333' })).toHaveCount(0);
+    await expect(rows).toHaveCount(3);
+    await expect(rows.filter({ hasText: EMAIL_A })).toContainText(locale === 'en' ? 'Changes recorded · not verified' : '已记录改动 · 未核对');
+    await expect(rows.filter({ hasText: EMAIL_B })).toContainText(locale === 'en' ? 'Needs checking' : '需要核对');
+    await expect(rows.filter({ hasText: '33333333' })).toHaveAttribute('data-outcome', 'unplanned');
+    await expect(rows.filter({ hasText: '33333333' })).toContainText(locale === 'en' ? 'No changes planned' : '未计划改动');
+    await expect(rows.filter({ hasText: EMAIL_A })).toHaveAttribute('data-outcome', 'recorded');
+    await expect(rows.filter({ hasText: EMAIL_B })).toHaveAttribute('data-outcome', 'unconfirmed');
+    await expect(rows.getByText(locale === 'en' ? 'Verified' : '已核对', { exact: true })).toHaveCount(0);
     // A appears in both native sets. A recorded write is not a completed/verified account.
-    await expect(rows.filter({ hasText: EMAIL_A })).not.toContainText(locale === 'en' ? 'Needs checking' : '需要检查');
+    await expect(rows.filter({ hasText: EMAIL_A })).not.toContainText(locale === 'en' ? 'Needs checking' : '需要核对');
     const details = receipt.locator('.receipt-error-details');
     await expect(details).not.toHaveAttribute('open', '');
     await expect(details.locator(':scope > ul')).not.toBeVisible();
@@ -590,6 +718,68 @@ for (const locale of ['en', 'zh-CN'] as const) {
   });
 }
 
+test('account-first — hidden selections can be cleared when no rows match', async ({ page }) => {
+  await boot(page);
+  await openList(page);
+  await page.getByRole('checkbox', { name: TITLES[0], exact: true }).check();
+  const search = page.locator('.list-toolbar input[type="search"]');
+  await search.fill('no matching session');
+  await expect(page.locator('.session-row')).toHaveCount(0);
+  await expect(page.locator('.select-line > label, .select-line .selection-menu')).toHaveCount(0);
+  const clear = page.getByRole('button', { name: 'Clear selection', exact: true });
+  await expect(clear).toHaveClass(/clear-hidden-selection/);
+  await expect(clear).toBeEnabled();
+  await clear.click();
+  await expect(clear).toHaveCount(0);
+  await expect(search).toHaveValue('no matching session');
+  await expect(page.getByRole('button', { name: 'Review sync', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Clear search', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: TITLES[0], exact: true })).not.toBeChecked();
+  expect(await page.evaluate(() => (window as any).__accountRequests)).toEqual([]);
+});
+
+test('account-first — a generic successful operation states verification once', async ({ page }) => {
+  const changed = workspace();
+  changed.sessions.find(item => item.id === 'plan')!.starred = true;
+  await boot(page);
+  await installApplyGate(page, changed);
+  await openList(page);
+  await page.getByRole('checkbox', { name: TITLES[0], exact: true }).check();
+  await page.locator('.more-actions > summary').click();
+  await page.getByRole('button', { name: 'Star selected', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Confirm changes', exact: true }).click();
+  await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'progress');
+  await page.evaluate(() => (window as any).__accountEvidence.finishApply());
+  const receipt = page.locator('.stage-surface--complete');
+  await expect(receipt).toHaveAttribute('data-verified', 'true');
+  await expect(receipt.locator('.complete-card h1')).toHaveText('Changes complete');
+  await expect(receipt.locator('.complete-proof')).toHaveText('Verified');
+  expect(((await receipt.innerText()).match(/\bVerified\b/gi) ?? []).length).toBe(1);
+  expect(await page.evaluate(() => (window as any).__accountRequests[0].kind)).toBe('star');
+});
+
+test('account-first — an unrelated write failure keeps a generic result headline', async ({ page }) => {
+  await boot(page);
+  await installApplyGate(page);
+  await page.evaluate(() => {
+    (window as any).claudeSync.apply = async () => {
+      (window as any).__accountEvidence.applyCalls += 1;
+      throw new Error('Fixture file write failed');
+    };
+  });
+  const dialog = await openSyncReview(page, 'en');
+  await dialog.getByRole('button', { name: 'Sync 1 session', exact: true }).click();
+  const receipt = page.locator('.stage-surface--complete');
+  await expect(receipt).toHaveAttribute('data-verified', 'false');
+  await expect(receipt.locator('.complete-card h1')).toHaveText('Operation could not finish');
+  await expect(receipt.getByText('Fixture file write failed', { exact: true })).toBeVisible();
+  await expect(receipt).not.toContainText('Sessions changed before syncing');
+  await assertReceipt(page, 'en', false);
+  expect(await page.evaluate(() => (window as any).__accountEvidence.applyCalls)).toBe(1);
+});
+
 test('account-first — failed recovery preserves the interruption journal without applying again', async ({ page }) => {
   await boot(page);
   await installApplyGate(page);
@@ -600,7 +790,12 @@ test('account-first — failed recovery preserves the interruption journal witho
   const receipt = page.locator('.stage-surface--complete');
   await expect(receipt.locator('.complete-card h1')).toHaveText('Sync interrupted');
   const rows = receipt.locator('.partial-account-list li');
-  await expect(rows).toHaveCount(2);
+  await expect(rows).toHaveCount(3);
+  // C had a planned change but is absent from the native outcome sets. Its outcome remains unknown.
+  const plannedWithoutOutcome = rows.filter({ hasText: '33333333' });
+  await expect(plannedWithoutOutcome).toHaveAttribute('data-outcome', 'unconfirmed');
+  await expect(plannedWithoutOutcome).toContainText('Needs checking');
+  await expect(plannedWithoutOutcome).not.toContainText('No changes planned');
   const originalRows = await rows.allTextContents();
   await page.evaluate(() => {
     (window as any).claudeSync.check = async () => { throw new Error('Fixture refresh failed after interruption'); };

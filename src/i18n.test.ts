@@ -38,7 +38,7 @@ describe('ClaudeSync language catalogs', () => {
       expect(values[1], key).not.toMatch(/[\u3400-\u9fff：]/u);
     }
     const en = i18n.translator('en');
-    expect(en.t('deleteConfirmTitleOne')).toBe('Delete this 1 Code session?');
+    expect(en.t('deleteConfirmTitleOne')).toBe('Delete this session?');
     expect(en.t('resultTrashOne')).toContain('1 transcript file');
     expect(en.t('resultTrashOne')).not.toContain('files');
   });

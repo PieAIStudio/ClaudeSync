@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { encodeMessage } from '../error-copy';
-import { errorMessage, interruptedOperation } from './errors';
+import { errorKey, errorMessage, interruptedOperation } from './errors';
 
 describe('user-facing errors', () => {
   it('translates a transported key without Electron transport details', () => {
@@ -11,6 +11,33 @@ describe('user-facing errors', () => {
   it('preserves ordinary error messages and non-Error failures', () => {
     expect(errorMessage(new Error('聊天列表已经变化，请重新检查。'), 'en')).toBe('聊天列表已经变化，请重新检查。');
     expect(errorMessage('请先勾选聊天。', 'en')).toBe('请先勾选聊天。');
+  });
+});
+
+describe('structured error keys', () => {
+  it.each(['errorWorkspaceChanged', 'errorOrganizationChanged', 'errorPreviewExpired'] as const)('preserves the genuine outer key %s across Electron transport', (key) => {
+    const encoded = encodeMessage(key);
+    expect(errorKey(encoded)).toBe(key);
+    expect(errorKey(new Error(encoded))).toBe(key);
+    expect(errorKey(new Error(`Error invoking remote method 'claudesync:apply': Error: ${encoded}`))).toBe(key);
+    expect(errorKey(`Error invoking remote method 'claudesync:apply': ${encoded}`)).toBe(key);
+  });
+
+  it.each([
+    new Error('Sessions changed before syncing'),
+    errorMessage(encodeMessage('errorWorkspaceChanged'), 'en'),
+    errorMessage(encodeMessage('errorWorkspaceChanged'), 'zh-CN'),
+    'claudesync-message:unknownError:{}', 'claudesync-message:errorWorkspaceChanged:{',
+    'claudesync-message:errorWorkspaceChanged:[]', null, undefined,
+  ])('does not infer a key from unknown, malformed or localized text %#', (reason) => {
+    expect(errorKey(reason)).toBeUndefined();
+  });
+
+  it('keeps an interrupted operation distinct from its nested stale-session cause', () => {
+    const encoded = encodeMessage('errorBackupInterrupted', {
+      message: encodeMessage('errorWorkspaceChanged'), path: '/fixture/backups/interrupted',
+    });
+    expect(errorKey(new Error(`Error invoking remote method 'claudesync:apply': Error: ${encoded}`))).toBe('errorBackupInterrupted');
   });
 });
 

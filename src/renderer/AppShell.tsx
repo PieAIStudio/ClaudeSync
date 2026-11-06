@@ -40,9 +40,9 @@ function MobileNav({ controller }: { controller: AppController }) {
 
 function WindowBar({ controller }: { controller: AppController }) {
   const t = useTranslation();
-  const stageLabel = controller.stage === 'home' ? t.t('accounts') : controller.stage === 'review' ? t.t('localSessions') : controller.stage === 'results' ? t.t('localSessions')
-    : controller.stage === 'settings' ? t.t('settings') : controller.stage === 'backups' ? t.t('backupTitle') : controller.stage === 'cloud' ? t.t('cloudSessions')
-    : controller.stage === 'progress' ? t.t('operationInProgress') : controller.stage === 'complete' ? t.t(!controller.error && controller.result?.verified === true ? 'operationCompleteTitle' : 'issue') : t.t('checkingAccounts');
+  const stageLabel = controller.stage === 'home' || controller.stage === 'scan' ? t.t('accounts')
+    : controller.stage === 'settings' ? t.t('settings') : controller.stage === 'backups' ? t.t('backupTitle')
+    : controller.stage === 'cloud' ? t.t('cloudSessions') : t.t('localSessions');
   return <><span className="shell-window-title">{stageLabel}</span><span className="shell-window-actions">
     {controller.stage === 'cloud' && <IconButton label={t.t('checkAgain')} onClick={controller.refreshCloud} disabled={controller.busy}><Icon icon="redo" /></IconButton>}
     <IconButton label={controller.theme === 'dark' ? 'Light mode' : 'Dark mode'} onClick={() => controller.setTheme(controller.theme === 'dark' ? 'light' : 'dark')}><Icon icon={controller.theme === 'dark' ? 'sun' : 'moon'} /></IconButton>

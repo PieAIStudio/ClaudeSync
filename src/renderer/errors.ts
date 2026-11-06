@@ -14,6 +14,11 @@ function transportMessage(reason: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/u, '');
 }
 
+/** Preserve the outer structured cause; never classify localized prose. */
+export function errorKey(reason: unknown): string | undefined {
+  return parseMessage(transportMessage(reason))?.key;
+}
+
 /** Read structured journal evidence before localizing the error explanation. */
 export function interruptedOperation(reason: unknown): InterruptedOperation | undefined {
   const parsed = parseMessage(transportMessage(reason));

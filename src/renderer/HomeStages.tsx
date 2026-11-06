@@ -30,7 +30,7 @@ export function HomeStage({ controller }: { controller: AppController }) {
   const checkAction = <Button variant={state === 'unverified' ? 'primary' : 'ghost'} static disabled={checking}
     onClick={() => controller.info?.configured ? void controller.startCheck() : controller.navigate('settings')}><Icon icon="redo" />{t.t('checkAccounts')}</Button>;
   return <StageFrame className="stage-surface stage-surface--accounts" data-account-state={state}
-    title={title} description={description} header={checking ? <div className="account-state-art"><RelayArt state="scanning" compact /></div> : state === 'empty' || state === 'welcome' ? undefined : <PageArt kind="hero" />}
+    title={checking ? <span className="account-check-progress" role="status"><span className="account-spinner" aria-hidden="true" />{title}</span> : title} description={description} header={checking || state === 'unverified' ? <div className="account-state-art"><RelayArt state={checking ? 'scanning' : 'attention'} compact /></div> : state === 'empty' || state === 'welcome' ? undefined : <PageArt kind="hero" />}
     primaryAction={<div className="account-heading-actions">
       {state === 'missing' && <Button variant="primary" static className="missing-filter" onClick={() => controller.openSessions('all', true)}>{t.t('findMissing')}<Icon icon="arrow-right" /></Button>}
       {(state === 'aligned' || state === 'compare') && <Button variant="primary" static onClick={() => controller.openSessions()}>{t.t('openSessions')}<Icon icon="arrow-right" /></Button>}
@@ -38,7 +38,6 @@ export function HomeStage({ controller }: { controller: AppController }) {
       {state !== 'welcome' && checkAction}
       {state === 'unverified' && hasAccounts && <Button variant="ghost" static onClick={() => controller.openSessions()}>{t.t('openSessions')}</Button>}
     </div>}>
-    {checking && <div className="account-check-progress" role="status"><span className="account-spinner" aria-hidden="true" /><span>{t.t('checkingAccounts')}</span></div>}
     {checking && !hasAccounts && <div className="account-grid account-placeholders" aria-hidden="true">{[0, 1, 2].map((item) => <div className="account-placeholder" key={item}><span /><i /><i /><b /></div>)}</div>}
     {(state === 'empty' || state === 'welcome') && <div className="account-empty"><RelayArt state="ready" compact /><p>{t.t('accountsEmptyHint')}</p></div>}
     {(!workspace || checking) && <div className="account-welcome"><p>{t.t('accountsKeychain')}</p><small>{t.t('noLoginSwitch')}</small></div>}

@@ -29,7 +29,7 @@ export function CompleteStage({ controller }: { controller: AppController }) {
   const changedIds = changedSessionIds(preview);
   const count = changedIds.length;
   const title = partial ? t.t(operation === 'sync' ? 'syncInterrupted' : 'operationInterrupted')
-    : !verified ? t.t('issue')
+    : !verified ? t.t(operation === 'sync' && controller.errorKey === 'errorWorkspaceChanged' ? 'sessionsChangedBeforeSync' : 'issue')
     : operation === 'sync' ? t.t(count === 1 ? 'syncCompleteCountOne' : 'syncCompleteCount', { count })
     : operation === 'archive' ? t.t(count === 1 ? 'archiveCompleteCountOne' : 'archiveCompleteCount', { count })
     : operation === 'unarchive' ? t.t(count === 1 ? 'unarchiveCompleteCountOne' : 'unarchiveCompleteCount', { count })
@@ -59,7 +59,9 @@ export function CompleteStage({ controller }: { controller: AppController }) {
     const items = changes.filter((item) => item.sessionId === id);
     return { id, title: items[0]?.title || preview?.selected.find((item) => item.id === id)?.title || t.t('untitled'), targets: targetText(items) };
   });
-  const partialAccountIds = [...new Set([...(interruption?.changedAccountIds ?? []), ...(interruption?.pendingAccountIds ?? [])])];
+  const plannedAccountIds = new Set(changes.map((item) => item.accountId));
+  const partialAccountIds = [...new Set([...(preview?.accountIds ?? []), ...plannedAccountIds,
+    ...(interruption?.changedAccountIds ?? []), ...(interruption?.pendingAccountIds ?? [])])];
   return <StageFrame className="stage-surface stage-surface--complete" data-verified={verified} data-partial={partial} title={title}><div className="complete-layout"><aside className="complete-art"><RelayArt state={verified ? 'complete' : 'attention'} celebrate={verified && controller.celebrate} /></aside><section className="complete-card">
     <header><h1>{title}</h1></header>
     <div className="receipt-body">
@@ -68,7 +70,9 @@ export function CompleteStage({ controller }: { controller: AppController }) {
         {controller.error && controller.error !== interruption!.explanation && <Callout tone="danger">{controller.error}</Callout>}
         <ul className="completion-list partial-account-list">{partialAccountIds.map((id) => {
           const recorded = interruption!.changedAccountIds.includes(id);
-          return <li key={id} data-outcome={recorded ? 'recorded' : 'unconfirmed'}><Icon icon="alert" /><strong>{accountLabel(id)}</strong><span>{t.t(recorded ? 'recordedNotVerified' : 'needsChecking')}</span></li>;
+          const planned = plannedAccountIds.has(id) || interruption!.pendingAccountIds.includes(id);
+          const outcome = recorded ? 'recorded' : planned ? 'unconfirmed' : 'unplanned';
+          return <li key={id} data-outcome={outcome}>{outcome !== 'unplanned' && <Icon icon="alert" />}<strong>{accountLabel(id)}</strong><span>{t.t(recorded ? 'recordedNotVerified' : planned ? 'needsChecking' : 'receiptNoChangesPlanned')}</span></li>;
         })}</ul>
         <details className="review-more receipt-error-details"><summary><span>{t.t('interruptionDetails')}</span><Icon icon="chevron-down" size="sm" /></summary>
           <p>{interruption!.explanation}</p>
@@ -81,8 +85,8 @@ export function CompleteStage({ controller }: { controller: AppController }) {
         {verified && <p className="receipt-recovery">{summary}</p>}
       </>}
     </div>
-    <footer><Button variant={verified ? 'primary' : 'ghost'} static disabled={controller.busy} onClick={() => { controller.setCelebrate(false); controller.setStage(controller.workspace ? 'review' : 'home'); }}>{t.t('returnToChats')}</Button>
-      {!verified && <Button variant="primary" static pending={controller.busy} disabled={controller.busy} onClick={() => void controller.refreshReview()}>{t.t(preview ? 'refreshReview' : 'refreshSessions')}</Button>}
+    <footer><Button className={verified ? 'receipt-primary' : 'receipt-back'} variant={verified ? 'primary' : 'ghost'} static disabled={controller.busy} onClick={() => { controller.setCelebrate(false); controller.setStage(controller.workspace ? 'review' : 'home'); }}>{t.t('returnToChats')}</Button>
+      {!verified && <Button className="receipt-primary" variant="primary" static pending={controller.busy} disabled={controller.busy} onClick={() => void controller.refreshReview()}>{t.t(preview ? 'refreshReview' : 'refreshSessions')}</Button>}
     </footer>
   </section></div></StageFrame>;
 }

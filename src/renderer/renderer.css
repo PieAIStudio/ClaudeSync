@@ -190,8 +190,8 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .theme-dark .relay-art::before { opacity: .62; }
 .theme-dark .relay-art::after { background: radial-gradient(closest-side, rgb(0 0 0 / 45%), transparent); }
 .relay-render { display: block; width: 100%; height: 100%; object-fit: contain; }
-.relay-badge { position: absolute; right: 12%; bottom: 12%; display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid rgb(255 255 255 / 90%); border-radius: 24px; color: var(--swimmer-accent-ink); background: rgb(255 255 255 / 80%); box-shadow: 0 10px 24px rgb(90 60 200 / 22%), inset 0 2px 2px #fff; transform: rotate(-7deg); }
-.theme-dark .relay-badge { border-color: rgb(255 255 255 / 18%); background: rgb(40 36 60 / 82%); box-shadow: 0 10px 24px rgb(0 0 0 / 40%), inset 0 1px 0 rgb(255 255 255 / 18%); }
+.relay-badge { position: absolute; right: 12%; bottom: 12%; display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid rgb(255 255 255 / 90%); border-radius: 24px; color: var(--swimmer-accent-ink); background: #fff; box-shadow: 0 10px 24px rgb(90 60 200 / 22%), inset 0 2px 2px #fff; transform: rotate(-7deg); }
+.theme-dark .relay-badge { border-color: rgb(255 255 255 / 18%); background: #28243c; box-shadow: 0 10px 24px rgb(0 0 0 / 40%), inset 0 1px 0 rgb(255 255 255 / 18%); }
 .relay-badge .game-ui-icon { width: 36px; height: 36px; stroke-width: 2; }
 /* Idle needs no status chip: the art alone says what the app is. */
 .relay-art[data-relay-state="ready"] .relay-badge { display: none; }
@@ -258,7 +258,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .stage-surface--progress .relay-art { width: min(260px, 36vh); }
 .stage-surface--progress .game-ui-page-surface-content { flex: none; order: 1; }
 .stage-surface--progress .liquid-progress { margin: 6px 0 18px; background: rgb(255 255 255 / 28%); box-shadow: inset 0 1px 2px rgb(20 10 40 / 22%); }
-.stage-surface--progress .state-stage .progress-cancel-note { max-width: 54ch; font-size: 13px; line-height: 1.6; }
+.stage-surface--progress .state-stage .progress-cancel-note { max-width: 48ch; font-size: 13px; line-height: 1.6; text-wrap: balance; }
 @keyframes progress-tide { 50% { transform: translateX(138%); } }
 
 /* Complete: the art and a quiet receipt card. */
@@ -278,7 +278,7 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .receipt-error-details li span { color: var(--cs-muted); overflow-wrap: anywhere; }
 .complete-card header h1 { margin: 0; font-size: clamp(28px, 3vw, 36px); font-weight: 450; line-height: 1.18; letter-spacing: -.025em; text-wrap: balance; }
 .complete-card header p { margin: 10px 0 0; color: var(--cs-muted); font-size: 16px; line-height: 1.5; }
-.complete-card .game-ui-callout { margin-top: 18px; }
+.complete-card .game-ui-callout { margin-top: 18px; text-wrap: balance; }
 .complete-proof { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; color: var(--swimmer-success); font-size: 14px; font-weight: 600; }
 .complete-proof::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .completion-list { display: grid; gap: 2px; margin: 16px 0 8px; padding: 0; list-style: none; }
@@ -290,9 +290,11 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .stage-surface--complete[data-verified="false"] .complete-proof,
 .stage-surface--complete[data-verified="false"] .completion-list li > .game-ui-icon { color: var(--swimmer-warning); }
 .receipt-recovery { color: var(--cs-muted); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
-.complete-card footer { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 18px; }
+.complete-card footer { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 18px; }
 .complete-card footer .game-ui-button { font-size: 14px; }
-.complete-card footer .game-ui-button:last-child { min-width: 140px; min-height: 48px; border-radius: 999px; }
+.complete-card footer > .receipt-primary, .complete-card footer > :has(.receipt-primary) { margin-inline-start: auto; }
+.complete-card footer .receipt-primary { min-width: 140px; min-height: 48px; border-radius: 999px; }
+.complete-card footer .receipt-back { min-width: 0; padding-inline: 0; justify-content: flex-start; }
 
 /* Review: one card — categories, list and a footer that never covers rows. */
 .stage-surface--review.game-ui-page-surface { display: flex; flex-direction: column; height: 100%; min-height: 520px; gap: 22px; }
@@ -491,6 +493,10 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .review-changes li > span { display: grid; gap: 4px; min-width: 0; }
 .review-changes strong { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
 .review-changes small, .review-more small { color: var(--cs-muted); font-size: 13px; }
+/* Review labels keep UIKit semantics with a plain, stable pill silhouette. */
+.review-changes .review-change-chip[data-game-ui-paint] { --review-chip-ink: var(--swimmer-accent-ink); flex: none; max-width: 46%; padding: 5px 10px; border: 1px solid color-mix(in srgb, var(--review-chip-ink) 20%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--review-chip-ink) 10%, var(--cs-card)); color: var(--review-chip-ink); box-shadow: none; font-size: 12px; line-height: 18px; text-align: center; text-wrap: balance; }
+.review-changes .review-change-chip[data-badge-tone="warning"] { --review-chip-ink: var(--swimmer-warning); }
+.review-changes .review-change-chip > .game-ui-droplet { display: none; }
 .title-conflicts label { display: grid; gap: 6px; margin-bottom: 10px; }
 .title-conflicts select { width: 100%; }
 .review-more { line-height: 1.7; }

@@ -13,10 +13,16 @@ for (const locale of locales) {
     expect(sentences.length).toBeLessThanOrEqual(2);
     expect(t.t('helpFor', { term: t.t(copy.label) })).not.toContain('{term}');
   });
-  it(`${locale}: explains the Code product in session content and help`, () => {
+  it(`${locale}: uses plain session labels and explains the product in context and help`, () => {
     const t = i18n.translator(locale);
     for (const key of ['sessions', 'delete', 'selectedCount', 'untitled'] as const) {
-      expect(t.t(key, { count: 4 })).toContain('Code');
+      const label = t.t(key, { count: 4 });
+      if (locale === 'zh-CN' || locale === 'en') {
+        expect(label).not.toContain('Code');
+        expect(label.toLowerCase()).toContain(locale === 'zh-CN' ? '会话' : 'session');
+      } else {
+        expect(label).toContain('Code');
+      }
     }
     expect(t.t('localSub')).toContain('Claude Code');
     expect(t.t('tipCode')).toContain('Code');

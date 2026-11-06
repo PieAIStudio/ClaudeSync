@@ -275,7 +275,7 @@ async function run() {
   await js('document.fonts.ready.then(() => true)');
   if (securityScenario) return runSecurity();
   await waitFor(`document.querySelectorAll('.account-card').length === 2 && Boolean(document.querySelector('.account-session-link:not(:disabled)'))`, 'default Accounts cards');
-  await clickButton('检查账号');
+  await clickButton('核对账号');
   await waitFor(`Boolean(document.querySelector('.account-session-link:not(:disabled)'))`, 'account check complete');
   await clickButton('本机会话');
   await chooseFilter('.session-group-filter', 'visible');
@@ -298,7 +298,7 @@ async function run() {
   await chooseFilter('.account-view-filter', A);
   await selectSession(CHAT_A);
   await openMore();
-  await clickButton('删除选中的 Code 会话');
+  await clickButton('删除选中的会话');
   await clickButton('确定删除');
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已移除所选记录')`, 'A deletion complete');
   assert(!fs.existsSync(index(SA, CHAT_A)));
@@ -335,7 +335,7 @@ async function run() {
   await oldGroup();
   for (const id of oldIds) await selectSession(id);
   await openMore();
-  await clickButton('删除选中的 Code 会话');
+  await clickButton('删除选中的会话');
   await shot('03-old-delete-confirm');
   await clickButton('确定删除');
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('移到废纸篓')`, 'old direct deletion');

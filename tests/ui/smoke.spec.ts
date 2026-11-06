@@ -594,7 +594,7 @@ test('polish — restore preview, folder save, and cloud view/delete cover the 6
     await openFixture(page, viewport, locale);
     await openUtilityStage(page, locale, 'settings');
     await polishShot(page, `settings-before-${locale}-${viewport.width}`);
-    await page.getByRole('button', { name: locale === 'en' ? 'Save and check' : '保存并检查', exact: true }).click();
+    await page.getByRole('button', { name: locale === 'en' ? 'Save and check' : '保存并核对', exact: true }).click();
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'results');
     await expect(page.getByRole('combobox', { name: locale === 'en' ? 'Viewing' : '正在查看', exact: true })).toHaveValue('all');
     await expect(page.locator('.session-row')).toHaveCount(2);
@@ -607,8 +607,8 @@ test('polish — restore preview, folder save, and cloud view/delete cover the 6
     await expect(page.getByText('Synthetic archived cloud session', { exact: true })).toBeVisible();
     await polishShot(page, `cloud-all-${locale}-${viewport.width}`);
     await page.getByRole('checkbox', { name: 'Synthetic active cloud session', exact: true }).check();
-    await page.getByRole('button', { name: locale === 'en' ? 'Delete selected Code sessions' : '删除选中的 Code 会话', exact: true }).click();
-    const cloudDialog = page.getByRole('dialog', { name: locale === 'en' ? 'Delete this 1 Code session?' : '确定要删除这 1 条 Code 会话吗？', exact: true });
+    await page.getByRole('button', { name: locale === 'en' ? 'Delete selected sessions' : '删除选中的会话', exact: true }).click();
+    const cloudDialog = page.getByRole('dialog', { name: locale === 'en' ? 'Delete this session?' : '确定要删除这 1 条会话吗？', exact: true });
     await expect(cloudDialog).toBeVisible();
     await polishShot(page, `cloud-delete-preview-${locale}-${viewport.width}`);
     await cloudDialog.getByRole('button', { name: locale === 'en' ? 'Delete' : '确定删除', exact: true }).click();

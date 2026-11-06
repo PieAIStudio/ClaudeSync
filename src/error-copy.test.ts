@@ -22,7 +22,7 @@ describe('transported error and status copy', () => {
 
   it('translates a key in the current locale and preserves unknown text', () => {
     const encoded = encodeMessage('errorWorkspaceRevisionChanged');
-    expect(errorMessage(new Error(encoded), 'en')).toBe('The Code session list changed. Refresh before selecting again.');
+    expect(errorMessage(new Error(encoded), 'en')).toBe('The session list changed. Refresh before selecting again.');
     expect(errorMessage(new Error(encoded), 'ja')).toBe('Code セッション一覧が変わりました。再読み込みしてから選択してください。');
     expect(errorMessage(new Error('legacy provider failure'), 'en')).toBe('legacy provider failure');
     expect(messageText(messageList([encoded, 'third-party failure']), 'en')).toContain('third-party failure');

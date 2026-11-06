@@ -20,7 +20,7 @@ export function ReviewStage({ controller }: { controller: AppController }) {
   const canSync = syncGroup && controller.canAct && controller.included.size >= 2 && controller.targetsVerified;
   const allSelected = controller.eligibleToSelect.length > 0 && controller.eligibleToSelect.every((session) => controller.selected.has(session.id));
   const someSelected = controller.eligibleToSelect.some((session) => controller.selected.has(session.id));
-  const deleteAccounts = controller.deleteTargets.accountIds.map((id) => accountName(workspace.accounts.find((account) => account.id === id), t)).join(', ') || t.t('allAccounts');
+  const deleteAccounts = controller.deleteTargets.accountIds.map((id) => accountName(workspace.accounts.find((account) => account.id === id), t)).join(t.locale === 'zh-CN' ? '、' : ', ') || t.t('allAccounts');
   const reviewActions = <div className="review-footer-actions">
     <div className="action-buttons">
       <div className="selection-summary" aria-live="polite">
@@ -73,13 +73,14 @@ export function ReviewStage({ controller }: { controller: AppController }) {
           <label>{t.t('sort')}<Select aria-label={t.t('sort')} value={controller.sort} onChange={(event) => controller.setSort(event.target.value as 'updated' | 'title')}><option value="updated">{t.t('sortUpdated')}</option><option value="title">{t.t('sortTitle')}</option></Select></label>
         </div></details>
       </div>
-      <div className="select-line"><label><input type="checkbox" checked={allSelected} disabled={controller.busy || !controller.eligibleToSelect.length}
+      <div className="select-line">{controller.reviewSessions.length > 0 && <><label><input type="checkbox" checked={allSelected} disabled={controller.busy || !controller.eligibleToSelect.length}
         ref={(element) => { if (element) element.indeterminate = someSelected && !allSelected; }}
         onChange={(event) => { const value = event.target.checked; controller.setSelected((current) => { const next = new Set(current); for (const session of controller.eligibleToSelect) { if (value) next.add(session.id); else next.delete(session.id); } return next; }); }} />{t.t('selectVisible')}</label>
         <details className="selection-menu"><summary>{t.t('selectMenu')}</summary><div>
           <Button variant="ghost" static disabled={controller.busy || !controller.recentEligible.length} onClick={() => controller.setSelected(new Set(controller.recentEligible.map((session) => session.id)))}>{t.t(!controller.recentEligible.length ? 'noRecentSelection' : archived ? 'recentArchived' : group === 'deleted' ? 'recentSurviving' : controller.recentEligible.length === 1 ? 'recentSelectionOne' : 'recentSelection', { count: controller.recentEligible.length })}</Button>
           <Button variant="ghost" static disabled={controller.busy || !controller.selected.size} onClick={() => controller.setSelected(new Set())}>{t.t('clearSelection')}</Button>
-        </div></details>
+        </div></details></>}
+        {controller.reviewSessions.length === 0 && controller.selected.size > 0 && <Button className="clear-hidden-selection" variant="ghost" size="sm" static disabled={controller.busy} onClick={() => controller.setSelected(new Set())}>{t.t('clearSelection')}</Button>}
         <span className="visible-total">{t.t('visibleCount', { shown: controller.reviewSessions.length, total: controller.scopedGroups[group].length })}</span>
       </div>
       <div className="review-list-wrap">
