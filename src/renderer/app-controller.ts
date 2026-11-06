@@ -9,7 +9,7 @@ import { useOldCleanup } from './app-cleanup';
 import { useAppOperations } from './app-operations';
 import type { DeleteSelection } from './deletion-selection';
 import { accountName } from './components';
-import type { ReviewCategory, Stage } from './app-types';
+import type { Stage } from './app-types';
 
 export function useAppController(locale: AppLocale, onLocale: (locale: AppLocale) => void) {
   const t = useTranslation();
@@ -34,11 +34,14 @@ export function useAppController(locale: AppLocale, onLocale: (locale: AppLocale
   const operations = useAppOperations({ model, workspace: model.workspace, included: browser.included, accountFilter: browser.accountFilter,
     selected: browser.selected, selectionGroup: browser.selectionGroup, setStage, setSelected: browser.setSelected });
 
-  function openReview(category: ReviewCategory, preselect = false) {
-    browser.openReview(category, preselect);
-    setStage('review');
+  function openSessions(accountId = 'all', missing = false) {
+    browser.browseAccount(accountId);
+    browser.setSelectionGroup('visible');
+    browser.setMissingOnly(missing);
+    browser.setSearch('');
+    browser.setFilter('all');
+    setStage('results');
   }
-
   function openRename() {
     setNewTitle(browser.scopedGroups[browser.selectionGroup].find((session) => browser.selected.has(session.id))?.title || '');
     setRenameOpen(true);
@@ -70,7 +73,7 @@ export function useAppController(locale: AppLocale, onLocale: (locale: AppLocale
     error: model.error, deleted: model.deleted, result: model.result, busy, stage, setStage, theme: preferences.theme, setTheme: preferences.setTheme,
     compact: preferences.compact, setCompact: preferences.setCompact, reducedMotion: preferences.reducedMotion, setReducedMotion: preferences.setReducedMotion, includeAccount: preferences.includeAccount,
     locale, onLocale, sessionRoot: accountSessionRoot, setSessionRoot: setAccountSessionRoot, projectsRoot, setProjectsRoot,
-    cloudRefresh, refreshCloud, onCloudBusy: setCloudBusy, navigate, openRename, openDeleteConfirmation, ...browser, ...operations, ...cleanup, saveFolders, openReview,
+    cloudRefresh, refreshCloud, onCloudBusy: setCloudBusy, navigate, openRename, openDeleteConfirmation, ...browser, ...operations, ...cleanup, saveFolders, openSessions,
     renameOpen, setRenameOpen, newTitle, setNewTitle, deleting, setDeleting,
   };
 }

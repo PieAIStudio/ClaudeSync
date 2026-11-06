@@ -11,10 +11,12 @@ export function useOldCleanup(model: WorkspaceModel, workspace: WorkspaceView | 
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [oldPreview, setOldPreview] = useState<OldCleanupPreview>();
   const [cleanupFeedback, setCleanupFeedback] = useState('');
+  const cleanupAccounts = workspace?.accounts.filter((account) => included.has(account.id) && (accountFilter === 'all' || account.id === accountFilter)) ?? [];
+  const canReviewOldCopies = cleanupAccounts.length > 0 && cleanupAccounts.every((account) => account.organizationVerified) && cleanupAccounts.some((account) => account.oldCopies > 0);
 
   async function reviewOldCopies() {
-    if (!workspace || !model.api) return;
-    const ids = accountFilter === 'all' ? [...included] : included.has(accountFilter) ? [accountFilter] : [];
+    if (!workspace || !model.api || !canReviewOldCopies) return;
+    const ids = cleanupAccounts.map((account) => account.id);
     if (!ids.length) return;
     setCleanupBusy(true); setCleanupFeedback('');
     try {
@@ -39,5 +41,5 @@ export function useOldCleanup(model: WorkspaceModel, workspace: WorkspaceView | 
     } finally { setCleanupBusy(false); }
   }
 
-  return { cleanupBusy, oldPreview, cleanupFeedback, setOldPreview, reviewOldCopies, confirmOldCopies };
+  return { canReviewOldCopies, cleanupBusy, oldPreview, cleanupFeedback, setOldPreview, reviewOldCopies, confirmOldCopies };
 }

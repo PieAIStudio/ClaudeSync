@@ -4,21 +4,22 @@ import { ToolSidebar, ToolWindow, type ToolSidebarItem } from '@pieai/swimmer-ui
 import { useTranslation } from './i18n';
 import type { AppController } from './app-controller';
 import { navItems, type Stage } from './app-types';
+import { NavArt, PageArt } from './visuals';
 
 function Sidebar({ controller }: { controller: AppController }) {
   const t = useTranslation();
   const current = (stage: Stage) => controller.stage === stage || (stage === 'results' && controller.stage === 'review');
   const items: ToolSidebarItem[] = navItems.map((item) => ({
     id: item.stage,
-    icon: <Icon icon={item.icon} />,
+    icon: <NavArt kind={item.stage === 'home' ? 'home' : item.stage === 'cloud' ? 'cloud' : 'local'} />,
     label: t.t(item.label),
     selected: current(item.stage),
     onClick: () => controller.navigate(item.stage),
   }));
-  return <ToolSidebar className="game-ui-shell-sidebar" appIcon={<span className="shell-brand-mark"><Icon icon="check" /></span>} appName={<span className="shell-brand"><strong>ClaudeSync</strong></span>} items={items} navLabel={t.t('sources')}
+  return <ToolSidebar className="game-ui-shell-sidebar" appIcon={<span className="shell-brand-art"><PageArt kind="hero" /></span>} appName={<span className="shell-brand"><strong>ClaudeSync</strong></span>} items={items} navLabel={t.t('sources')}
     footer={<nav className="shell-sidebar-bottom" aria-label={t.t('settings')}>
-      <button type="button" data-current={controller.stage === 'backups'} onClick={() => void controller.openBackups()} disabled={!controller.workspace || controller.busy}><Icon icon="history" /><span>{t.t('backupTitle')}</span></button>
-      <button type="button" data-current={controller.stage === 'settings'} onClick={() => controller.navigate('settings')}><Icon icon="settings" /><span>{t.t('settings')}</span></button>
+      <button type="button" data-current={controller.stage === 'backups'} onClick={() => void controller.openBackups()} disabled={!controller.workspace || controller.busy}><NavArt kind="backup" /><span>{t.t('backupTitle')}</span></button>
+      <button type="button" data-current={controller.stage === 'settings'} onClick={() => controller.navigate('settings')}><NavArt kind="settings" /><span>{t.t('settings')}</span></button>
     </nav>} />;
 }
 
@@ -26,12 +27,12 @@ function MobileNav({ controller }: { controller: AppController }) {
   const t = useTranslation();
   const current = (stage: Stage) => controller.stage === stage || (stage === 'results' && controller.stage === 'review');
   return <nav className="mobile-nav-links" aria-label={t.t('sources')}>
-    {navItems.map((item) => <button key={item.stage} type="button" data-current={current(item.stage)} onClick={() => controller.navigate(item.stage)}><Icon icon={item.icon} /><span>{t.t(item.label)}</span></button>)}
+    {navItems.map((item) => <button key={item.stage} type="button" data-current={current(item.stage)} onClick={() => controller.navigate(item.stage)}><NavArt kind={item.stage === 'home' ? 'home' : item.stage === 'cloud' ? 'cloud' : 'local'} /><span>{t.t(item.label)}</span></button>)}
     <details className="mobile-nav-more" data-current={controller.stage === 'backups' || controller.stage === 'settings'}>
       <summary><Icon icon="menu" /><span>{t.t('mobileMore')}</span></summary>
       <div>
-        <button type="button" data-current={controller.stage === 'backups'} onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); void controller.openBackups(); }} disabled={!controller.workspace || controller.busy}><Icon icon="history" /><span>{t.t('backupTitle')}</span></button>
-        <button type="button" data-current={controller.stage === 'settings'} onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); controller.navigate('settings'); }}><Icon icon="settings" /><span>{t.t('settings')}</span></button>
+        <button type="button" data-current={controller.stage === 'backups'} onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); void controller.openBackups(); }} disabled={!controller.workspace || controller.busy}><NavArt kind="backup" /><span>{t.t('backupTitle')}</span></button>
+        <button type="button" data-current={controller.stage === 'settings'} onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); controller.navigate('settings'); }}><NavArt kind="settings" /><span>{t.t('settings')}</span></button>
       </div>
     </details>
   </nav>;
@@ -39,7 +40,7 @@ function MobileNav({ controller }: { controller: AppController }) {
 
 function WindowBar({ controller }: { controller: AppController }) {
   const t = useTranslation();
-  const stageLabel = controller.stage === 'home' ? t.t('overview') : controller.stage === 'review' ? t.t('reviewTitle') : controller.stage === 'results' ? t.t('localSessions')
+  const stageLabel = controller.stage === 'home' ? t.t('accounts') : controller.stage === 'review' ? t.t('localSessions') : controller.stage === 'results' ? t.t('localSessions')
     : controller.stage === 'settings' ? t.t('settings') : controller.stage === 'backups' ? t.t('backupTitle') : controller.stage === 'cloud' ? t.t('cloudSessions') : t.t('checking');
   return <><span className="shell-window-title">{stageLabel}</span><span className="shell-window-actions">
     {controller.stage === 'cloud' && <IconButton label={t.t('checkAgain')} onClick={controller.refreshCloud} disabled={controller.busy}><Icon icon="redo" /></IconButton>}

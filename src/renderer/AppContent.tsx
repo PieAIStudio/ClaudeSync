@@ -6,7 +6,6 @@ import type { AppController } from './app-controller';
 import { useAppController } from './app-controller';
 import { AppShell } from './AppShell';
 import { HomeStage, ProgressStage, ScanStage } from './HomeStages';
-import { ResultsStage } from './ResultsStage';
 import { ReviewStage } from './ReviewStage';
 import { CompleteStage, SettingsStage, BackupsStage } from './UtilityStages';
 import { CloudSessions } from './CloudSessions';
@@ -23,7 +22,7 @@ function StageView({ controller }: { controller: AppController }) {
   switch (controller.stage) {
     case 'home': return <HomeStage controller={controller} />;
     case 'scan': return <ScanStage />;
-    case 'results': return <ResultsStage controller={controller} />;
+    case 'results': return <ReviewStage controller={controller} />;
     case 'review': return <ReviewStage controller={controller} />;
     case 'progress': return <ProgressStage />;
     case 'complete': return <CompleteStage controller={controller} />;

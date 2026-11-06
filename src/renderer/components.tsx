@@ -8,6 +8,7 @@ import { ProgressReview } from './ProgressReview';
 import { TermTip } from './TermTip';
 import { messageText } from './errors';
 import { parseMessage } from '../error-copy';
+import { sessionActionState } from './session-action-state';
 
 export const groupLabels: Record<SessionGroup, TranslationKey> = {
   visible: 'visibleGroup', archived: 'archived', scheduled: 'scheduledGroup',
@@ -135,15 +136,18 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
   </aside>;
 }
 
-export function SessionRows({ sessions, accounts, selected, filterId, included, onToggle, busy, idPrefix = 'session', statusMode = 'sync', group = 'visible' }: {
-  sessions: SessionView[]; accounts: AccountView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string; statusMode?: 'sync' | 'cleanup'; group?: SessionGroup;
+export function SessionRows({ sessions, accounts, catalog, selected, filterId, included, onToggle, busy, idPrefix = 'session', statusMode = 'sync', group = 'visible' }: {
+  sessions: SessionView[]; accounts: AccountView[]; catalog?: SessionView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string; statusMode?: 'sync' | 'cleanup'; group?: SessionGroup;
 }) {
   const t = useTranslation();
   if (!sessions.length) return <p className="empty-state">{t.t('noSessions')}</p>;
   return <ul className="session-list">{sessions.map((session) => {
-    const presence = session.presence.filter((item) => filterId === 'all' ? included.has(item.accountId) : item.accountId === filterId);
+    const presence = session.presence.filter((item) => filterId === 'all' || item.accountId === filterId);
+    const allPresence = catalog?.find((item) => item.id === session.id)?.presence ?? session.presence;
+    const presentIds = new Set(allPresence.filter((item) => item.records ? item.records.some((record) => record.group === group) : item.copies > 0).map((item) => item.accountId));
     const active = presence.some((item) => item.active);
-    const eligible = presence.some((item) => item.eligible);
+    const actionState = sessionActionState(session, included);
+    const eligible = actionState.eligible;
     const scheduledNotice = group === 'scheduled' ? session.deletable ? 'scheduledLocalCopy' : 'scheduledCloudOnly' : undefined;
     const reasons = scheduledNotice ? [] : [...new Set(presence.flatMap((item) => item.reasons))];
     const selectedRestore = session.manageable && reasons.some((reason) => hasReason(reason, reasonKeys.deleted, '删除标记') || reason.includes('曾被删除'));
@@ -152,7 +156,7 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
       || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu.test(projectName);
     const status = selectedRestore ? 'reviewToRestore' : !active ? 'archived' : eligible ? statusMode === 'cleanup' ? 'cleanupReady' : 'syncable' : 'blocked';
     return <li key={session.id} className={`session-row ${selected.has(session.id) ? 'is-selected' : ''}`}>
-      <input id={`${idPrefix}-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !(session.manageable || (group === 'scheduled' || group === 'deleted') && session.deletable) || !session.presence.some((item) => included.has(item.accountId))}
+      <input id={`${idPrefix}-${session.id}`} type="checkbox" aria-label={session.title || t.t('untitled')} checked={selected.has(session.id)} disabled={busy || !(actionState.manageable || (group === 'scheduled' || group === 'deleted') && actionState.deletable)}
         onChange={(event) => onToggle(session.id, event.target.checked)} />
       <div className="session-copy">
         <label className="session-title" htmlFor={`${idPrefix}-${session.id}`}>
@@ -161,12 +165,13 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
         <div className="session-meta"><span title={projectMissing ? t.t('projectMissing') : session.project}>{projectMissing ? t.t('projectMissing') : projectName}</span>
           {session.updatedAt && <time dateTime={session.updatedAt}>{t.date(session.updatedAt, { dateStyle: 'medium' })}</time>}
         </div>
+        <div className="session-account-chips" aria-label={t.t('accounts')}>{accounts.filter((account) => presentIds.has(account.id)).map((account) => <span key={account.id} className="session-account-chip" title={accountName(account, t)}>{accountName(account, t)}</span>)}</div>
         {scheduledNotice && <p className="session-reason">{t.t(scheduledNotice)}</p>}
       </div>
       <span className={`session-status session-status--${status}`}>{t.t(status)}</span>
-      <details className="session-details"><summary><span>{t.t('rowDetails')}</span><span aria-hidden="true">›</span></summary><div>
+      <details className="session-details" onToggle={(event) => { if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'instant' }); }}><summary><span>{t.t('rowDetails')}</span><span aria-hidden="true">›</span></summary><div>
         {reasons.length > 0 && <p className="session-detail-reason">{reasons.map((reason) => <span key={reason}>{reasonText(reason, t)}</span>)}</p>}
-        <p>{t.t('project')}: {session.project || '—'}</p><p>ID: {session.id}</p>
+        <h3>{session.title || t.t('untitled')}</h3><p>{t.t('project')}: {session.project || '—'}</p>
         {!session.manageable && !scheduledNotice && <p>{t.t('unsupported')}</p>}
         {session.presence.map((item) => <div className="presence-detail" key={item.accountId}>
           <strong>{accountName(accounts.find((account) => account.id === item.accountId), t)}</strong>
@@ -174,6 +179,7 @@ export function SessionRows({ sessions, accounts, selected, filterId, included, 
           <p>{t.t('titleVariants')}: {item.titles.filter(Boolean).join(' / ') || t.t('untitled')}</p>
           {!scheduledNotice && item.reasons.map((reason) => <p key={reason}>{reasonText(reason, t)}</p>)}
         </div>)}
+        <details className="record-locations"><summary>{t.t('recordLocations')}</summary><p>ID: <code>{session.id}</code></p><p>{t.t('project')}: <code>{session.project || '—'}</code></p></details>
       </div></details>
     </li>;
   })}</ul>;

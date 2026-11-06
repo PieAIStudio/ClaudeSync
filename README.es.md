@@ -7,7 +7,7 @@ ClaudeSync muestra y organiza listas locales de sesiones de Claude Code entre cu
 ## Uso
 
 1. En macOS, usa `pnpm package:mac:dir` y abre `dist/electron/mac-arm64/ClaudeSync.app`, no la copia antigua de la raíz ni `Sync.command`. Actualiza.
-2. Marca las cuentas que quieras incluir. Pulsa una cuenta para ver sus sesiones, o consulta la lista combinada sin duplicados.
+2. **Cuentas** se abre al iniciar y muestra la identidad, el acceso a Desktop y los recuentos separados de cada cuenta. Abre sus sesiones o busca las que faltan. El filtro de cuenta está arriba de la lista y es independiente de las cuentas marcadas para actuar. Cada fila identifica las cuentas que tienen una copia.
 
 Para conservar las mismas diez sesiones en todas las cuentas, elige esas diez y **Conservar solo las elegidas**. Se añaden donde faltan, se desarchivan las elegidas y se archivan las demás. Si falta alguna conversación o un destino está bloqueado, se detiene antes de archivar otras sesiones. **Elegir 10 recientes sincronizables** solo cambia la selección.
 

@@ -7,7 +7,7 @@ ClaudeSync shows and organizes local Claude Code sessions across accounts and th
 ## Use
 
 1. On macOS, open `dist/electron/mac-arm64/ClaudeSync.app` directly, not the old root `ClaudeSync.app` or legacy `Sync.command` launcher. Refresh.
-2. Check the accounts to include. Click an account to see its sessions, or view the deduplicated union.
+2. **Accounts** opens first with every local account's identity, Desktop sign-in status and separate session counts. **View sessions** opens that account's list; **Find missing sessions** shows eligible differences. **On this Mac** opens the list directly. Use **Viewing** to browse and **Use these accounts** to choose action participants; browsing does not change participation. Each row names the accounts holding a copy.
 3. Search, filter and select sessions. Sync, archive and other local changes have a review. **Delete selected sessions** opens a short confirmation with the account, count and state-specific advice; exclusive transcript files move to the system Trash, so you can put them back from the Trash.
 4. Save work before changing local files. Sync and other organizing actions require quitting Claude/Code. Selected deletion and old-copy cleanup allow positively identified unrelated CLI sessions; relevant or unidentifiable writers and Desktop must be closed as directed. Viewing one account restricts deletion to that account. Use **Cloud sessions** for the current Desktop login’s cloud history; cloud deletion does not require quitting Claude.
 
@@ -30,7 +30,7 @@ Removal normally stops if another session or an unconfigured sibling folder stil
 
 ## Counts and identity
 
-The main account number is the distinct ordinary-session count in its verified current organization: exclude archived records, scheduled task runs and deletion-marked records. Without a usable verified organization, the number says **Unverified**, never an estimated count. Archive, scheduled runs, old-organization copies, deleted sessions with surviving copies and unverified records remain separately inspectable in initially collapsed groups. Each group deduplicates by `cliSessionId`; one identity may have copies in several groups, so do not add group counts into a distinct-session total. Sync and keep-only require a verified current destination for every included account. See [local visibility rules and evidence limits](docs/LOCAL-VISIBILITY-RULES.md).
+The main account number is the distinct ordinary-session count in its verified current organization: exclude archived records, scheduled task runs and deletion-marked records. Without a usable verified organization, the card shows **— · Count unavailable**, never an estimated count. Archive, scheduled runs, old-organization copies, deleted sessions with surviving copies and unverified records remain separately inspectable in initially collapsed groups. Each group deduplicates by `cliSessionId`; one identity may have copies in several groups, so do not add group counts into a distinct-session total. Sync and keep-only require a verified current destination for every included account. See [local visibility rules and evidence limits](docs/LOCAL-VISIBILITY-RULES.md).
 
 On macOS, refresh confirms the **Claude Desktop** account and email with one read-only request to Anthropic's profile service using Desktop's existing profile-only credential. Successful verification and the in-memory credential read are reused for this app run until Desktop's account or encrypted login cache changes; refresh and cloud actions do not repeatedly prompt. The asynchronous native Keychain prompt has no app-imposed response deadline. It reads Claude Safe Storage through the maintained in-process `@napi-rs/keyring` addon, not a shared command-line Keychain client, keeps credentials in memory, and never refreshes or stores them. The verified current account's local folders are added to ClaudeSync's configuration with a configuration backup. Account participation choices are retained. CLI login metadata can identify a historical account but never establishes Desktop's current login. Emails are remembered only on this computer; unidentified accounts keep stable short IDs. No guessing or manual email entry.
 
@@ -56,7 +56,7 @@ Errors retain only numeric stack locations under a fixed `app` label: no error t
 
 ## Materials
 
-The UIKit 4.0 preview uses four local synthetic result-group marks plus six approved local 3D ClaudeSync icons (hero and five page marks), each bundled at 128, 256 and 512 pixels. They contain no real account or chat data and are bundled locally; no remote image request is made.
+The account-first interface uses six approved local 3D ClaudeSync marks (hero and five navigation/page marks), bundled at 64 and 384 pixels from the Design 6 source assets. Existing state illustrations remain local. These assets contain no real account or chat data; no remote image request is made. Provenance is recorded in `src/renderer/assets/design6/SOURCES.md`.
 
 App icon source: `icon-material-20261031/apply-c/courtyard/claudesync-1024.png` (SHA-256: `29316020b8096d29019768bae510a0c0f1bec4241ffbdb3a5a64a3a8730c1c2e`).
 
@@ -85,11 +85,11 @@ dist/electron/mac-arm64/ClaudeSync.app/Contents/MacOS/ClaudeSync --claude-root /
 
 This does not redirect OS Keychain, disable writer guards or create a test mode. Fixture acceptance must use synthetic profiles without Desktop credentials and disable telemetry.
 
-After building, `CLAUDESYNC_UI_SCENARIO=security node tests/ui-smoke.cjs` checks the actual built `file://` renderer, strict CSP rejection of inline scripts and sandboxed preload/IPC using fixture settings only. Its window does not take focus; evidence goes to ignored `.reports/2026-11-01-cloud-fixes/`.
+After building, `CLAUDESYNC_UI_SCENARIO=security node tests/ui/native-fixture.cjs` checks the actual built `file://` renderer, strict CSP rejection of inline scripts and sandboxed preload/IPC using fixture settings only. Its window does not take focus; evidence goes to ignored `.reports/2026-11-01-cloud-fixes/`.
 
-After building, `CLAUDESYNC_UI_SCENARIO=skipped-entries node tests/ui-smoke.cjs` checks non-blocking notices and unchanged opaque entries through sync/archive, with evidence under ignored `.reports/2026-10-21-waiting-input/`.
+After building, `CLAUDESYNC_UI_SCENARIO=skipped-entries node tests/ui/native-fixture.cjs` checks non-blocking notices and unchanged opaque entries through sync/archive, with evidence under ignored `.reports/2026-10-21-waiting-input/`.
 
-`node tests/ui-smoke.cjs` exercises the three repair paths in the real Electron renderer/preload/IPC/core, including both old-copy actions. It creates its own synthetic home and accounts, blocks network and external commands, and substitutes a fixture-only process list and Trash. Screenshots and receipts go to ignored `.reports/2026-10-18-claudesync-fixes/`; it never accepts a user data directory. This is not native Desktop or real-account acceptance.
+`node tests/ui/native-fixture.cjs` exercises the three repair paths in the real Electron renderer/preload/IPC/core, including both old-copy actions. It creates its own synthetic home and accounts, blocks network and external commands, and substitutes a fixture-only process list and Trash. Screenshots and receipts go to ignored `.reports/2026-10-18-claudesync-fixes/`; it never accepts a user data directory. This is not native Desktop or real-account acceptance.
 
 The local package is an unsigned Apple silicon `.app`. Windows, Intel Mac, Linux, signing and notarization still need acceptance. Five interface languages are included. The current build has no ads, behavioral tracking, payments or automatic background sync; configured builds have the anonymous diagnostics above. Hosted CI is manual only; pushes do not publish or deploy.
 

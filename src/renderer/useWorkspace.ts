@@ -24,6 +24,7 @@ function useWorkspaceBootstrap(locale: AppLocale, setInfo: (value: AppInfo) => v
 export function useWorkspace(locale: AppLocale = 'zh-CN') {
   const [info, setInfo] = useState<AppInfo>();
   const [workspace, setWorkspace] = useState<WorkspaceView>();
+  const [accountCheckFailed, setAccountCheckFailed] = useState(false);
   const [review, setReview] = useState<OperationPreview>();
   const [request, setRequest] = useState<OperationRequest>();
   const [backups, setBackups] = useState<BackupView[]>([]);
@@ -44,14 +45,26 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
     finally { running.current = false; setBusy(false); }
   }
 
+  async function checkWorkspace() {
+    try {
+      if (!api) throw new Error('Desktop bridge unavailable');
+      const view = await api.check();
+      setAccountCheckFailed(false);
+      return view;
+    } catch (reason) {
+      setAccountCheckFailed(true);
+      throw reason;
+    }
+  }
+
   async function refresh() {
-    await run(async () => { if (api) { setReview(undefined); setWorkspace(await api.check()); } });
+    await run(async () => { if (api) { setReview(undefined); setWorkspace(await checkWorkspace()); } });
   }
   async function configure(sessionRoot: string, projectsRoot: string) {
     return await run(async () => {
       if (!api) return;
       await api.configure(sessionRoot, projectsRoot);
-      setInfo(await api.getInfo()); setWorkspace(await api.check()); setReview(undefined);
+      setInfo(await api.getInfo()); setWorkspace(await checkWorkspace()); setReview(undefined);
     });
   }
   async function preview(next: OperationRequest) {
@@ -80,7 +93,7 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
         setWorkspace(result.workspace); setResult(result.result); setDeleted(result.result.verified);
       } catch (reason) {
         // A failed direct delete may be partial. Refresh without retrying the mutation.
-        try { setWorkspace(await api.check()); } catch { /* Preserve the deletion error. */ }
+        try { setWorkspace(await checkWorkspace()); } catch { /* Preserve the deletion error. */ }
         throw reason;
       }
     });
@@ -94,6 +107,6 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
     try { return await api.chooseDirectory(); }
     catch (reason) { setError(errorMessage(reason, locale)); return null; }
   }
-  return { api, info, workspace, review, request, backups, busy, error, completed, deleted, result, refresh, configure, preview, apply, deleteSelected,
+  return { api, info, workspace, accountCheckFailed, review, request, backups, busy, error, completed, deleted, result, refresh, configure, preview, apply, deleteSelected,
     loadBackups, restore, openBackups, chooseDirectory, closeReview: () => setReview(undefined) };
 }

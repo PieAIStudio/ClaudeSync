@@ -1,22 +1,16 @@
 import { Icon, type IconName } from '@pieai/swimmer-ui-kit';
-import hero128 from './assets/icons-3d/hero-128.png';
-import hero256 from './assets/icons-3d/hero-256.png';
-import hero512 from './assets/icons-3d/hero-512.png';
-import home128 from './assets/icons-3d/home-128.png';
-import home256 from './assets/icons-3d/home-256.png';
-import home512 from './assets/icons-3d/home-512.png';
-import local128 from './assets/icons-3d/local-128.png';
-import local256 from './assets/icons-3d/local-256.png';
-import local512 from './assets/icons-3d/local-512.png';
-import cloud128 from './assets/icons-3d/cloud-128.png';
-import cloud256 from './assets/icons-3d/cloud-256.png';
-import cloud512 from './assets/icons-3d/cloud-512.png';
-import backup128 from './assets/icons-3d/backup-128.png';
-import backup256 from './assets/icons-3d/backup-256.png';
-import backup512 from './assets/icons-3d/backup-512.png';
-import settings128 from './assets/icons-3d/settings-128.png';
-import settings256 from './assets/icons-3d/settings-256.png';
-import settings512 from './assets/icons-3d/settings-512.png';
+import hero64 from './assets/design6/hero-64.png';
+import hero384 from './assets/design6/hero-384.png';
+import home64 from './assets/design6/home-64.png';
+import home384 from './assets/design6/home-384.png';
+import local64 from './assets/design6/local-64.png';
+import local384 from './assets/design6/local-384.png';
+import cloud64 from './assets/design6/cloud-64.png';
+import cloud384 from './assets/design6/cloud-384.png';
+import backup64 from './assets/design6/backup-64.png';
+import backup384 from './assets/design6/backup-384.png';
+import settings64 from './assets/design6/settings-64.png';
+import settings384 from './assets/design6/settings-384.png';
 import groupAligned from './assets/group-aligned.png';
 import groupAttention from './assets/group-attention.png';
 import groupCarry from './assets/group-carry.png';
@@ -26,15 +20,15 @@ type RelayState = 'ready' | 'scanning' | 'syncing' | 'complete' | 'attention';
 export type GroupVisual = 'recent' | 'older' | 'attention' | 'aligned';
 type PageVisual = 'home' | 'local' | 'cloud' | 'backup' | 'settings';
 type ThreeDVisual = 'hero' | PageVisual;
-type ThreeDSource = { small: string; medium: string; large: string };
+type ThreeDSource = { small: string; large: string };
 
 const threeDImages: Record<ThreeDVisual, ThreeDSource> = {
-  hero: { small: hero128, medium: hero256, large: hero512 },
-  home: { small: home128, medium: home256, large: home512 },
-  local: { small: local128, medium: local256, large: local512 },
-  cloud: { small: cloud128, medium: cloud256, large: cloud512 },
-  backup: { small: backup128, medium: backup256, large: backup512 },
-  settings: { small: settings128, medium: settings256, large: settings512 },
+  hero: { small: hero64, large: hero384 },
+  home: { small: home64, large: home384 },
+  local: { small: local64, large: local384 },
+  cloud: { small: cloud64, large: cloud384 },
+  backup: { small: backup64, large: backup384 },
+  settings: { small: settings64, large: settings384 },
 };
 
 const groupImages: Record<GroupVisual, string> = {
@@ -52,11 +46,10 @@ const relayIcons: Record<RelayState, IconName> = {
   attention: 'alert',
 };
 
-function ThreeDImage({ name, className, size }: { name: ThreeDVisual; className: string; size: 'hero' | 'page' }) {
-  const source = threeDImages[name];
-  return <img className={className} src={source.large}
-    srcSet={`${source.small} 128w, ${source.medium} 256w, ${source.large} 512w`}
-    sizes={size === 'hero' ? '(max-width: 900px) 300px, 500px' : '96px'} alt="" aria-hidden="true" />;
+function ThreeDImage({ name, className }: { name: ThreeDVisual; className: string; size: 'hero' | 'page' }) {
+  // Match the approved prototype's neutral frame; keep art static in every motion mode.
+  return <img className={className} src={threeDImages[name].large}
+    width={384} height={384} alt="" aria-hidden="true" draggable={false} />;
 }
 
 export function RelayArt({ state = 'ready', celebrate = false, compact = false }: {
@@ -70,8 +63,13 @@ export function RelayArt({ state = 'ready', celebrate = false, compact = false }
   </div>;
 }
 
-export function PageArt({ kind }: { kind: PageVisual }) {
+export function PageArt({ kind }: { kind: ThreeDVisual }) {
   return <ThreeDImage name={kind} className="page-header-art" size="page" />;
+}
+
+export function NavArt({ kind }: { kind: PageVisual }) {
+  return <img className="nav-art" src={threeDImages[kind].small}
+    width={64} height={64} alt="" aria-hidden="true" draggable={false} />;
 }
 
 export function GroupArt({ kind }: { kind: GroupVisual }) {

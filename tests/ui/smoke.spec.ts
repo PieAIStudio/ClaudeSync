@@ -36,7 +36,7 @@ const fixtureWorkspace: FixtureWorkspace = {
   revision: 'fixture-revision',
   accounts: [
     { id: ACCOUNT_A, email: 'account-a@fixture.invalid', scopes: ['fixture-alpha'], active: 2, archived: 1, total: 3, eligible: 2, copies: 3, current: true, visible: 2, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 },
-    { id: ACCOUNT_B, email: 'account-b@fixture.invalid', scopes: ['fixture-beta'], active: 1, archived: 1, total: 2, eligible: 1, copies: 2, current: true, visible: 1, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 },
+    { id: ACCOUNT_B, email: 'account-b@fixture.invalid', scopes: ['fixture-beta'], active: 1, archived: 1, total: 2, eligible: 1, copies: 2, current: false, visible: 1, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 },
   ],
   sessions: [
     {
@@ -93,8 +93,8 @@ const fixtureCloud = {
 };
 
 const labels: Record<Locale, Record<'home' | 'local' | 'cloud' | 'backups' | 'settings' | 'cta' | 'more', string>> = {
-  'zh-CN': { home: '概览', local: '本机 Code 会话', cloud: '云端 Code 会话', backups: '备份与恢复', settings: '文件夹设置', cta: '检查聊天', more: '更多' },
-  en: { home: 'Overview', local: 'Local Code sessions', cloud: 'Cloud Code sessions', backups: 'Backups and recovery', settings: 'Folder settings', cta: 'Check chats', more: 'More' },
+  'zh-CN': { home: '账号', local: '本机会话', cloud: '云端会话', backups: '备份', settings: '设置', cta: '检查聊天', more: '更多' },
+  en: { home: 'Accounts', local: 'On this Mac', cloud: 'Cloud', backups: 'Backups', settings: 'Settings', cta: 'Check chats', more: 'More' },
 };
 
 function clone<T>(value: T): T {
@@ -209,8 +209,9 @@ async function assertDecorativeImages(page: Page, expectedName: string): Promise
   expect(details.length, `3D ${expectedName} image must be present`).toBeGreaterThan(0);
   expect(details.every((item) => item.naturalWidth > 0), `3D ${expectedName} image must load`).toBe(true);
   expect(details.every((item) => item.alt === '' && item.ariaHidden === 'true'), `3D ${expectedName} image must be decorative`).toBe(true);
-  expect(details.some((item) => item.source.includes(expectedName)), `3D image source must be ${expectedName}`).toBe(true);
-  if (expectedName === 'home') expect(details.some((item) => item.source.includes('hero')), 'home must keep the hero image').toBe(true);
+  const assetName = expectedName === 'home' ? 'hero' : expectedName;
+  expect(details.some((item) => item.source.includes(assetName)), `3D image source must be ${assetName}`).toBe(true);
+  if (expectedName === 'home') await expect(page.locator('.account-card')).toHaveCount(2);
 }
 
 async function assertInsideViewport(page: Page, locator: Locator, message: string): Promise<void> {
@@ -241,7 +242,7 @@ async function assertAlpha15ShellLayout(page: Page): Promise<void> {
   await expect(items).toHaveCount(3);
   for (let index = 0; index < 3; index += 1) {
     const item = items.nth(index);
-    const icon = item.locator('.game-ui-tool-sidebar-icon .game-ui-icon');
+    const icon = item.locator('.game-ui-tool-sidebar-icon .nav-art');
     const label = item.locator('.game-ui-tool-sidebar-label');
     const message = `alpha.15 sidebar item ${index + 1}`;
     await assertNoOverlap(icon, label, `${message} icon and label`);
@@ -272,9 +273,22 @@ async function assertNoChineseSystemText(page: Page): Promise<void> {
   expect(text, 'English app-owned copy must not contain Chinese').not.toMatch(CHINESE);
 }
 
+async function legacyScreenshot(page: Page, options: Parameters<Page['screenshot']>[0]): Promise<void> {
+  if (process.env.UI_LEGACY_SCREENSHOTS === '1') await page.screenshot(options);
+}
+
+async function selectGroup(page: Page, group: string): Promise<void> {
+  await page.getByRole('combobox', { name: /^(Group|分组)$/ }).selectOption(group);
+}
+
+async function archiveSelected(page: Page, locale: Locale): Promise<void> {
+  await openReviewMore(page);
+  await page.getByRole('button', { name: locale === 'en' ? 'Archive selected' : '归档所选', exact: true }).click();
+}
+
 async function polishShot(page: Page, name: string): Promise<void> {
   mkdirSync(POLISH_REPORT, { recursive: true });
-  await page.screenshot({ path: join(POLISH_REPORT, `${name}.png`), animations: 'disabled', fullPage: false });
+  await legacyScreenshot(page, { path: join(POLISH_REPORT, `${name}.png`), animations: 'disabled', fullPage: false });
 }
 
 async function assertAboveMobileTabs(page: Page, locator: Locator, message: string): Promise<void> {
@@ -290,7 +304,7 @@ async function assertAboveMobileTabs(page: Page, locator: Locator, message: stri
 async function openReviewMore(page: Page): Promise<void> {
   const more = page.locator('.more-actions > summary');
   await expect(more).toBeVisible();
-  if (!(await page.locator('.more-actions').getAttribute('open'))) await more.click();
+  if (await page.locator('.more-actions').getAttribute('open') === null) await more.click();
   await expect(page.locator('.more-actions > div')).toBeVisible();
 }
 
@@ -334,8 +348,8 @@ function leftoverWorkspace(): FixtureWorkspace {
 }
 
 async function confirmLeftoverGroup(page: Page, locale: Locale, group: 'deleted' | 'scheduled'): Promise<void> {
-  const panel = page.locator(`[data-group="${group}"]`);
-  await panel.locator('summary').first().click();
+  await selectGroup(page, group);
+  const panel = page.locator('.review-list-wrap');
   if (group === 'scheduled') {
     await expect(panel.getByText(locale === 'zh-CN' ? '这条只在云端，Claude 里已没有入口删除；不占本机空间' : 'This record is cloud-only, with no delete entry left in Claude; it takes no local space.', { exact: true })).toBeVisible();
     await expect(panel.getByRole('checkbox', { name: 'Synthetic scheduled-cloud' })).toBeDisabled();
@@ -344,20 +358,21 @@ async function confirmLeftoverGroup(page: Page, locale: Locale, group: 'deleted'
   const ids = group === 'deleted' ? ['deleted-1', 'deleted-2'] : ['scheduled-local'];
   for (const id of ids) await panel.getByRole('checkbox', { name: `Synthetic ${id}` }).check();
   const action = locale === 'zh-CN' ? '彻底删除本机副本' : 'Delete leftover copies';
+  if (group === 'deleted') await openReviewMore(page);
   const button = page.getByRole('button', { name: action, exact: true }).first();
   await assertInsideViewport(page, button, 'leftover cleanup action');
   const report = process.env.UI_CLEAN_REPORT ?? join(process.cwd(), '.reports/2026-11-06-leftovers');
   if (locale === 'zh-CN') {
     mkdirSync(report, { recursive: true });
     if (group === 'scheduled') await panel.getByRole('checkbox', { name: 'Synthetic scheduled-cloud' }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: join(report, `${group}-panel-${page.viewportSize()!.width}.png`), animations: 'disabled' });
+    await legacyScreenshot(page, { path: join(report, `${group}-panel-${page.viewportSize()!.width}.png`), animations: 'disabled' });
   }
   await button.click();
   const dialog = page.getByRole('dialog', { name: action, exact: true });
   await expect(page.getByRole('dialog')).toHaveCount(1);
   for (const id of ids) await expect(dialog.locator('.delete-titles')).toContainText(`Synthetic ${id}`);
   await expect(dialog).toContainText(locale === 'zh-CN' ? '保留删除标记' : 'Keep deletion notes');
-  if (locale === 'zh-CN' && group === 'deleted') await page.screenshot({ path: join(report, `deleted-confirm-${page.viewportSize()!.width}.png`), animations: 'disabled' });
+  if (locale === 'zh-CN' && group === 'deleted') await legacyScreenshot(page, { path: join(report, `deleted-confirm-${page.viewportSize()!.width}.png`), animations: 'disabled' });
   await dialog.getByRole('button', { name: locale === 'zh-CN' ? '确定删除' : 'Delete', exact: true }).click();
   await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'complete');
 }
@@ -368,7 +383,6 @@ for (const viewport of [{ name: 'phone', width: 390, height: 844 }, { name: 'des
       await openFixture(page, viewport, locale, leftoverWorkspace());
       for (const group of ['deleted', 'scheduled'] as const) {
         await openStage(page, locale, 'local');
-        await page.locator('.summary-card--older .summary-card-main').click();
         await confirmLeftoverGroup(page, locale, group);
       }
       const requests = await page.evaluate(() => (window as any).__fixtureDeletes);
@@ -376,9 +390,12 @@ for (const viewport of [{ name: 'phone', width: 390, height: 844 }, { name: 'des
       expect(requests[0]).toMatchObject({ group: 'deleted', sessionIds: ['deleted-1', 'deleted-2'], accountIds: [ACCOUNT_A] });
       expect(requests[1]).toMatchObject({ group: 'scheduled', sessionIds: ['scheduled-local'], accountIds: [ACCOUNT_A] });
       await openStage(page, locale, 'local');
-      await page.locator('.summary-card--older .summary-card-main').click();
+      await selectGroup(page, 'deleted');
       await expect(page.getByRole('checkbox', { name: 'Synthetic deleted-1' })).toHaveCount(0);
+      await expect(page.getByRole('checkbox', { name: 'Synthetic deleted-2' })).toHaveCount(0);
+      await selectGroup(page, 'scheduled');
       await expect(page.getByRole('checkbox', { name: 'Synthetic scheduled-local' })).toHaveCount(0);
+      await expect(page.getByRole('checkbox', { name: 'Synthetic scheduled-cloud' })).toBeDisabled();
     });
   }
 }
@@ -387,10 +404,10 @@ test('alpha.15 layout regression — sidebar slots and theme button keep their d
   await openFixture(page, { name: 'alpha15-desktop', width: 1440, height: 900 }, 'zh-CN');
   await assertAlpha15ShellLayout(page);
   mkdirSync(LAYOUT_FIX_REPORT, { recursive: true });
-  await page.screenshot({ path: join(LAYOUT_FIX_REPORT, 'desktop-1440x900.png'), animations: 'disabled', fullPage: false });
+  await legacyScreenshot(page, { path: join(LAYOUT_FIX_REPORT, 'desktop-1440x900.png'), animations: 'disabled', fullPage: false });
 
   await openFixture(page, { name: 'alpha15-phone', width: 390, height: 844 }, 'zh-CN');
-  await page.screenshot({ path: join(LAYOUT_FIX_REPORT, 'phone-390x844.png'), animations: 'disabled', fullPage: false });
+  await legacyScreenshot(page, { path: join(LAYOUT_FIX_REPORT, 'phone-390x844.png'), animations: 'disabled', fullPage: false });
 });
 
 for (const viewport of VIEWPORTS) {
@@ -398,11 +415,12 @@ for (const viewport of VIEWPORTS) {
     test(`fixed renderer smoke — ${viewport.name} / ${locale}`, async ({ page }) => {
       await openFixture(page, viewport, locale);
       await assertDecorativeImages(page, 'home');
-      await assertInsideViewport(page, page.getByRole('button', { name: labels[locale].cta, exact: true }), 'home primary CTA');
+      await assertInsideViewport(page, page.locator('.account-session-link').first(), 'account sessions action');
       if (locale === 'en') await assertNoChineseSystemText(page);
 
       await openStage(page, locale, 'local');
-      await assertDecorativeImages(page, 'local');
+      await expect(page.locator('.account-view-filter')).toBeVisible();
+      await expect(page.locator('.session-account-chip').first()).toBeVisible();
       if (locale === 'en') await assertNoChineseSystemText(page);
 
       await openStage(page, locale, 'cloud');
@@ -424,8 +442,7 @@ test('fixed renderer smoke — review footer and More menu stay clickable', asyn
   const viewport = VIEWPORTS[1]!;
   await openFixture(page, viewport, 'zh-CN');
   await openStage(page, 'zh-CN', 'local');
-  await page.locator('.summary-card--recent .summary-card-main').click();
-  await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
+  await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'results');
   await page.locator('.review-list-wrap input[type="checkbox"]:not(:disabled)').first().check();
 
   const primary = page.locator('.action-buttons > .game-ui-button-frame button, .action-buttons > button').first();
@@ -461,33 +478,31 @@ test('polish — search and select-all controls do not overlap in all eight revi
     await openFixture(page, { name: `${item.width}-${item.theme}`, width: item.width, height: item.height }, item.locale);
     if (item.theme === 'dark') await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
     await openStage(page, item.locale, 'local');
-    await page.locator('.summary-card--older .summary-card-main').click();
-    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
-    await assertNoOverlap(page.locator('.review-tools input[type="search"]'), page.locator('.select-line'), `${item.locale} ${item.width}px ${item.theme} search/select-all`);
+    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'results');
+    await assertNoOverlap(page.locator('.list-toolbar input[type="search"]'), page.locator('.select-line'), `${item.locale} ${item.width}px ${item.theme} search/select-all`);
   }
 });
 
 test('confirm page scope evidence — one changed account and session at 600px and 1440px', async ({ page }) => {
   mkdirSync(CONFIRM_SCOPE_REPORT, { recursive: true });
-  const cases: Array<{ locale: Locale; width: number; screenshot: string; archiveLabel: string; title: string; undo: string }> = [
-    { locale: 'zh-CN', width: 600, screenshot: 'confirm-zh-600.png', archiveLabel: '归档 1 条', title: '确认这次整理', undo: '已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。' },
-    { locale: 'en', width: 600, screenshot: 'confirm-en-600.png', archiveLabel: 'Archive 1', title: 'Review this operation', undo: 'Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”' },
-    { locale: 'zh-CN', width: 1440, screenshot: 'confirm-zh-1440.png', archiveLabel: '归档 1 条', title: '确认这次整理', undo: '已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。' },
-    { locale: 'en', width: 1440, screenshot: 'confirm-en-1440.png', archiveLabel: 'Archive 1', title: 'Review this operation', undo: 'Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”' },
+  const cases: Array<{ locale: Locale; width: number; screenshot: string; title: string; undo: string }> = [
+    { locale: 'zh-CN', width: 600, screenshot: 'confirm-zh-600.png', title: '确认这次整理', undo: '已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。' },
+    { locale: 'en', width: 600, screenshot: 'confirm-en-600.png', title: 'Review this operation', undo: 'Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”' },
+    { locale: 'zh-CN', width: 1440, screenshot: 'confirm-zh-1440.png', title: '确认这次整理', undo: '已归档的聊天会移到“已归档”分组；要恢复，请在那里选中它并选择“取消归档”。' },
+    { locale: 'en', width: 1440, screenshot: 'confirm-en-1440.png', title: 'Review this operation', undo: 'Archived chats move to the “Archived” group; to bring one back, select it there and choose “Unarchive selected.”' },
   ];
   for (const item of cases) {
     await openFixture(page, { name: `confirm-${item.locale}-${item.width}`, width: item.width, height: 900 }, item.locale);
     await openStage(page, item.locale, 'local');
-    await page.locator('.summary-card--older .summary-card-main').click();
-    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
-    await page.locator('.review-list-wrap input[type="checkbox"]:not(:disabled)').first().check();
-    await page.getByRole('button', { name: item.archiveLabel, exact: true }).click();
+    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'results');
+    await page.getByRole('checkbox', { name: 'Synthetic older session', exact: true }).check();
+    await archiveSelected(page, item.locale);
     const dialog = page.getByRole('dialog', { name: item.title, exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('.review-accounts > span')).toHaveCount(1);
     await expect(dialog.locator('.review-changes li')).toHaveCount(1);
     await expect(dialog.getByText(item.undo, { exact: true })).toBeVisible();
-    await page.screenshot({ path: join(CONFIRM_SCOPE_REPORT, item.screenshot), animations: 'disabled' });
+    await legacyScreenshot(page, { path: join(CONFIRM_SCOPE_REPORT, item.screenshot), animations: 'disabled' });
   }
 });
 
@@ -513,12 +528,12 @@ test('polish — secondary mobile navigation exposes backups and settings in bot
   }
 });
 
-test('polish — 600px results reserve the fixed tab safe area in both locales', async ({ page }) => {
+test('polish — 600px session footer reserves the fixed tab safe area in both locales', async ({ page }) => {
   test.setTimeout(60_000);
   for (const locale of LOCALES) {
     await openFixture(page, { name: 'mobile', width: 600, height: 900 }, locale);
     await openStage(page, locale, 'local');
-    const footer = page.locator('.results-cta small');
+    const footer = page.locator('.review-footer-actions');
     await expect(footer).toBeVisible();
     await assertInsideViewport(page, footer, `${locale} results footer`);
     await assertAboveMobileTabs(page, footer, `${locale} results footer`);
@@ -529,26 +544,19 @@ test('polish — 600px results reserve the fixed tab safe area in both locales',
 test('polish — sync, archive and unarchive receipts cover the 600/1440 EN/zh matrix', async ({ page }) => {
   test.setTimeout(180_000);
   const cases = [
-    { kind: 'sync', card: 'recent', action: { 'zh-CN': '同步 1 条', en: 'Sync 1' }, receipt: { 'zh-CN': '已同步 1 条聊天。', en: 'Synced 1 chat.' }, destination: { 'zh-CN': '参与账号的本机 Code 会话', en: 'local Code sessions in included accounts' } },
-    { kind: 'archive', card: 'older', action: { 'zh-CN': '归档 1 条', en: 'Archive 1' }, receipt: { 'zh-CN': '已归档 1 条聊天。', en: 'Archived 1 chat.' }, destination: { 'zh-CN': '已归档分组', en: 'Archived group' } },
-    { kind: 'unarchive', card: 'recent', action: { 'zh-CN': '取消归档', en: 'Unarchive selected' }, receipt: { 'zh-CN': '已取消归档 1 条聊天。', en: 'Unarchived 1 chat.' }, destination: { 'zh-CN': '普通会话列表', en: 'Active chats' } },
+    { kind: 'sync', action: { 'zh-CN': '预览同步', en: 'Review sync' }, receipt: { 'zh-CN': '已同步 1 条聊天。', en: 'Synced 1 chat.' }, destination: { 'zh-CN': '参与账号的本机 Code 会话', en: 'local Code sessions in included accounts' } },
+    { kind: 'archive', action: { 'zh-CN': '归档所选', en: 'Archive selected' }, receipt: { 'zh-CN': '已归档 1 条聊天。', en: 'Archived 1 chat.' }, destination: { 'zh-CN': '已归档分组', en: 'Archived group' } },
+    { kind: 'unarchive', action: { 'zh-CN': '取消归档', en: 'Unarchive selected' }, receipt: { 'zh-CN': '已取消归档 1 条聊天。', en: 'Unarchived 1 chat.' }, destination: { 'zh-CN': '普通会话列表', en: 'Active chats' } },
   ] as const;
   for (const viewport of VIEWPORTS) for (const locale of LOCALES) for (const item of cases) {
     await openFixture(page, viewport, locale);
     await openStage(page, locale, 'local');
-    await page.locator(`.summary-card--${item.card} .summary-card-main`).click();
-    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
-    if (item.kind === 'unarchive') {
-      const archived = page.locator('details[data-group="archived"]');
-      await expect(archived).toBeVisible();
-      await archived.locator('> summary').click();
-      await archived.locator('input[type="checkbox"]:not(:disabled)').first().check();
-      await openReviewMore(page);
-      await page.getByRole('button', { name: item.action[locale], exact: true }).click();
-    } else {
-      await page.locator('.review-list-wrap input[type="checkbox"]:not(:disabled)').first().check();
-      await page.getByRole('button', { name: item.action[locale], exact: true }).click();
-    }
+    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'results');
+    if (item.kind === 'unarchive') await selectGroup(page, 'archived');
+    const title = item.kind === 'unarchive' ? 'Synthetic archived session' : item.kind === 'archive' ? 'Synthetic older session' : 'Synthetic sync session';
+    await page.getByRole('checkbox', { name: title, exact: true }).check();
+    if (item.kind === 'archive') await archiveSelected(page, locale);
+    else await page.getByRole('button', { name: item.action[locale], exact: true }).click();
     const dialog = page.getByRole('dialog', { name: locale === 'en' ? 'Review this operation' : '确认这次整理', exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('.review-changes li')).toHaveCount(item.kind === 'sync' ? 2 : item.kind === 'unarchive' ? 2 : 1);
@@ -588,7 +596,8 @@ test('polish — restore preview, folder save, and cloud view/delete cover the 6
     await polishShot(page, `settings-before-${locale}-${viewport.width}`);
     await page.getByRole('button', { name: locale === 'en' ? 'Save and check' : '保存并检查', exact: true }).click();
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'results');
-    await expect(page.getByText(locale === 'en' ? 'Desktop shows 2 chats.' : '桌面版里，能看到 2 条聊天。', { exact: true })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: locale === 'en' ? 'Viewing' : '正在查看', exact: true })).toHaveValue('all');
+    await expect(page.locator('.session-row')).toHaveCount(2);
     await polishShot(page, `settings-after-${locale}-${viewport.width}`);
 
     await openFixture(page, viewport, locale);
@@ -610,34 +619,28 @@ test('polish — restore preview, folder save, and cloud view/delete cover the 6
   }
 });
 
-test('polish — older cleanup names the archive action and keeps sync available at 600px', async ({ page }) => {
-  const cases: Array<{ locale: Locale; olderLabel: string; cleanupTitle: string; statusLabel: string; archiveLabel: string; syncLabel: string; moreLabel: string }> = [
-    { locale: 'zh-CN', olderLabel: '可以清理的旧聊天', cleanupTitle: '选好旧聊天，再归档。', statusLabel: '可归档', archiveLabel: '归档 1 条', syncLabel: '同步 1 条', moreLabel: '更多操作' },
-    { locale: 'en', olderLabel: 'Older chats you can clean up', cleanupTitle: 'Choose older chats, then archive.', statusLabel: 'Ready to archive', archiveLabel: 'Archive 1', syncLabel: 'Sync 1', moreLabel: 'More actions' },
+test('polish — session archive and sync actions remain available at 600px', async ({ page }) => {
+  const cases: Array<{ locale: Locale; archiveLabel: string; syncLabel: string; moreLabel: string }> = [
+    { locale: 'zh-CN', archiveLabel: '归档所选', syncLabel: '预览同步', moreLabel: '更多操作' },
+    { locale: 'en', archiveLabel: 'Archive selected', syncLabel: 'Review sync', moreLabel: 'More actions' },
   ];
   for (const item of cases) {
     await openFixture(page, { name: 'narrow-600', width: 600, height: 900 }, item.locale);
     await openStage(page, item.locale, 'local');
-    await expect(page.locator('.summary-card--older .summary-card-copy strong')).toHaveText(item.olderLabel);
-    await page.locator('.summary-card--older .summary-card-main').click();
-    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'review');
-    await expect(page.getByText(item.olderLabel, { exact: true })).toHaveCount(2);
-    await expect(page.getByRole('heading', { name: item.cleanupTitle, exact: true })).toBeVisible();
-    await expect(page.getByText(item.statusLabel, { exact: true })).toBeVisible();
-    await page.locator('.review-list-wrap input[type="checkbox"]:not(:disabled)').first().check();
-
+    await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'results');
+    await page.getByRole('checkbox', { name: 'Synthetic older session', exact: true }).check();
     const footer = page.locator('.game-ui-page-surface-footer');
     const more = page.locator('.more-actions > summary');
     const archive = page.getByRole('button', { name: item.archiveLabel, exact: true });
     const sync = page.getByRole('button', { name: item.syncLabel, exact: true });
     await expect(footer).toBeVisible();
-    await expect(more).toBeVisible();
     await expect(more).toHaveText(item.moreLabel);
-    await expect(archive).toBeVisible();
-    await expect(sync).toBeVisible();
-    await assertInsideViewport(page, more, `${item.locale} More actions at 600px`);
-    await assertInsideViewport(page, archive, `${item.locale} archive at 600px`);
-    await assertInsideViewport(page, sync, `${item.locale} sync at 600px`);
+    await expect(sync).toBeEnabled();
+    await assertInsideViewport(page, more, item.locale + ' More at 600px');
+    await assertInsideViewport(page, sync, item.locale + ' sync at 600px');
+    await openReviewMore(page);
+    await expect(archive).toBeEnabled();
+    await assertInsideViewport(page, archive, item.locale + ' archive at 600px');
 
     const geometry = await page.evaluate(() => {
       const row = document.querySelector('.review-list-wrap .session-row');

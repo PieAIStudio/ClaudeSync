@@ -5,7 +5,7 @@ const report = process.env.UI_TEST_REPORT ?? '.reports/2026-10-29-ui-smoke/playw
 
 export default defineConfig({
   testDir: '.',
-  testMatch: 'smoke.spec.ts',
+  testMatch: ['smoke.spec.ts', 'accounts.spec.ts'],
   timeout: 30_000,
   expect: { timeout: 5_000 },
   fullyParallel: false,
@@ -17,7 +17,7 @@ export default defineConfig({
     locale: 'zh-CN',
     colorScheme: 'light',
     trace: 'off',
-    screenshot: 'only-on-failure',
+    screenshot: 'off',
   },
   webServer: {
     command: `node serve-renderer.mjs --port=${port}`,

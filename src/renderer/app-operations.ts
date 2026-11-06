@@ -24,16 +24,17 @@ export function useAppOperations({ model, workspace, included, accountFilter, se
   const [hasChecked, setHasChecked] = useState(false);
   const [lastPreview, setLastPreview] = useState<NonNullable<WorkspaceModel['review']>>();
 
-  async function startCheck() {
+  async function startCheck(destination: Stage = 'home') {
     setHasChecked(true);
-    setStage('scan');
+    setStage(destination);
     await model.refresh();
-    setStage('results');
   }
 
   async function action(kind: OperationRequest['kind'], title?: string) {
     if (!workspace) return;
-    const accountIds = kind === 'sync' || kind === 'keep' || accountFilter === 'all' ? [...included] : included.has(accountFilter) ? [accountFilter] : [];
+    // Viewing only narrows deletion; reviewed organizing uses the checked set.
+    const accountIds = kind === 'delete' && accountFilter !== 'all'
+      ? included.has(accountFilter) ? [accountFilter] : [] : [...included];
     await model.preview({ kind, group: selectionGroup, sessionIds: [...selected], accountIds, title });
   }
 

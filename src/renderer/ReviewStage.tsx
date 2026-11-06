@@ -1,53 +1,93 @@
 import { Button, Callout, Icon, Input, Select } from '@pieai/swimmer-ui-kit';
+import { SESSION_GROUPS, type SessionGroup } from '../shared/contracts';
 import { StageFrame } from './StageFrame';
 import { useTranslation } from './i18n';
 import type { AppController } from './app-controller';
-import type { ReviewCategory } from './app-types';
-import { categoryLabels } from './app-types';
-import { AccountSidebar, CollapsedSessionGroup, SessionRows, SkippedEntriesNotice, accountName } from './components';
-import { PageArt } from './visuals';
+import { SessionRows, SkippedEntriesNotice, accountName, groupLabels } from './components';
 import { TermTip } from './TermTip';
 
 export function ReviewStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
-  if (!controller.workspace) return null;
   const workspace = controller.workspace;
-  const categoryItems: Array<Exclude<ReviewCategory, 'all'>> = ['recent', 'older', 'attention', 'aligned'];
-  const cleanupReview = controller.reviewCategory === 'older';
-  const reviewTitle = controller.reviewCategory === 'all' ? '' : t.t(categoryLabels[controller.reviewCategory]);
-  const allSelected = controller.reviewSessions.length > 0 && controller.eligibleToSelect.length > 0 && controller.eligibleToSelect.every((session) => controller.selected.has(session.id));
+  if (!workspace) return <StageFrame className="stage-surface" title={t.t('localTitle')} description={t.t('localSub')}>
+    <p className="empty-state">{t.t('noCheck')}</p><Button variant="primary" onClick={() => void controller.startCheck('results')}>{t.t('checkAccounts')}</Button>
+  </StageFrame>;
+  const group = controller.selectionGroup;
+  const archived = group === 'archived';
+  const removalGroup = group === 'scheduled' || group === 'oldOrganization';
+  const organize = group === 'visible' || archived;
+  const syncGroup = group === 'visible' || group === 'deleted';
+  const canSync = syncGroup && controller.canAct && controller.included.size >= 2 && controller.targetsVerified;
+  const allSelected = controller.eligibleToSelect.length > 0 && controller.eligibleToSelect.every((session) => controller.selected.has(session.id));
   const someSelected = controller.eligibleToSelect.some((session) => controller.selected.has(session.id));
-  const selectedAccountCount = new Set(controller.scopedGroups[controller.selectionGroup].filter((session) => controller.selected.has(session.id)).flatMap((session) => session.presence.filter((item) => controller.included.has(item.accountId)).map((item) => item.accountId))).size;
-  const selectedSyncableCount = controller.eligibleToSelect.filter((session) => controller.selected.has(session.id)).length;
-  const leftoverSelection = controller.selectionGroup === 'deleted' || controller.selectionGroup === 'scheduled';
-  const selectedActionCount = leftoverSelection ? controller.deleteTargets.sessionIds.length : cleanupReview ? controller.selected.size : selectedSyncableCount;
   const deleteAccounts = controller.deleteTargets.accountIds.map((id) => accountName(workspace.accounts.find((account) => account.id === id), t)).join(', ') || t.t('allAccounts');
-  const reviewActions = <div className="review-footer-actions"><div className="selection-summary"><strong>{t.t(selectedAccountCount === 1 ? 'selectionSummaryOne' : 'selectionSummary', { count: controller.selected.size, accounts: selectedAccountCount })}</strong><span>{controller.hiddenSelected > 0 ? t.t('hiddenSelected', { count: controller.hiddenSelected }) : t.t(leftoverSelection ? 'deleteLeftovers' : cleanupReview ? 'selectedCanArchive' : 'selectedCanSync', { count: selectedActionCount })}</span></div>
-    <div className="action-buttons">{leftoverSelection ? <Button variant="danger" disabled={controller.busy || !selectedActionCount} onClick={controller.openDeleteConfirmation}>{t.t('deleteLeftovers')}</Button> : <Button variant="primary" disabled={!controller.canAct} onClick={() => void controller.action(cleanupReview ? 'archive' : 'sync')}>{t.t(cleanupReview ? 'archiveCount' : selectedSyncableCount ? 'syncCount' : 'syncNow', { count: selectedActionCount })}</Button>}
-      {!leftoverSelection && cleanupReview && selectedSyncableCount > 0 && <Button variant="secondary" static disabled={!controller.canAct || controller.included.size < 2 || !controller.targetsVerified} onClick={() => void controller.action('sync')}>{t.t('syncCount', { count: selectedSyncableCount })}</Button>}
+  const reviewActions = <div className="review-footer-actions">
+    <div className="selection-summary"><strong>{t.t(controller.selected.size === 1 ? 'selectedCountOne' : 'selectedCount', { count: controller.selected.size })}</strong>
+      <span>{controller.hiddenSelected > 0 ? t.t('hiddenSelected', { count: controller.hiddenSelected }) : !canSync && syncGroup ? t.t('reviewSyncHelp') : t.t(archived ? 'organizeHelp' : 'participationHelp')}</span></div>
+    <div className="action-buttons">
+      {removalGroup ? <Button variant="danger" disabled={controller.busy || !controller.deleteTargets.sessionIds.length} onClick={controller.openDeleteConfirmation}>{t.t(group === 'scheduled' ? 'deleteLeftovers' : 'delete')}</Button>
+        : <Button variant="primary" disabled={archived ? !controller.canAct : !canSync} onClick={() => void controller.action(archived ? 'unarchive' : 'sync')}>{t.t(archived ? 'unarchive' : 'reviewSync')}</Button>}
       <details className="more-actions"><summary>{t.t('more')}</summary><div>
-        <fieldset className="action-group" disabled={leftoverSelection}><h3>{t.t('actionGroupOrganize')}</h3>
-          <Button variant="ghost" static disabled={!controller.canAct || controller.included.size < 2 || !controller.targetsVerified} onClick={() => void controller.action('keep')}>{t.t('keep')}</Button><Button variant="ghost" static disabled={!controller.canAct} onClick={() => void controller.action('archive')}>{t.t('archive')}</Button><Button variant="ghost" static disabled={!controller.canAct} onClick={() => void controller.action('unarchive')}>{t.t('unarchive')}</Button>
-          <Button variant="ghost" static disabled={!controller.canAct || controller.selected.size !== 1} onClick={controller.openRename}>{t.t('rename')}</Button><Button variant="ghost" static disabled={!controller.canAct} onClick={() => void controller.action('star')}>{t.t('star')}</Button><Button variant="ghost" static disabled={!controller.canAct} onClick={() => void controller.action('unstar')}>{t.t('unstar')}</Button>
+        <fieldset className="action-group" disabled={!organize}><h3>{t.t('actionGroupOrganize')}</h3>
+          <Button variant="ghost" static disabled={!controller.canAct || controller.included.size < 2 || !controller.targetsVerified || group !== 'visible'} onClick={() => void controller.action('keep')}>{t.t('keep')}</Button>
+          <Button variant="ghost" static disabled={!controller.canAct} onClick={() => void controller.action('archive')}>{t.t('archive')}</Button>
+          <Button variant="ghost" static disabled={!controller.canAct} onClick={() => void controller.action('unarchive')}>{t.t('unarchive')}</Button>
+          <Button variant="ghost" static disabled={!controller.canAct || controller.selected.size !== 1} onClick={controller.openRename}>{t.t('rename')}</Button>
+          <Button variant="ghost" static disabled={!controller.canAct} onClick={() => void controller.action('star')}>{t.t('star')}</Button>
+          <Button variant="ghost" static disabled={!controller.canAct} onClick={() => void controller.action('unstar')}>{t.t('unstar')}</Button>
         </fieldset>
-        {controller.selectionGroup === 'deleted' && <Button variant="ghost" static disabled={!controller.canAct || controller.included.size < 2 || !controller.targetsVerified} onClick={() => void controller.action('sync')}>{t.t('syncNow')}</Button>}
         <section className="action-group action-group--danger"><h3>{t.t('actionGroupDestructive')}</h3>
-          <p>{t.t(leftoverSelection ? 'leftoverDeleteNote' : 'actionDeleteNote')}</p><p>{t.t(controller.deleteTargets.sessionIds.length === 1 ? 'deleteScopeTipOne' : 'deleteScopeTip', { accounts: deleteAccounts, count: controller.deleteTargets.sessionIds.length })}</p>
-          <Button variant="danger" static disabled={controller.busy || !controller.deleteTargets.sessionIds.length} onClick={controller.openDeleteConfirmation}>{t.t(leftoverSelection ? 'deleteLeftovers' : 'delete')}</Button>
-          <p>{t.t('actionCleanupNote')}</p><span className="count-with-tip"><Button variant="ghost" static disabled={controller.busy || !controller.listVerified || controller.grouped.oldOrganization.length === 0} onClick={() => void controller.reviewOldCopies()}>{t.t('cleanupOldButton')}</Button><TermTip term="oldCleanup" /></span>
+          <p>{t.t(group === 'scheduled' || group === 'deleted' ? 'leftoverDeleteNote' : 'actionDeleteNote')}</p>
+          <p>{t.t(controller.deleteTargets.sessionIds.length === 1 ? 'deleteScopeTipOne' : 'deleteScopeTip', { accounts: deleteAccounts, count: controller.deleteTargets.sessionIds.length })}</p>
+          <Button variant="danger" static disabled={controller.busy || !controller.deleteTargets.sessionIds.length} onClick={controller.openDeleteConfirmation}>{t.t(group === 'scheduled' || group === 'deleted' ? 'deleteLeftovers' : 'delete')}</Button>
+          <p>{t.t('actionCleanupNote')}</p><span className="count-with-tip"><Button variant="ghost" static disabled={controller.busy || !controller.canReviewOldCopies} onClick={() => void controller.reviewOldCopies()}>{t.t('cleanupOldButton')}</Button><TermTip term="oldCleanup" /></span>
         </section>
-      </div></details></div></div>;
-  return <StageFrame className="stage-surface stage-surface--review" title={cleanupReview ? t.t('cleanupReviewTitle') : t.t('reviewTitle')} description={cleanupReview ? t.t('cleanupReviewBody', { count: controller.reviewSessions.length, archiveable: controller.eligibleToSelect.length }) : t.t('reviewBody', { count: controller.listCount, syncable: controller.syncableCount })} layout="split" header={<PageArt kind="local" />} aside={<aside className="review-aside">
-    <button type="button" className="review-category-heading" aria-pressed={controller.reviewCategory === 'all'} onClick={() => { controller.setReviewCategory('all'); controller.setSelectionGroup('visible'); }}><strong>{t.t('categoryAll')}</strong><span className="review-total">{controller.listCount}</span></button>
-    <div className="review-categories">{categoryItems.map((category) => <button type="button" key={category} className={`review-category ${controller.reviewCategory === category ? 'is-active' : ''}`} aria-pressed={controller.reviewCategory === category} onClick={() => { controller.setReviewCategory(category); controller.setSelectionGroup('visible'); }}><span>{t.t(categoryLabels[category])}</span><span className="review-category-count">{controller.categories[category].sessions.length}</span></button>)}</div>
-    <div className="review-scope"><details><summary>{t.t('viewScope')}</summary><AccountSidebar accounts={workspace.accounts} included={controller.included} currentFilter={controller.accountFilter} onInclude={controller.includeAccount} onFilter={(id) => { controller.setAccountFilter(id); controller.setSelected(new Set()); controller.setSelectionGroup('visible'); }} busy={controller.busy} identityState={workspace.identityState} /></details></div>
-  </aside>} footer={reviewActions}>
-    <section className="review-main"><SkippedEntriesNotice paths={workspace.skippedPaths} />
-      <div className="review-toolbar"><div>{reviewTitle && <><h2>{reviewTitle}</h2><small>{t.t('reviewItemCount', { count: controller.reviewSessions.length })}</small></>}</div><div className="review-tools"><Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={controller.search} onChange={(event) => controller.setSearch(event.target.value)} /><details className="filter-drawer"><summary>{t.t('filter')}</summary><div><label>{t.t('filter')}<Select aria-label={t.t('filter')} value={controller.filter} onChange={(event) => controller.setFilter(event.target.value as typeof controller.filter)}>{(['active', 'all', 'syncable', 'blocked', 'starred'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</Select></label><label>{t.t('sort')}<Select aria-label={t.t('sort')} value={controller.sort} onChange={(event) => controller.setSort(event.target.value as 'updated' | 'title')}><option value="updated">{t.t('sortUpdated')}</option><option value="title">{t.t('sortTitle')}</option></Select></label></div></details></div></div>
-      <div className="select-line"><label><input type="checkbox" checked={allSelected} disabled={controller.busy || !controller.eligibleToSelect.length} ref={(element) => { if (element) element.indeterminate = someSelected && !allSelected; }} onChange={(event) => { const value = event.target.checked; controller.setSelected((current) => { const next = controller.selectionGroup === 'visible' ? new Set(current) : new Set<string>(); for (const session of controller.eligibleToSelect) { if (value) next.add(session.id); else next.delete(session.id); } return next; }); controller.setSelectionGroup('visible'); }} />{t.t('selectVisible')}</label><details className="selection-menu"><summary>{t.t('selectMenu')}</summary><div><Button variant="ghost" static disabled={controller.busy} onClick={() => { controller.setSelectionGroup('visible'); controller.setSelected(new Set(controller.eligibleToSelect.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 10).map((session) => session.id))); }}>{t.t('selectTen')}</Button>{controller.selected.size > 0 && <Button variant="ghost" static disabled={controller.busy} onClick={() => controller.setSelected(new Set())}>{t.t('clearSelection')}</Button>}</div></details></div>
-      <div className="review-list-wrap"><SessionRows sessions={controller.reviewSessions} accounts={workspace.accounts} selected={controller.selectionGroup === 'visible' ? controller.selected : new Set()} filterId={controller.accountFilter} included={controller.included} onToggle={(id, value) => controller.toggle('visible', id, value)} busy={controller.busy} statusMode={cleanupReview ? 'cleanup' : 'sync'} />
-        {(['archived', 'scheduled', 'oldOrganization', 'deleted', 'unverified'] as const).map((group) => <CollapsedSessionGroup key={`${controller.accountFilter}-${group}`} group={group} sessions={controller.grouped[group]} accounts={workspace.accounts} selected={controller.selectionGroup === group ? controller.selected : new Set()} filterId={controller.accountFilter} included={controller.included} onToggle={(id, value) => controller.toggle(group, id, value)} onCollapse={() => { if (controller.selectionGroup === group) controller.setSelected(new Set()); }} busy={controller.busy} markerCount={controller.markerCount} />)}
-      </div>{!controller.targetsVerified && <div className="operation-warning count-with-tip"><span>{t.t('unverifiedWrite')}</span><TermTip term="unverified" /></div>}{controller.cleanupFeedback && <Callout tone="warning">{controller.cleanupFeedback}</Callout>}
+      </div></details>
+    </div>
+  </div>;
+  return <StageFrame className="stage-surface stage-surface--review stage-surface--sessions" title={t.t('localTitle')} description={t.t('localSub')} footer={reviewActions}>
+    <section className="review-main">
+      <div className="list-context">
+        <label>{t.t('viewingAccount')}<Select className="account-view-filter" aria-label={t.t('viewingAccount')} value={controller.accountFilter} disabled={controller.busy} onChange={(event) => controller.browseAccount(event.target.value)}>
+          <option value="all">{t.t('allAccounts')}</option>{workspace.accounts.map((account) => <option key={account.id} value={account.id}>{accountName(account, t)}</option>)}
+        </Select></label>
+        <label>{t.t('sessionGroup')}<Select className="session-group-filter" aria-label={t.t('sessionGroup')} value={group} disabled={controller.busy} onChange={(event) => controller.browseGroup(event.target.value as SessionGroup)}>
+          {SESSION_GROUPS.map((item) => <option key={item} value={item}>{t.t(groupLabels[item])} · {controller.scopedGroups[item].length}</option>)}
+        </Select></label>
+        <Button variant="ghost" static disabled={controller.busy} onClick={() => void controller.startCheck('results')}><Icon icon="redo" />{t.t('checkAgain')}</Button>
+      </div>
+      <fieldset className="action-account-strip" disabled={controller.busy}>
+        <legend>{t.t(archived ? 'organizeAccounts' : 'useAccounts')}</legend>
+        <div>{workspace.accounts.map((account) => <label key={account.id} title={accountName(account, t)}>
+          <input type="checkbox" checked={controller.included.has(account.id)} aria-label={`${t.t('includeAccount')} ${accountName(account, t)}`} onChange={(event) => controller.includeAccount(account.id, event.target.checked)} />
+          <span>{accountName(account, t)}</span>
+        </label>)}</div><small>{t.t(archived ? 'organizeHelp' : 'participationHelp')}</small>
+      </fieldset>
+      <div className="list-toolbar"><Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={controller.search} onChange={(event) => controller.setSearch(event.target.value)} />
+        {group === 'visible' && <button type="button" className="missing-filter" aria-pressed={controller.missingOnly} onClick={() => controller.setMissingOnly(!controller.missingOnly)}>{t.t('missingFilter')}</button>}
+        <details className="filter-drawer"><summary>{t.t('filterSort')}</summary><div>
+          <label>{t.t('filter')}<Select aria-label={t.t('filter')} value={controller.filter} onChange={(event) => controller.setFilter(event.target.value as typeof controller.filter)}>{(['all', 'syncable', 'blocked', 'starred'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</Select></label>
+          <label>{t.t('sort')}<Select aria-label={t.t('sort')} value={controller.sort} onChange={(event) => controller.setSort(event.target.value as 'updated' | 'title')}><option value="updated">{t.t('sortUpdated')}</option><option value="title">{t.t('sortTitle')}</option></Select></label>
+        </div></details>
+      </div>
+      <div className="select-line"><label><input type="checkbox" checked={allSelected} disabled={controller.busy || !controller.eligibleToSelect.length}
+        ref={(element) => { if (element) element.indeterminate = someSelected && !allSelected; }}
+        onChange={(event) => { const value = event.target.checked; controller.setSelected((current) => { const next = new Set(current); for (const session of controller.eligibleToSelect) { if (value) next.add(session.id); else next.delete(session.id); } return next; }); }} />{t.t('selectVisible')}</label>
+        <details className="selection-menu"><summary>{t.t('selectMenu')}</summary><div>
+          <Button variant="ghost" static disabled={controller.busy || !controller.recentEligible.length} onClick={() => controller.setSelected(new Set(controller.recentEligible.map((session) => session.id)))}>{t.t(!controller.recentEligible.length ? 'noRecentSelection' : archived ? 'recentArchived' : group === 'deleted' ? 'recentSurviving' : controller.recentEligible.length === 1 ? 'recentSelectionOne' : 'recentSelection', { count: controller.recentEligible.length })}</Button>
+          <Button variant="ghost" static disabled={controller.busy || !controller.selected.size} onClick={() => controller.setSelected(new Set())}>{t.t('clearSelection')}</Button>
+        </div></details>
+        <span className="visible-total">{t.t('visibleCount', { shown: controller.reviewSessions.length, total: controller.scopedGroups[group].length })}</span>
+      </div>
+      <div className="review-list-wrap">
+        {group !== 'visible' && <div className="session-group-note"><strong>{t.t(groupLabels[group])}</strong><TermTip term={group} /></div>}
+        <SessionRows sessions={controller.reviewSessions} accounts={workspace.accounts} catalog={workspace.sessions} selected={controller.selected}
+          filterId={controller.accountFilter} included={controller.included} onToggle={(id, value) => controller.toggle(group, id, value)} busy={controller.busy} group={group} />
+        <SkippedEntriesNotice paths={workspace.skippedPaths} />
+      </div>
+      {controller.accountFilter !== 'all' && <p className="list-scope-note">{t.t('viewingHelp')}</p>}
+      {!controller.targetsVerified && <div className="operation-warning count-with-tip"><span>{t.t('unverifiedWrite')}</span><TermTip term="unverified" /></div>}
+      {controller.cleanupFeedback && <Callout tone="warning">{controller.cleanupFeedback}</Callout>}
     </section>
   </StageFrame>;
 }
