@@ -4,7 +4,7 @@ import { expect, it } from 'vitest';
 import { I18nProvider } from './i18n';
 import { userMessage } from '../error-copy';
 import { AccountSidebar, DeleteConfirmation, OperationReview, SessionRows, SkippedEntriesNotice } from './components';
-import type { AccountView, SessionView } from '../shared/contracts';
+import type { AccountView, OperationPreview, SessionView } from '../shared/contracts';
 
 const accounts: AccountView[] = [{ id: 'a', email: 'fixture@example.com', scopes: ['a/org'], active: 10, archived: 2, total: 12, eligible: 10, copies: 20, current: true, visible: 10, organizationVerified: true, scheduled: 0, oldCopies: 0, deletedMarkers: 0, unverified: 0 }];
 const sessions: SessionView[] = [{ id: 'chat', title: 'Chosen session', project: '/fixture/project', manageable: true, starred: false,
@@ -47,10 +47,28 @@ it('does not expose raw native deletion-marker counts as session counts', () => 
   expect(html).not.toContain('删除标记');
 });
 
+it('confirms only sessions with planned changes, even across multiple account copies', () => {
+  const preview: OperationPreview = { kind: 'sync', token: 'fixture', accountIds: ['a', 'b'],
+    selected: [{ id: 'chat', title: 'Changed session' }, { id: 'aligned', title: 'Already aligned' }, { id: 'skipped', title: 'Skipped session' }],
+    changes: [
+      { sessionId: 'chat', title: 'Changed session', accountId: 'a', action: 'update', copies: 2 },
+      { sessionId: 'chat', title: 'Changed session', accountId: 'b', action: 'add', copies: 3 },
+    ],
+    conflicts: [], skipped: [{ id: 'skipped', title: 'Skipped session', reason: 'Fixture skipped session' }], fileCount: 5 };
+  const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(OperationReview, {
+    accounts: [...accounts, { ...accounts[0]!, id: 'b', email: 'second@example.test', scopes: ['b/org'], current: false }],
+    busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop, preview,
+  }) }));
+  const buttons = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)?.map((button) => button.replace(/<[^>]*>/gu, ''));
+  expect(buttons).toContain('同步 1 条会话');
+  expect(buttons).not.toContain('同步 3 条会话');
+  expect(html).toContain('已选 3 条 Code 会话');
+});
+
 it('shows source, destination and turn delta and blocks unresolved version conflicts', () => {
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(OperationReview, {
     accounts, busy: false, blocked: false, onClose: noop, onApply: noop, onChooseTitle: noop,
-    preview: { kind: 'sync', token: 'fixture', accountIds: ['a'], selected: [], changes: [], conflicts: [], skipped: [], fileCount: 1,
+    preview: { kind: 'sync', token: 'fixture', accountIds: ['a'], selected: [{ id: 'branch', title: 'Two branches' }], changes: [], conflicts: [], skipped: [], fileCount: 1,
       progressUpdates: [{ id: 'chat', title: 'Shared work', sourceAccountId: 'a', targetAccountId: 'b', deltaTurns: 7, selected: false }],
       progressConflicts: [{ id: 'branch', title: 'Two branches', resolved: false, options: [{ path: 'a/org/local.json', accountId: 'a', title: 'A', turns: 2 }] }],
     },
@@ -58,7 +76,7 @@ it('shows source, destination and turn delta and blocks unresolved version confl
   expect(html).toContain('比目标多 7 轮');
   expect(html).toContain('fixture@example.com');
   expect(html).toContain('请选择要保留的账号版本');
-  const confirm = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)?.find((button) => button.replace(/<[^>]*>/gu, '') === '确认执行');
+  const confirm = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gu)?.find((button) => button.replace(/<[^>]*>/gu, '') === '同步 0 条会话');
   expect(confirm).toBeDefined();
   expect(confirm!.slice(0, confirm!.indexOf('>'))).toContain('disabled=""');
 });

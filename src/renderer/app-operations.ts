@@ -23,6 +23,7 @@ export function useAppOperations({ model, workspace, included, accountFilter, se
   const [celebrate, setCelebrate] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
   const [lastPreview, setLastPreview] = useState<NonNullable<WorkspaceModel['review']>>();
+  const [lastAccounts, setLastAccounts] = useState<WorkspaceView['accounts']>([]);
 
   async function startCheck(destination: Stage = 'home') {
     setHasChecked(true);
@@ -39,15 +40,24 @@ export function useAppOperations({ model, workspace, included, accountFilter, se
   }
 
   async function applyOperation() {
-    if (model.review) setLastPreview(model.review);
+    if (!model.review || model.busy) return;
+    setLastPreview(model.review);
+    setLastAccounts(workspace?.accounts ?? []);
     setStage('progress');
-    await model.apply();
-    setCelebrate(!model.error);
+    const success = await model.apply();
+    setCelebrate(success);
     setStage('complete');
+  }
+
+  async function refreshReview() {
+    setCelebrate(false);
+    const destination = await model.refreshReview(lastPreview);
+    if (destination) setStage(destination === 'preview' ? 'review' : 'results');
   }
 
   async function applyDeletion(request: DeleteSelection & { revision: string; names: string[] }) {
     setLastPreview(undefined);
+    setLastAccounts(workspace?.accounts ?? []);
     setStage('progress');
     const success = await model.deleteSelected(request, request.revision);
     setCelebrate(false);
@@ -65,5 +75,5 @@ export function useAppOperations({ model, workspace, included, accountFilter, se
     if (success) setStage('backups');
   }
 
-  return { celebrate, setCelebrate, hasChecked, lastPreview, startCheck, action, applyOperation, applyDeletion, saveFolders, openBackups };
+  return { celebrate, setCelebrate, hasChecked, lastPreview, lastAccounts, startCheck, action, applyOperation, refreshReview, applyDeletion, saveFolders, openBackups };
 }

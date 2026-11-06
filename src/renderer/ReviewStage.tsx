@@ -50,9 +50,9 @@ export function ReviewStage({ controller }: { controller: AppController }) {
   return <StageFrame className="stage-surface stage-surface--review stage-surface--sessions" title={t.t('localTitle')} description={t.t('localSub')} footer={reviewActions}>
     <section className="review-main">
       <div className="list-context">
-        <label className="viewing-control"><span>{t.t('viewingAccount')}</span><Select className="account-view-filter" aria-label={t.t('viewingAccount')} value={controller.accountFilter} disabled={controller.busy} onChange={(event) => controller.browseAccount(event.target.value)}>
+        <label className="viewing-control"><span>{t.t('viewingAccount')}</span><span className="accounts-toolbar-select"><Select className="account-view-filter" aria-label={t.t('viewingAccount')} value={controller.accountFilter} disabled={controller.busy} onChange={(event) => controller.browseAccount(event.target.value)}>
           <option value="all">{t.t('allAccounts')}</option>{workspace.accounts.map((account) => <option key={account.id} value={account.id}>{accountName(account, t)}</option>)}
-        </Select></label>
+        </Select><span className="accounts-toolbar-select__chevron" aria-hidden="true"><Icon icon="chevron-down" size="sm" /></span></span></label>
         <fieldset className="action-account-strip" disabled={controller.busy}>
           <legend>{t.t(archived ? 'organizeAccounts' : 'useAccounts')}</legend>
           <div>{workspace.accounts.map((account) => <label key={account.id} title={accountName(account, t)}>
@@ -60,12 +60,12 @@ export function ReviewStage({ controller }: { controller: AppController }) {
             <span>{accountName(account, t)}</span>
           </label>)}</div><small>{t.t(archived ? 'organizeHelp' : 'participationHelp')}</small>
         </fieldset>
-        <Button variant="ghost" size="sm" static disabled={controller.busy} onClick={() => void controller.startCheck('results')}><Icon icon="redo" size="sm" />{t.t('checkAgain')}</Button>
+        <Button variant="ghost" size="sm" static className="list-refresh" disabled={controller.busy} onClick={() => void controller.startCheck('results')}><Icon icon="redo" size="sm" />{t.t('checkAgain')}</Button>
       </div>
       <div className="list-toolbar">
-        <label className="session-group-control"><span>{t.t('sessionGroup')}</span><Select className="session-group-filter" aria-label={t.t('sessionGroup')} value={group} disabled={controller.busy} onChange={(event) => controller.browseGroup(event.target.value as SessionGroup)}>
+        <label className="session-group-control"><span>{t.t('sessionGroup')}</span><span className="accounts-toolbar-select"><Select className="session-group-filter" aria-label={t.t('sessionGroup')} value={group} disabled={controller.busy} onChange={(event) => controller.browseGroup(event.target.value as SessionGroup)}>
           {SESSION_GROUPS.map((item) => <option key={item} value={item}>{t.t(groupLabels[item])} · {controller.scopedGroups[item].length}</option>)}
-        </Select></label>
+        </Select><span className="accounts-toolbar-select__chevron" aria-hidden="true"><Icon icon="chevron-down" size="sm" /></span></span></label>
         <Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={controller.search} onChange={(event) => controller.setSearch(event.target.value)} />
         {group === 'visible' && <button type="button" className="missing-filter" aria-pressed={controller.missingOnly} onClick={() => controller.setMissingOnly(!controller.missingOnly)}>{t.t('missingFilter')}</button>}
         <details className="filter-drawer"><summary>{t.t('filterSort')}</summary><div>
@@ -84,8 +84,11 @@ export function ReviewStage({ controller }: { controller: AppController }) {
       </div>
       <div className="review-list-wrap">
         {group !== 'visible' && <div className="session-group-note"><strong>{t.t(groupLabels[group])}</strong><TermTip term={group} /></div>}
-        <SessionRows sessions={controller.reviewSessions} accounts={workspace.accounts} catalog={workspace.sessions} missingAccounts={controller.accountSummary.accounts} selected={controller.selected}
+        {controller.reviewSessions.length ? <SessionRows sessions={controller.reviewSessions} accounts={workspace.accounts} catalog={workspace.sessions} missingAccounts={controller.accountSummary.accounts} selected={controller.selected}
           filterId={controller.accountFilter} included={controller.included} onToggle={(id, value) => controller.toggle(group, id, value)} busy={controller.busy} group={group} />
+          : <div className="list-empty-state" role="status"><p className="empty-state">{t.t(controller.scopedGroups[group].length ? 'noSessions' : archived ? 'noArchivedSessions' : 'noGroupSessions')}</p>
+            {controller.scopedGroups[group].length > 0 && controller.search.trim() && <Button variant="ghost" static size="sm" onClick={() => controller.setSearch('')}>{t.t('clearSearch')}</Button>}
+          </div>}
         <SkippedEntriesNotice paths={workspace.skippedPaths} />
       </div>
       {controller.accountFilter !== 'all' && <p className="list-scope-note">{t.t('viewingHelp')}</p>}

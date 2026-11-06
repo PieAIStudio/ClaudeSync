@@ -10,6 +10,7 @@ import { messageText } from './errors';
 import { parseMessage } from '../error-copy';
 import { sessionActionState } from './session-action-state';
 import type { AccountMissingSummary } from './account-summary';
+import { changedSessionIds } from './result-copy';
 
 export const groupLabels: Record<SessionGroup, TranslationKey> = {
   visible: 'visibleGroup', archived: 'archived', scheduled: 'scheduledGroup',
@@ -234,16 +235,18 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
   const actionKeys: Record<string, TranslationKey> = { update: 'update', add: 'add', title: 'title', archive: 'archive', unarchive: 'unarchive', delete: 'delete', star: 'star', unstar: 'unstar', restore: preview.kind === 'sync' ? 'clearDeletionNote' : 'restore' };
   const unresolved = preview.progressConflicts?.some((item) => !item.resolved);
   const restoreBlocked = Boolean(preview.blockedReason);
-  return <Modal title={t.t('previewTitle')} lead={t.t('previewBody')} onClose={onClose} busy={busy}
+  const changedCount = changedSessionIds(preview).length;
+  return <Modal title={t.t(preview.kind === 'sync' ? 'reviewSync' : 'previewTitle')} lead={t.t('previewBody')} onClose={onClose} busy={busy}
     actions={<>{blocked && <p className="operation-warning">{t.t('waiting')}</p>}
-      <Button variant="secondary" autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</Button>
-      <Button variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || restoreBlocked || preview.fileCount === 0 || unresolved} onClick={onApply}>{t.t(busy ? 'applying' : 'confirm')}</Button></>}>
+      <Button variant="secondary" static autoFocus disabled={busy} onClick={onClose}>{t.t('back')}</Button>
+      <Button variant={preview.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || blocked || restoreBlocked || preview.fileCount === 0 || unresolved} onClick={onApply}>{busy ? t.t('applying') : preview.kind === 'sync' ? t.t(changedCount === 1 ? 'syncNowCountOne' : 'syncNowCount', { count: changedCount }) : t.t('confirm')}</Button></>}>
     <ReviewFacts action={t.t(preview.kind)} group={preview.group} accountNames={preview.accountIds.map((id) => accountName(accounts.find((account) => account.id === id), t))} />
     <RestoreBackupFacts preview={preview} accounts={accounts} />
     {preview.kind === 'keep' && <p className="operation-warning">{t.t('keepWarning')}</p>}
     {preview.kind === 'archive' && <p className="panel-intro">{t.t('archiveUndoHelp')}</p>}
     {preview.kind === 'unarchive' && <p className="panel-intro">{t.t('unarchiveUndoHelp')}</p>}
-    {preview.kind === 'sync' && <p className="panel-intro">{t.t('selectedSyncHelp')}</p>}
+    {preview.kind === 'sync' && <p className="panel-intro">{t.t('selectedSyncSummary')}</p>}
+    {preview.kind === 'sync' && preview.changes.some((item) => item.action === 'restore') && <details className="review-more"><summary><span>{t.t('restoredSessionDetails')}</span><Icon icon="chevron-down" size="sm" /></summary><p>{t.t('selectedSyncHelp')}</p></details>}
     <ProgressReview preview={preview} accounts={accounts} choices={contentChoices} busy={busy} onChoose={onChooseContent} />
     {preview.conflicts.length > 0 && <section className="title-conflicts"><h3>{t.t('conflicts')}</h3>{preview.conflicts.map((conflict) => <label key={conflict.id}>
       <span>{t.t('chooseTitle')}</span><select value={choices?.[conflict.id] === 'skip' ? '' : choices?.[conflict.id] ?? ''} onChange={(event) => onChooseTitle(conflict.id, event.target.value)} disabled={busy}>
@@ -258,9 +261,9 @@ export function OperationReview({ preview, accounts, choices, contentChoices, bu
         <Badge tone={item.action === 'delete' ? 'warning' : 'neutral'}>{t.t(actionKeys[item.action]!)}</Badge>
       </li>)}</ul>
     </section>}
-    {preview.selected.length > 0 && <details className="review-more" open={preview.kind === 'keep'}><summary>{preview.selected.length === 1 ? t.t('selectedCountOne') : t.t('selectedCount', { count: preview.selected.length })}</summary>
+    {preview.selected.length > 0 && <details className="review-more" open={preview.kind === 'keep'}><summary><span>{preview.selected.length === 1 ? t.t('selectedCountOne') : t.t('selectedCount', { count: preview.selected.length })}</span><Icon icon="chevron-down" size="sm" /></summary>
       <ul>{preview.selected.map((session) => <li key={session.id}><strong>{session.title || t.t('untitled')}</strong><small>{session.id.slice(0, 8)}</small></li>)}</ul>
     </details>}
-    {preview.skipped.length > 0 && <details className="review-more"><summary>{t.t('skipped')} ({preview.skipped.length})</summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>: {reasonText(item.reason, t)}</p>)}</details>}
+    {preview.skipped.length > 0 && <details className="review-more"><summary><span>{t.t('skipped')} ({preview.skipped.length})</span><Icon icon="chevron-down" size="sm" /></summary>{preview.skipped.map((item, i) => <p key={i}><strong>{item.title || t.t('untitled')}</strong>: {reasonText(item.reason, t)}</p>)}</details>}
   </Modal>;
 }

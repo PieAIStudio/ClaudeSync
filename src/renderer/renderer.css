@@ -251,6 +251,14 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .liquid-progress { position: relative; width: min(340px, 82vw); height: 8px; margin: 10px 0 18px; overflow: hidden; border-radius: 999px; background: var(--cs-tint-strong); }
 .liquid-progress span { display: block; width: 42%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6ad8ff, #b06bff, #ff7ac8, #ffb05a); animation: progress-tide var(--swimmer-motion-progress) ease-in-out infinite; }
 .liquid-progress--wide { width: min(420px, 82vw); }
+.stage-surface--progress.game-ui-page-surface { display: flex; flex-direction: column; justify-content: center; gap: 16px; }
+.stage-surface--progress .game-ui-page-surface-header { flex-direction: column; align-items: center; order: 0; gap: 12px; }
+.stage-surface--progress .game-ui-page-surface-heading { flex: none; }
+.stage-surface--progress .game-ui-page-surface-header-slot { order: -1; }
+.stage-surface--progress .relay-art { width: min(260px, 36vh); }
+.stage-surface--progress .game-ui-page-surface-content { flex: none; order: 1; }
+.stage-surface--progress .liquid-progress { margin: 6px 0 18px; background: rgb(255 255 255 / 28%); box-shadow: inset 0 1px 2px rgb(20 10 40 / 22%); }
+.stage-surface--progress .state-stage .progress-cancel-note { max-width: 54ch; font-size: 13px; line-height: 1.6; }
 @keyframes progress-tide { 50% { transform: translateX(138%); } }
 
 /* Complete: the art and a quiet receipt card. */
@@ -260,8 +268,15 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .complete-layout { display: grid; grid-template-columns: minmax(0, .8fr) minmax(440px, 1.2fr); align-items: center; gap: 40px; }
 .complete-art { min-width: 0; }
 .complete-art .relay-art { width: min(440px, 100%); }
-.complete-card { min-width: 0; padding: 36px 40px 28px; border-radius: 28px; background: var(--cs-card); box-shadow: var(--cs-shadow); }
-.complete-card header h1 { margin: 0; font-size: clamp(2rem, 3.4vw, 2.6rem); font-weight: 650; line-height: 1.15; letter-spacing: -.03em; }
+.complete-card { display: flex; flex-direction: column; min-width: 0; max-height: calc(100dvh - 170px); padding: 30px 32px 24px; border-radius: 28px; background: var(--cs-card); box-shadow: var(--cs-shadow); }
+.complete-card > header { flex: none; }
+.receipt-body { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.partial-summary { margin: 16px 0 0; color: var(--cs-muted); font-size: 15px; line-height: 1.6; text-wrap: balance; }
+.receipt-error-details { margin-top: 14px; font-size: 13px; }
+.receipt-error-details p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.complete-card .receipt-error-details li { flex-direction: column; align-items: flex-start; gap: 2px; }
+.receipt-error-details li span { color: var(--cs-muted); overflow-wrap: anywhere; }
+.complete-card header h1 { margin: 0; font-size: clamp(28px, 3vw, 36px); font-weight: 450; line-height: 1.18; letter-spacing: -.025em; text-wrap: balance; }
 .complete-card header p { margin: 10px 0 0; color: var(--cs-muted); font-size: 16px; line-height: 1.5; }
 .complete-card .game-ui-callout { margin-top: 18px; }
 .complete-proof { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; color: var(--swimmer-success); font-size: 14px; font-weight: 600; }
@@ -271,10 +286,12 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .completion-list li:nth-child(odd) { background: var(--cs-tint); }
 .completion-list li > .game-ui-icon { grid-column: 1; grid-row: 1; width: 18px; height: 18px; margin-top: 2px; color: var(--swimmer-success); }
 .completion-list li > strong { grid-column: 2; grid-row: 1; min-width: 0; font-size: 15px; line-height: 1.4; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
-.completion-list li > span { grid-column: 2; grid-row: 2; min-width: 0; max-width: 100%; color: var(--cs-muted); font-size: 13px; line-height: 1.5; text-align: left; overflow-wrap: anywhere; }
+.completion-list li > span { grid-column: 2; grid-row: 2; min-width: 0; max-width: 100%; color: var(--cs-muted); font-size: 13px; line-height: 1.5; text-align: left; word-break: keep-all; overflow-wrap: anywhere; text-wrap: balance; }
 .stage-surface--complete[data-verified="false"] .complete-proof,
 .stage-surface--complete[data-verified="false"] .completion-list li > .game-ui-icon { color: var(--swimmer-warning); }
-.complete-card footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 18px; }
+.receipt-recovery { color: var(--cs-muted); font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
+.complete-card footer { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 18px; }
+.complete-card footer .game-ui-button { font-size: 14px; }
 .complete-card footer .game-ui-button:last-child { min-width: 140px; min-height: 48px; border-radius: 999px; }
 
 /* Review: one card — categories, list and a footer that never covers rows. */
@@ -477,7 +494,11 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .title-conflicts label { display: grid; gap: 6px; margin-bottom: 10px; }
 .title-conflicts select { width: 100%; }
 .review-more { line-height: 1.7; }
-.review-more > summary { color: var(--swimmer-accent-ink); font-weight: 600; cursor: pointer; }
+.review-more > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--swimmer-accent-ink); font-weight: 600; cursor: pointer; list-style: none; }
+.review-more > summary::-webkit-details-marker { display: none; }
+.review-more > summary::marker { content: ''; }
+.review-more > summary .game-ui-icon { flex: none; }
+.review-more[open] > summary .game-ui-icon { transform: rotate(180deg); }
 .review-more > ul { margin: 8px 0 0; padding: 0 12px; list-style: none; }
 .review-more li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; }
 .review-more strong { overflow-wrap: anywhere; }

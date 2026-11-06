@@ -39,6 +39,24 @@
 .stage-surface--accounts .game-ui-page-surface-body { gap: 14px; }
 .account-heading-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .account-heading-actions .game-ui-button { font-size: 14px; }
+.account-state-art { width: 184px; }
+.account-state-art .relay-art { width: 100%; }
+.account-check-progress { display: flex; align-items: center; gap: 10px; color: var(--cs-world-muted); font-size: 13px; }
+.account-spinner { width: 18px; height: 18px; flex: none; border: 2px solid rgb(255 255 255 / 26%); border-top-color: #fff; border-radius: 50%; animation: account-spin 1s linear infinite; }
+@keyframes account-spin { to { transform: rotate(360deg); } }
+.account-placeholder { min-height: 230px; padding: 22px; border-radius: 20px; background: rgb(255 255 255 / 7%); }
+.account-placeholder :is(span, i, b) { display: block; border-radius: 6px; background: rgb(255 255 255 / 14%); }
+.account-placeholder span { width: 36px; height: 36px; border-radius: 12px; margin-bottom: 28px; }
+.account-placeholder i { width: 78%; height: 12px; margin-bottom: 12px; }
+.account-placeholder i + i { width: 56%; }
+.account-placeholder b { width: 42%; height: 28px; margin-top: 30px; }
+.account-empty { display: flex; align-items: center; gap: 28px; padding: 22px 28px; border-radius: 22px; background: rgb(255 255 255 / 7%); }
+.account-empty .relay-art { flex: none; width: 148px; margin: 0; }
+.account-empty p { max-width: 42ch; margin: 0; color: var(--cs-world-muted); font-size: 15px; line-height: 1.65; }
+.list-empty-state { display: flex; min-height: 180px; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 28px; text-align: center; }
+.list-empty-state .empty-state { margin: 0; padding: 0; }
+.claudesync-app[data-reduced-motion="true"] :is(.account-spinner, .liquid-progress span) { animation: none; }
+@media (prefers-reduced-motion: reduce) { .account-spinner { animation: none; } }
 .account-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .account-card { min-width: 0; padding: 20px 20px 16px; border: 0; border-radius: 20px; background: linear-gradient(145deg, #ffffff16, #ffffff05), #1b0a493b; box-shadow: 0 16px 32px #1c034322; }
 .account-card[data-current="true"] { background: linear-gradient(145deg, #ffffff27, #ffffff0c), #34106a30; }
@@ -55,7 +73,7 @@
 .account-count strong { font-size: 38px; line-height: 1; font-weight: 350; font-variant-numeric: tabular-nums; }
 .account-count span { color: var(--cs-world-muted); font-size: 13px; }
 .account-count-rule { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px 18px; margin: 0 2px; color: var(--cs-world-muted); font-size: 12px; line-height: 1.5; }
-.account-difference { display: grid; gap: 6px; margin-top: 16px; padding: 10px 0 4px; font-size: 13px; }
+.account-difference { min-height: 34px; display: grid; gap: 6px; margin-top: 16px; padding: 10px 0 4px; font-size: 13px; }
 .account-difference strong { font-weight: 500; }
 .account-other-counts { display: grid; gap: 7px; margin: 16px 0 8px; color: var(--cs-world-muted); font-size: 12px; }
 .account-other-counts > div { display: flex; justify-content: space-between; gap: 10px; }
@@ -77,6 +95,11 @@
 .list-context > .viewing-control, .session-group-control { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--cs-muted); font-size: 13px; white-space: nowrap; }
 .list-context .game-ui-select-frame, .session-group-control .game-ui-select-frame { width: auto; min-width: 0; max-width: 100%; flex: none; }
 .list-context select, .session-group-control select { --swimmer-droplet-radius: 8px; width: auto; min-width: 100px; max-width: 220px; height: 32px; min-height: 32px; padding: 4px 10px; font-size: 13px; line-height: 20px; }
+.accounts-toolbar-select { position: relative; display: inline-flex; flex: none; min-width: 0; max-width: 100%; }
+.accounts-toolbar-select > .game-ui-select-frame { width: auto; min-width: 0; max-width: 100%; }
+.accounts-toolbar-select .game-ui-select[data-game-ui-paint] { appearance: none; -webkit-appearance: none; padding-inline-end: 30px; }
+.accounts-toolbar-select__chevron { position: absolute; inset-inline-end: 10px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; color: var(--cs-muted); pointer-events: none; }
+.list-context .list-refresh { height: 32px; min-height: 32px; padding: 6px 8px; font-size: 12px; line-height: 20px; }
 .session-group-control { flex: none; }
 .session-group-control select { max-width: 210px; }
 .list-context > .game-ui-button-frame > .game-ui-button { white-space: nowrap; }

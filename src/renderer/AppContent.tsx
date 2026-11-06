@@ -24,7 +24,7 @@ function StageView({ controller }: { controller: AppController }) {
     case 'scan': return <ScanStage />;
     case 'results': return <ReviewStage controller={controller} />;
     case 'review': return <ReviewStage controller={controller} />;
-    case 'progress': return <ProgressStage />;
+    case 'progress': return <ProgressStage controller={controller} />;
     case 'complete': return <CompleteStage controller={controller} />;
     case 'cloud': return <CloudStage controller={controller} />;
     case 'backups': return <BackupsStage controller={controller} />;
@@ -36,7 +36,7 @@ export function AppContent({ locale, onLocale }: { locale: AppLocale; onLocale(l
   const t = useTranslation();
   const controller = useAppController(locale, onLocale);
   const workspace = controller.workspace;
-  return <div className={`claudesync-app theme-${controller.theme}`} data-stage={controller.stage} data-game-ui-theme={controller.theme} data-game-ui-style="quiet">
+  return <div className={`claudesync-app theme-${controller.theme}`} data-stage={controller.stage} data-reduced-motion={controller.reducedMotion} data-game-ui-theme={controller.theme} data-game-ui-style="quiet">
     <AppShell controller={controller}><StageView controller={controller} /></AppShell>
     {controller.review && workspace && <OperationReview preview={controller.review} choices={controller.request?.titleSelections} contentChoices={controller.request?.contentSelections} accounts={workspace.accounts} busy={controller.busy} blocked={workspace.blockers.length > 0} onClose={controller.model.closeReview} onApply={() => void controller.applyOperation()}
       onChooseContent={(id, path) => { if (controller.request) void controller.model.preview({ ...controller.request, contentSelections: { ...controller.request.contentSelections, [id]: path } }); }}

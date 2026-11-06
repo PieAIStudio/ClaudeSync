@@ -13,6 +13,7 @@ import type { TranscriptCheck, WorkspaceSnapshot } from './storage';
 import type { Workspace } from './workspace';
 import { collectTranscriptIndex } from './workspace';
 import { verifiedTargets } from './visibility';
+import { accountIdForScope } from './account-identity';
 import type { ApplyResult, BackupView, ChangeKind, OperationKind } from '../shared/contracts';
 import { userError, userMessage } from '../error-copy';
 
@@ -271,7 +272,16 @@ function* commitFilePlanSteps(workspace: Workspace, plan: FilePlan, guard: () =>
       backup.manifest.state = 'interrupted';
       backup.manifest.error = error instanceof Error ? error.message : String(error);
       try { writeOwnedFile(join(backup.path, 'manifest.json'), encodeJson(backup.manifest)); } catch { /* Preserve the original error. */ }
-      throw userError('errorBackupInterrupted', { message: backup.manifest.error ?? userMessage('statusDeleteInterrupted'), path: backup.path });
+      const appliedPaths = new Set(backup.manifest.applied);
+      // Recorded writes have not passed final verification. An account can have
+      // both recorded writes and planned paths whose outcomes remain unknown.
+      throw userError('errorBackupInterrupted', {
+        message: backup.manifest.error ?? userMessage('statusDeleteInterrupted'), path: backup.path,
+        applied: appliedPaths.size,
+        changedAccountIds: [...new Set([...appliedPaths].map(accountIdForScope))].sort(),
+        pendingAccountIds: [...new Set(backup.manifest.changes.filter((change) => !appliedPaths.has(change.path))
+          .map((change) => accountIdForScope(change.path)))].sort(),
+      });
     }
     throw error;
   } finally {

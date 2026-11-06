@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AppInfo, ApplyResult, BackupView, DeleteRequest, OperationPreview, OperationRequest, WorkspaceView } from '../shared/contracts';
-import { errorMessage } from './errors';
+import { errorMessage, interruptedOperation, type InterruptedOperation } from './errors';
 import type { AppLocale } from './i18n';
 
 const api = window.claudeSync;
@@ -33,6 +33,7 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
   const [completed, setCompleted] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [result, setResult] = useState<ApplyResult>();
+  const [interruption, setInterruption] = useState<InterruptedOperation & { explanation: string }>();
   const running = useRef(false);
   useWorkspaceBootstrap(locale, setInfo, setWorkspace, setError);
 
@@ -41,7 +42,12 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
     running.current = true;
     setBusy(true); setError(''); setCompleted(false); setDeleted(false); setResult(undefined);
     try { await action(); return true; }
-    catch (reason) { setError(errorMessage(reason, locale)); return false; }
+    catch (reason) {
+      const evidence = interruptedOperation(reason);
+      if (evidence) setInterruption({ ...evidence, explanation: errorMessage(reason, locale) });
+      setError(errorMessage(reason, locale));
+      return false;
+    }
     finally { running.current = false; setBusy(false); }
   }
 
@@ -74,9 +80,31 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
       setRequest(next); setReview(await api.preview(next, workspace.revision));
     });
   }
+  async function refreshReview(previous?: OperationPreview): Promise<'preview' | 'list' | undefined> {
+    let freshPreview: OperationPreview | undefined;
+    const success = await run(async () => {
+      if (!api) throw new Error('Desktop bridge unavailable');
+      setReview(undefined);
+      const fresh = await checkWorkspace();
+      setWorkspace(fresh);
+      if (previous?.kind === 'restore' && previous.backup) {
+        setRequest(undefined);
+        freshPreview = await api.previewRestore(previous.backup.id, fresh.revision);
+      } else if (previous && request && previous.kind === request.kind) {
+        // A new read and a new token are required. Old conflict choices must be reviewed again.
+        const next: OperationRequest = { kind: request.kind, group: request.group,
+          sessionIds: [...request.sessionIds], accountIds: [...request.accountIds], title: request.title };
+        setRequest(next);
+        freshPreview = await api.preview(next, fresh.revision);
+      }
+      setReview(freshPreview);
+    });
+    return success ? freshPreview ? 'preview' : 'list' : undefined;
+  }
   async function apply() {
-    await run(async () => {
-      if (!api || !review) return;
+    if (!api || !review || running.current) return false;
+    setInterruption(undefined);
+    return await run(async () => {
       // Every token is consumed once; close even if files changed or a guard blocks it.
       const token = review.token;
       setReview(undefined);
@@ -86,8 +114,9 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
   }
   async function loadBackups() { return await run(async () => { if (api) setBackups(await api.backups()); }); }
   async function deleteSelected(next: DeleteRequest, revision: string) {
+    if (!api || running.current) return false;
+    setInterruption(undefined);
     return await run(async () => {
-      if (!api) return;
       try {
         const result = await api.deleteSelected(next, revision);
         setWorkspace(result.workspace); setResult(result.result); setDeleted(result.result.verified);
@@ -107,6 +136,6 @@ export function useWorkspace(locale: AppLocale = 'zh-CN') {
     try { return await api.chooseDirectory(); }
     catch (reason) { setError(errorMessage(reason, locale)); return null; }
   }
-  return { api, info, workspace, accountCheckFailed, review, request, backups, busy, error, completed, deleted, result, refresh, configure, preview, apply, deleteSelected,
+  return { api, info, workspace, accountCheckFailed, review, request, backups, busy, error, completed, deleted, result, interruption, refresh, refreshReview, configure, preview, apply, deleteSelected,
     loadBackups, restore, openBackups, chooseDirectory, closeReview: () => setReview(undefined) };
 }

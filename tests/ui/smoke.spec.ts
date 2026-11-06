@@ -544,9 +544,9 @@ test('polish — 600px session footer reserves the fixed tab safe area in both l
 test('polish — sync, archive and unarchive receipts cover the 600/1440 EN/zh matrix', async ({ page }) => {
   test.setTimeout(180_000);
   const cases = [
-    { kind: 'sync', action: { 'zh-CN': '预览同步', en: 'Review sync' }, receipt: { 'zh-CN': '已同步 1 条聊天。', en: 'Synced 1 chat.' }, destination: { 'zh-CN': '参与账号的本机 Code 会话', en: 'local Code sessions in included accounts' } },
-    { kind: 'archive', action: { 'zh-CN': '归档所选', en: 'Archive selected' }, receipt: { 'zh-CN': '已归档 1 条聊天。', en: 'Archived 1 chat.' }, destination: { 'zh-CN': '已归档分组', en: 'Archived group' } },
-    { kind: 'unarchive', action: { 'zh-CN': '取消归档', en: 'Unarchive selected' }, receipt: { 'zh-CN': '已取消归档 1 条聊天。', en: 'Unarchived 1 chat.' }, destination: { 'zh-CN': '普通会话列表', en: 'Active chats' } },
+    { kind: 'sync', action: { 'zh-CN': '预览同步', en: 'Review sync' }, receipt: { 'zh-CN': '已同步 1 条会话', en: 'Synced 1 session' }, destination: { 'zh-CN': '已补充到 account-b@fixture.invalid；已更新 account-a@fixture.invalid', en: 'Added to account-b@fixture.invalid; Updated in account-a@fixture.invalid' } },
+    { kind: 'archive', action: { 'zh-CN': '归档所选', en: 'Archive selected' }, receipt: { 'zh-CN': '已归档 1 条会话', en: 'Archived 1 session' }, destination: { 'zh-CN': '已在 account-a@fixture.invalid 中归档', en: 'Archived in account-a@fixture.invalid' } },
+    { kind: 'unarchive', action: { 'zh-CN': '取消归档', en: 'Unarchive selected' }, receipt: { 'zh-CN': '已取消归档 1 条会话', en: 'Unarchived 1 session' }, destination: { 'zh-CN': '已在 account-a@fixture.invalid、account-b@fixture.invalid 中取消归档', en: 'Unarchived in account-a@fixture.invalid, account-b@fixture.invalid' } },
   ] as const;
   for (const viewport of VIEWPORTS) for (const locale of LOCALES) for (const item of cases) {
     await openFixture(page, viewport, locale);
@@ -557,14 +557,14 @@ test('polish — sync, archive and unarchive receipts cover the 600/1440 EN/zh m
     await page.getByRole('checkbox', { name: title, exact: true }).check();
     if (item.kind === 'archive') await archiveSelected(page, locale);
     else await page.getByRole('button', { name: item.action[locale], exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: locale === 'en' ? 'Review this operation' : '确认这次整理', exact: true });
+    const dialog = page.getByRole('dialog', { name: item.kind === 'sync' ? (locale === 'en' ? 'Review sync' : '预览同步') : (locale === 'en' ? 'Review this operation' : '确认这次整理'), exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('.review-changes li')).toHaveCount(item.kind === 'sync' ? 2 : item.kind === 'unarchive' ? 2 : 1);
     await polishShot(page, `${item.kind}-preview-${locale}-${viewport.width}`);
-    await dialog.getByRole('button', { name: locale === 'en' ? 'Confirm changes' : '确认执行', exact: true }).click();
+    await dialog.getByRole('button', { name: item.kind === 'sync' ? (locale === 'en' ? 'Sync 1 session' : '同步 1 条会话') : (locale === 'en' ? 'Confirm changes' : '确认执行'), exact: true }).click();
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'complete');
     await expect(page.getByRole('heading', { name: item.receipt[locale], exact: true })).toBeVisible();
-    await expect(page.locator('.complete-card header p')).toContainText(item.destination[locale]);
+    await expect(page.locator('.completion-list li span')).toHaveText(item.destination[locale]);
     await polishShot(page, `${item.kind}-complete-${locale}-${viewport.width}`);
     if (locale === 'en') await assertNoChineseSystemText(page);
   }
@@ -587,8 +587,8 @@ test('polish — restore preview, folder save, and cloud view/delete cover the 6
     await polishShot(page, `restore-preview-${locale}-${viewport.width}`);
     await restoreDialog.getByRole('button', { name: locale === 'en' ? 'Confirm changes' : '确认执行', exact: true }).click();
     await expect(page.locator('.claudesync-app')).toHaveAttribute('data-stage', 'complete');
-    await expect(page.getByRole('heading', { name: /^(Restored backup from|已从).*$/u })).toBeVisible();
-    await expect(page.locator('.complete-card header p')).toContainText(locale === 'en' ? 'original local file locations' : '原本机文件位置');
+    await expect(page.getByRole('heading', { name: /^(Restored backup from|已恢复).*$/u })).toBeVisible();
+    await expect(page.locator('.completion-list li span')).toHaveText(locale === 'en' ? 'Restored local records in account-a@fixture.invalid' : '已恢复 account-a@fixture.invalid 的本地记录');
     await polishShot(page, `restore-complete-${locale}-${viewport.width}`);
 
     await openFixture(page, viewport, locale);

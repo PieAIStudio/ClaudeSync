@@ -6,12 +6,14 @@ import type { AppController } from './app-controller';
 import { languageNames } from './app-types';
 import { accountName, FolderSetting, Panel } from './components';
 import { PageArt, RelayArt } from './visuals';
-import { resultOutcome, type ResultOutcome } from './result-copy';
+import { changedSessionIds, resultOutcome, type ResultOutcome } from './result-copy';
 
 export function CompleteStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
   const failed = Boolean(controller.error);
   const verified = !failed && controller.result?.verified === true;
+  const interruption = verified ? undefined : controller.interruption;
+  const partial = Boolean(interruption && interruption.filesChanged > 0);
   const receiptIcon = verified ? 'check' : 'alert';
   const preview = controller.lastPreview;
   const operation = preview?.kind;
@@ -23,39 +25,65 @@ export function CompleteStage({ controller }: { controller: AppController }) {
   const summaryKey: TranslationKey = outcome === 'trash' && trashCount === 1 ? 'resultTrashOne'
     : outcome === 'trashAndBackup' && trashCount === 1 ? 'resultTrashAndBackupOne' : resultKeys[outcome];
   const summary = t.t(summaryKey, outcome === 'trash' || outcome === 'trashAndBackup' ? { count: trashCount } : {});
-  const changedSessionIds = new Set((preview?.selected.length ? preview.selected.map((item) => item.id) : preview?.changes.map((change) => change.sessionId) ?? []).filter(Boolean));
-  const count = changedSessionIds.size || preview?.selected.length || preview?.changes.length || 0;
-  const title = !verified ? t.t('issue')
+  const changes = preview?.changes ?? [];
+  const changedIds = changedSessionIds(preview);
+  const count = changedIds.length;
+  const title = partial ? t.t(operation === 'sync' ? 'syncInterrupted' : 'operationInterrupted')
+    : !verified ? t.t('issue')
     : operation === 'sync' ? t.t(count === 1 ? 'syncCompleteCountOne' : 'syncCompleteCount', { count })
     : operation === 'archive' ? t.t(count === 1 ? 'archiveCompleteCountOne' : 'archiveCompleteCount', { count })
     : operation === 'unarchive' ? t.t(count === 1 ? 'unarchiveCompleteCountOne' : 'unarchiveCompleteCount', { count })
     : operation === 'restore' && preview?.backup ? t.t('restoreComplete', { date: t.date(preview.backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' }) })
     : t.t('operationCompleteTitle');
   const accountLabel = (id: string) => {
-    const account = controller.workspace?.accounts.find((item) => item.id === id);
-    return account ? accountName(account, t) : t.t('unknown', { id: id.slice(0, 8) });
+    const account = controller.lastAccounts.find((item) => item.id === id);
+    const fallback = t.t('unknown', { id: id.slice(0, 8) });
+    const label = account ? accountName(account, t) : fallback;
+    return label === fallback ? label.replace(/ /gu, '\u00a0') : label;
   };
   const accountSeparator = t.locale === 'zh-CN' ? '、' : ', ';
-  const scopeIds = preview?.backup?.affectedAccountIds?.length ? preview.backup.affectedAccountIds : preview?.accountIds ?? [];
-  const scope = [...new Set(scopeIds)].map(accountLabel).join(accountSeparator) || t.t('allAccounts');
-  const destinationKey: TranslationKey = operation === 'archive' ? 'receiptArchiveDestination'
-    : operation === 'unarchive' ? 'receiptUnarchiveDestination' : operation === 'restore' ? 'receiptRestoreDestination' : 'receiptSyncDestination';
-  const destination = t.t(destinationKey);
-  const scopedDescription = operation && ['sync', 'archive', 'unarchive', 'restore'].includes(operation)
-    ? t.t('receiptScopeDestination', { scope, destination }) : summary;
-  const description = failed ? undefined : scopedDescription;
-  const completedItems = preview?.backup ? [{
-    title: t.t(preview.backup.fileCount === 1 ? 'backupFilesOne' : 'backupFiles', { count: preview.backup.fileCount }),
-    targets: t.t('receiptScopeDestination', { scope, destination }),
-  }] : preview?.selected.length ? preview.selected.map((item) => {
-    const itemIds = [...new Set(preview.changes.filter((change) => change.sessionId === item.id).map((change) => change.accountId))];
-    const itemScope = itemIds.map(accountLabel).join(accountSeparator) || scope;
-    return { title: item.title || t.t('untitled'), targets: t.t('receiptScopeDestination', { scope: itemScope, destination }) };
-  }) : [];
-  return <StageFrame className="stage-surface stage-surface--complete" data-verified={verified} title={title} description={description}><div className="complete-layout"><aside className="complete-art"><RelayArt state={verified ? 'complete' : 'attention'} celebrate={verified && controller.celebrate} /></aside><section className="complete-card">
-    <header><h1>{title}</h1>{description && <p>{description}</p>}</header>{failed && <Callout tone="danger">{controller.error}</Callout>}<p className="complete-proof">{t.t(verified ? 'resultVerified' : 'resultUnverified')}</p>
-    <ul className="completion-list">{completedItems.length ? completedItems.map((item) => <li key={item.title}><Icon icon={receiptIcon} /><strong>{item.title}</strong><span>{item.targets}</span></li>) : <><li><Icon icon={receiptIcon} /><strong>{verified ? t.t('resultVerified') : t.t('resultUnverified')}</strong><span>{controller.workspace ? t.t('checkedAt', { time: t.date(controller.workspace.checkedAt, { timeStyle: 'short' }) }) : ''}</span></li><li><Icon icon="lock" /><strong>{t.t('localOnly')}</strong><span>{t.t('operationCompleteBody')}</span></li></>}</ul>
-    <footer><Button variant="ghost" static onClick={() => controller.setStage('review')}>{t.t('viewScope')}</Button><Button variant="primary" onClick={() => { controller.setCelebrate(false); controller.setStage(controller.workspace ? 'review' : 'home'); }}>{t.t('returnToChats')}</Button></footer>
+  const names = (ids: string[]) => [...new Set(ids)].map(accountLabel).join(accountSeparator);
+  const targetText = (items: typeof changes) => {
+    if (!verified) return t.t('receiptPlannedFor', { accounts: names(items.map((item) => item.accountId)) });
+    if (operation === 'sync') {
+      const added = items.filter((item) => item.action === 'add').map((item) => item.accountId);
+      const updated = items.filter((item) => item.action !== 'add').map((item) => item.accountId);
+      return [added.length ? t.t('receiptAddedTo', { accounts: names(added) }) : '',
+        updated.length ? t.t('receiptUpdatedIn', { accounts: names(updated) }) : ''].filter(Boolean).join(t.locale === 'zh-CN' ? '；' : '; ');
+    }
+    const key = operation === 'archive' ? 'receiptArchivedIn' : operation === 'unarchive' ? 'receiptUnarchivedIn'
+      : operation === 'restore' ? 'receiptRestoredIn' : 'receiptUpdatedIn';
+    return t.t(key, { accounts: names(items.map((item) => item.accountId)) });
+  };
+  const completedItems = changedIds.map((id) => {
+    const items = changes.filter((item) => item.sessionId === id);
+    return { id, title: items[0]?.title || preview?.selected.find((item) => item.id === id)?.title || t.t('untitled'), targets: targetText(items) };
+  });
+  const partialAccountIds = [...new Set([...(interruption?.changedAccountIds ?? []), ...(interruption?.pendingAccountIds ?? [])])];
+  return <StageFrame className="stage-surface stage-surface--complete" data-verified={verified} data-partial={partial} title={title}><div className="complete-layout"><aside className="complete-art"><RelayArt state={verified ? 'complete' : 'attention'} celebrate={verified && controller.celebrate} /></aside><section className="complete-card">
+    <header><h1>{title}</h1></header>
+    <div className="receipt-body">
+      {partial ? <>
+        <p className="partial-summary" role="alert">{t.t('partialResultBody')}</p>
+        {controller.error && controller.error !== interruption!.explanation && <Callout tone="danger">{controller.error}</Callout>}
+        <ul className="completion-list partial-account-list">{partialAccountIds.map((id) => {
+          const recorded = interruption!.changedAccountIds.includes(id);
+          return <li key={id} data-outcome={recorded ? 'recorded' : 'unconfirmed'}><Icon icon="alert" /><strong>{accountLabel(id)}</strong><span>{t.t(recorded ? 'recordedNotVerified' : 'needsChecking')}</span></li>;
+        })}</ul>
+        <details className="review-more receipt-error-details"><summary><span>{t.t('interruptionDetails')}</span><Icon icon="chevron-down" size="sm" /></summary>
+          <p>{interruption!.explanation}</p>
+          <ul>{completedItems.map((item) => <li key={item.id}><strong>{item.title}</strong><span>{item.targets}</span></li>)}</ul>
+        </details>
+      </> : <>
+        {failed && <Callout tone="danger">{controller.error}</Callout>}
+        <p className="complete-proof">{t.t(verified ? 'resultVerified' : 'resultUnverified')}</p>
+        <ul className="completion-list">{completedItems.map((item) => <li key={item.id}><Icon icon={receiptIcon} /><strong>{item.title}</strong><span>{item.targets}</span></li>)}</ul>
+        {verified && <p className="receipt-recovery">{summary}</p>}
+      </>}
+    </div>
+    <footer><Button variant={verified ? 'primary' : 'ghost'} static disabled={controller.busy} onClick={() => { controller.setCelebrate(false); controller.setStage(controller.workspace ? 'review' : 'home'); }}>{t.t('returnToChats')}</Button>
+      {!verified && <Button variant="primary" static pending={controller.busy} disabled={controller.busy} onClick={() => void controller.refreshReview()}>{t.t(preview ? 'refreshReview' : 'refreshSessions')}</Button>}
+    </footer>
   </section></div></StageFrame>;
 }
 

@@ -219,11 +219,11 @@ async function runSkippedEntries() {
   await selectSession(CHAT_B);
   await clickButton('预览同步');
   await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'known-session sync review');
-  await clickButton('确认执行');
+  await clickButton('同步 1 条会话');
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已核对')`, 'known-session sync complete');
   assert(fs.existsSync(index(SB, CHAT_B)));
   assert.deepEqual(paths.map(preservedStructure), before);
-  await clickButton('回到聊天');
+  await clickButton('返回会话列表');
   await selectSession(CHAT_B);
   await openMore();
   await clickButton('归档所选');
@@ -286,14 +286,14 @@ async function run() {
   await clickButton('预览同步');
   await waitFor(`Boolean(document.querySelector('dialog[open]')) && document.body.innerText.includes('比目标多 1 轮')`, 'source/target progress review');
   await shot('01-progress-preview');
-  await clickButton('确认执行');
+  await clickButton('同步 1 条会话');
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已核对')`, 'progress applied');
   assert.equal(record(SA, CHAT_A).lastAssistantUuid, H2);
   assert.equal(record(SA, CHAT_A).permissionMode, 'plan');
   assert(fs.readFileSync(body(CHAT_A)).equals(initialBody));
   checks.push('Existing A advanced from B; A permission and shared JSONL unchanged');
   await shot('01-progress-complete');
-  await clickButton('回到聊天');
+  await clickButton('返回会话列表');
   // 2: delete only A, then explicitly restore from B, without a production account.
   await chooseFilter('.account-view-filter', A);
   await selectSession(CHAT_A);
@@ -303,21 +303,23 @@ async function run() {
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已移除所选记录')`, 'A deletion complete');
   assert(!fs.existsSync(index(SA, CHAT_A)));
   assert(fs.existsSync(index(SB, CHAT_A)));
-  await clickButton('回到聊天');
+  await clickButton('返回会话列表');
   await chooseFilter('.account-view-filter', B);
   await selectSession(CHAT_A);
   await clickButton('预览同步');
-  await waitFor(`Boolean(document.querySelector('dialog[open]')) && document.body.innerText.includes('解除这条会话的删除记录')`, 'restore review');
+  await waitFor(`Boolean(document.querySelector('dialog[open]'))`, 'restore review');
+  await js(`Array.from(document.querySelectorAll('dialog[open] .review-more > summary')).find((summary) => summary.textContent.includes('找回会话时的改动')).click()`);
+  await waitFor(`document.body.innerText.includes('解除这条会话的删除记录')`, 'restore details');
   assert(!(await js('document.body.innerText')).includes('恢复这个备份'));
   await shot('02-selected-restore-preview');
-  await clickButton('确认执行');
+  await clickButton('同步 1 条会话');
   await waitFor(`!document.querySelector('dialog[open]') && document.body.innerText.includes('已核对')`, 'selected restore applied');
   assert.equal(record(SA, CHAT_A).lastAssistantUuid, H2);
   assert(!fs.existsSync(path.join(root, 'session-root', SA, 'deleted_' + CHAT_A)));
   assert(fs.readFileSync(body(CHAT_A)).equals(initialBody));
   checks.push('Deleted A restored from selected B; native note cleared; shared body intact');
   await shot('02-selected-restore-complete');
-  await clickButton('回到聊天');
+  await clickButton('返回会话列表');
   // 3a/3b: six old copies, while a positively identified unrelated CLI keeps writing.
   await chooseFilter('.account-view-filter', A);
   const originalCurrent = fs.readFileSync(index(SA, CHAT_B));
@@ -343,7 +345,7 @@ async function run() {
   assert(oldIds.slice(1).every((id) => !fs.existsSync(body(id))));
   checks.push('Directly deleted six old copies despite unrelated writes; current duplicate/shared body retained');
   await shot('03-old-delete-complete');
-  await clickButton('回到聊天');
+  await clickButton('返回会话列表');
   // Independent fresh old IDs exercise the non-destructive cleanup alternative.
   const cleanupIds = seedOld(2);
   const trashBeforeCleanup = fs.readdirSync(path.join(root, 'fake-trash')).length;

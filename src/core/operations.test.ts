@@ -407,13 +407,33 @@ it('blocks stale previews, running-process guards and changed transcripts before
   await expect(commitFilePlanWithTrash(fresh, newPlan, () => undefined, async () => undefined)).rejects.toThrow('claudesync-message:errorDependencySessionChanged');
 });
 
-it('keeps an interrupted journal recoverable and refuses to overwrite later edits', () => {
+it.each([
+  { afterWrites: 0, changedAccountIds: [], pendingAccountIds: [ID_A, ID_B] },
+  { afterWrites: 1, changedAccountIds: [ID_A], pendingAccountIds: [ID_A, ID_B] },
+  { afterWrites: 'all', changedAccountIds: [ID_A, ID_B], pendingAccountIds: [] },
+] as const)('keeps an interrupted journal recoverable after $afterWrites writes and protects later edits', ({ afterWrites, changedAccountIds, pendingAccountIds }) => {
   const before = load();
   const plan = buildOperationPlan(before, { kind: 'archive', sessionIds: [CHAT_A], accountIds: [ID_A, ID_B] });
+  const applied = afterWrites === 'all' ? plan.changes.length : afterWrites;
+  expect(plan.changes[0]?.path).toBe(`${SCOPE_A}/local_${CHAT_A}.json`);
   let calls = 0;
-  expect(() => commitFilePlan(before, plan, () => { if (++calls === 3) throw new Error('Stopped mid-operation'); })).toThrow('claudesync-message:errorBackupInterrupted');
+  let error: unknown;
+  try {
+    commitFilePlan(before, plan, () => { if (++calls === applied + 2) throw new Error('Synthetic writer interruption'); });
+  } catch (reason) { error = reason; }
+  expect(error).toBeInstanceOf(Error);
   const backup = listBackups(root)[0]!;
   expect(backup.state).toBe('interrupted');
+  const manifest = JSON.parse(readFileSync(join(root, 'backups', backup.id, 'manifest.json'), 'utf8'));
+  expect(manifest.applied).toEqual(plan.changes.slice(0, applied).map((change) => change.path));
+  expect(parseMessage((error as Error).message)).toEqual({
+    key: 'errorBackupInterrupted', params: {
+      message: 'Synthetic writer interruption', path: join(root, 'backups', backup.id),
+      applied, changedAccountIds, pendingAccountIds,
+    },
+  });
+  expect(Boolean(JSON.parse(readFileSync(indexPath(root, SCOPE_A, CHAT_A), 'utf8')).isArchived)).toBe(applied > 0);
+  expect(Boolean(JSON.parse(readFileSync(indexPath(root, SCOPE_B, CHAT_A), 'utf8')).isArchived)).toBe(afterWrites === 'all');
   const after = load();
   commitFilePlan(after, buildRestorePlan(after, backup.id), () => undefined);
   expect(load().snapshot.files).toEqual(before.snapshot.files);
