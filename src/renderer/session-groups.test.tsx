@@ -58,6 +58,6 @@ it('shows Unverified as the main value rather than an authoritative zero', () =>
   const html = renderToStaticMarkup(createElement(I18nProvider, { locale: 'zh-CN', children: createElement(AccountSidebar, {
     accounts: [account], included, currentFilter: ID_A, onInclude: noop, onFilter: noop, busy: false,
   }) }));
-  expect(html).toContain('未核实');
+  expect(html).toContain('未核对');
   expect(html).not.toContain('0 条普通会话');
 });
