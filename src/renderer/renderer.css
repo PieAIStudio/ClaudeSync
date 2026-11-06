@@ -265,13 +265,15 @@ input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accen
 .complete-card header p { margin: 10px 0 0; color: var(--cs-muted); font-size: 16px; line-height: 1.5; }
 .complete-card .game-ui-callout { margin-top: 18px; }
 .complete-proof { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; color: var(--swimmer-success); font-size: 14px; font-weight: 600; }
-.complete-proof::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.complete-proof::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .completion-list { display: grid; gap: 2px; margin: 16px 0 8px; padding: 0; list-style: none; }
-.completion-list li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 46px; padding: 0 12px; border-radius: 12px; }
+.completion-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 4px 10px; min-width: 0; min-height: 46px; padding: 10px 12px; border-radius: 12px; }
 .completion-list li:nth-child(odd) { background: var(--cs-tint); }
-.completion-list li > .game-ui-icon { width: 18px; height: 18px; color: var(--swimmer-success); }
-.completion-list li > strong { min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-.completion-list li > span { color: var(--cs-muted); font-size: 14px; text-align: right; overflow-wrap: anywhere; }
+.completion-list li > .game-ui-icon { grid-column: 1; grid-row: 1; width: 18px; height: 18px; margin-top: 2px; color: var(--swimmer-success); }
+.completion-list li > strong { grid-column: 2; grid-row: 1; min-width: 0; font-size: 15px; line-height: 1.4; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
+.completion-list li > span { grid-column: 2; grid-row: 2; min-width: 0; max-width: 100%; color: var(--cs-muted); font-size: 13px; line-height: 1.5; text-align: left; overflow-wrap: anywhere; }
+.stage-surface--complete[data-verified="false"] .complete-proof,
+.stage-surface--complete[data-verified="false"] .completion-list li > .game-ui-icon { color: var(--swimmer-warning); }
 .complete-card footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 18px; }
 .complete-card footer .game-ui-button:last-child { min-width: 140px; min-height: 48px; border-radius: 999px; }
 

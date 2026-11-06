@@ -4,7 +4,7 @@ import { sessionsInGroup } from './session-groups';
 import { filterSessions, type SessionFilter } from './session-selection';
 import { deletionSelection } from './deletion-selection';
 import { summarizeAccounts } from './account-summary';
-import { sessionActionState } from './session-action-state';
+import { selectedSourceAccountIds, sessionActionState } from './session-action-state';
 
 export function useSessionBrowser(workspace: WorkspaceView | undefined, included: Set<string>, busy: boolean, accountFilter: string, setAccountFilter: (value: string) => void) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -34,6 +34,9 @@ export function useSessionBrowser(workspace: WorkspaceView | undefined, included
       .slice().sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 10)
     : [];
   const hiddenSelected = [...selected].filter((id) => !reviewSessions.some((session) => session.id === id)).length;
+  const selectedSourceAccountCount = useMemo(() => selectedSourceAccountIds(
+    sessionsInGroup(workspace?.sessions ?? [], selectionGroup, 'all', included), selected, included,
+  ).size, [workspace, selectionGroup, selected, included]);
   const deleteTargets = useMemo(() => ({ ...deletionSelection(scopedGroups[selectionGroup], selected, included, accountFilter), group: selectionGroup }), [scopedGroups, selectionGroup, selected, included, accountFilter]);
   const targetsVerified = included.size > 0 && (workspace?.accounts.filter((account) => included.has(account.id)).every((account) => account.organizationVerified) ?? false);
   const canAct = selected.size > 0 && included.size > 0 && !busy;
@@ -61,6 +64,6 @@ export function useSessionBrowser(workspace: WorkspaceView | undefined, included
   }
   return { included, accountFilter, setAccountFilter, selected, setSelected, selectionGroup, setSelectionGroup,
     search, setSearch, filter, setFilter, sort, setSort, scopedGroups, grouped, displayedAccounts, listVerified, markerCount,
-    reviewSessions, eligibleToSelect, recentEligible, hiddenSelected, deleteTargets, targetsVerified, canAct, toggle,
+    reviewSessions, eligibleToSelect, recentEligible, hiddenSelected, selectedSourceAccountCount, deleteTargets, targetsVerified, canAct, toggle,
     missingOnly, setMissingOnly, accountSummary, browseAccount, browseGroup };
 }

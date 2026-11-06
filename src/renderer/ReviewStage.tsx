@@ -22,11 +22,13 @@ export function ReviewStage({ controller }: { controller: AppController }) {
   const someSelected = controller.eligibleToSelect.some((session) => controller.selected.has(session.id));
   const deleteAccounts = controller.deleteTargets.accountIds.map((id) => accountName(workspace.accounts.find((account) => account.id === id), t)).join(', ') || t.t('allAccounts');
   const reviewActions = <div className="review-footer-actions">
-    <div className="selection-summary"><strong>{t.t(controller.selected.size === 1 ? 'selectedCountOne' : 'selectedCount', { count: controller.selected.size })}</strong>
-      <span>{controller.hiddenSelected > 0 ? t.t('hiddenSelected', { count: controller.hiddenSelected }) : !canSync && syncGroup ? t.t('reviewSyncHelp') : t.t(archived ? 'organizeHelp' : 'participationHelp')}</span></div>
     <div className="action-buttons">
-      {removalGroup ? <Button variant="danger" disabled={controller.busy || !controller.deleteTargets.sessionIds.length} onClick={controller.openDeleteConfirmation}>{t.t(group === 'scheduled' ? 'deleteLeftovers' : 'delete')}</Button>
-        : <Button variant="primary" disabled={archived ? !controller.canAct : !canSync} onClick={() => void controller.action(archived ? 'unarchive' : 'sync')}>{t.t(archived ? 'unarchive' : 'reviewSync')}</Button>}
+      <div className="selection-summary" aria-live="polite">
+        <strong>{t.t(controller.selectedSourceAccountCount === 1 ? 'selectionSourceOne' : 'selectionSources', { count: controller.selected.size, accounts: controller.selectedSourceAccountCount })}</strong>
+        <span>{controller.hiddenSelected > 0 ? t.t('hiddenSelected', { count: controller.hiddenSelected }) : !canSync && syncGroup ? t.t('reviewSyncHelp') : t.t(archived ? 'organizeHelp' : 'participationHelp')}</span>
+      </div>
+      {removalGroup ? <Button variant="danger" static disabled={controller.busy || !controller.deleteTargets.sessionIds.length} onClick={controller.openDeleteConfirmation}>{t.t(group === 'scheduled' ? 'deleteLeftovers' : 'delete')}</Button>
+        : <Button variant="primary" static disabled={archived ? !controller.canAct : !canSync} onClick={() => void controller.action(archived ? 'unarchive' : 'sync')}>{t.t(archived ? 'unarchive' : 'reviewSync')}</Button>}
       <details className="more-actions"><summary>{t.t('more')}</summary><div>
         <fieldset className="action-group" disabled={!organize}><h3>{t.t('actionGroupOrganize')}</h3>
           <Button variant="ghost" static disabled={!controller.canAct || controller.included.size < 2 || !controller.targetsVerified || group !== 'visible'} onClick={() => void controller.action('keep')}>{t.t('keep')}</Button>
@@ -48,22 +50,23 @@ export function ReviewStage({ controller }: { controller: AppController }) {
   return <StageFrame className="stage-surface stage-surface--review stage-surface--sessions" title={t.t('localTitle')} description={t.t('localSub')} footer={reviewActions}>
     <section className="review-main">
       <div className="list-context">
-        <label>{t.t('viewingAccount')}<Select className="account-view-filter" aria-label={t.t('viewingAccount')} value={controller.accountFilter} disabled={controller.busy} onChange={(event) => controller.browseAccount(event.target.value)}>
+        <label className="viewing-control"><span>{t.t('viewingAccount')}</span><Select className="account-view-filter" aria-label={t.t('viewingAccount')} value={controller.accountFilter} disabled={controller.busy} onChange={(event) => controller.browseAccount(event.target.value)}>
           <option value="all">{t.t('allAccounts')}</option>{workspace.accounts.map((account) => <option key={account.id} value={account.id}>{accountName(account, t)}</option>)}
         </Select></label>
-        <label>{t.t('sessionGroup')}<Select className="session-group-filter" aria-label={t.t('sessionGroup')} value={group} disabled={controller.busy} onChange={(event) => controller.browseGroup(event.target.value as SessionGroup)}>
+        <fieldset className="action-account-strip" disabled={controller.busy}>
+          <legend>{t.t(archived ? 'organizeAccounts' : 'useAccounts')}</legend>
+          <div>{workspace.accounts.map((account) => <label key={account.id} title={accountName(account, t)}>
+            <input type="checkbox" checked={controller.included.has(account.id)} aria-label={`${t.t('includeAccount')} ${accountName(account, t)}`} onChange={(event) => controller.includeAccount(account.id, event.target.checked)} />
+            <span>{accountName(account, t)}</span>
+          </label>)}</div><small>{t.t(archived ? 'organizeHelp' : 'participationHelp')}</small>
+        </fieldset>
+        <Button variant="ghost" size="sm" static disabled={controller.busy} onClick={() => void controller.startCheck('results')}><Icon icon="redo" size="sm" />{t.t('checkAgain')}</Button>
+      </div>
+      <div className="list-toolbar">
+        <label className="session-group-control"><span>{t.t('sessionGroup')}</span><Select className="session-group-filter" aria-label={t.t('sessionGroup')} value={group} disabled={controller.busy} onChange={(event) => controller.browseGroup(event.target.value as SessionGroup)}>
           {SESSION_GROUPS.map((item) => <option key={item} value={item}>{t.t(groupLabels[item])} · {controller.scopedGroups[item].length}</option>)}
         </Select></label>
-        <Button variant="ghost" static disabled={controller.busy} onClick={() => void controller.startCheck('results')}><Icon icon="redo" />{t.t('checkAgain')}</Button>
-      </div>
-      <fieldset className="action-account-strip" disabled={controller.busy}>
-        <legend>{t.t(archived ? 'organizeAccounts' : 'useAccounts')}</legend>
-        <div>{workspace.accounts.map((account) => <label key={account.id} title={accountName(account, t)}>
-          <input type="checkbox" checked={controller.included.has(account.id)} aria-label={`${t.t('includeAccount')} ${accountName(account, t)}`} onChange={(event) => controller.includeAccount(account.id, event.target.checked)} />
-          <span>{accountName(account, t)}</span>
-        </label>)}</div><small>{t.t(archived ? 'organizeHelp' : 'participationHelp')}</small>
-      </fieldset>
-      <div className="list-toolbar"><Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={controller.search} onChange={(event) => controller.setSearch(event.target.value)} />
+        <Input type="search" aria-label={t.t('search')} placeholder={t.t('search')} value={controller.search} onChange={(event) => controller.setSearch(event.target.value)} />
         {group === 'visible' && <button type="button" className="missing-filter" aria-pressed={controller.missingOnly} onClick={() => controller.setMissingOnly(!controller.missingOnly)}>{t.t('missingFilter')}</button>}
         <details className="filter-drawer"><summary>{t.t('filterSort')}</summary><div>
           <label>{t.t('filter')}<Select aria-label={t.t('filter')} value={controller.filter} onChange={(event) => controller.setFilter(event.target.value as typeof controller.filter)}>{(['all', 'syncable', 'blocked', 'starred'] as const).map((key) => <option key={key} value={key}>{t.t(key)}</option>)}</Select></label>
@@ -81,7 +84,7 @@ export function ReviewStage({ controller }: { controller: AppController }) {
       </div>
       <div className="review-list-wrap">
         {group !== 'visible' && <div className="session-group-note"><strong>{t.t(groupLabels[group])}</strong><TermTip term={group} /></div>}
-        <SessionRows sessions={controller.reviewSessions} accounts={workspace.accounts} catalog={workspace.sessions} selected={controller.selected}
+        <SessionRows sessions={controller.reviewSessions} accounts={workspace.accounts} catalog={workspace.sessions} missingAccounts={controller.accountSummary.accounts} selected={controller.selected}
           filterId={controller.accountFilter} included={controller.included} onToggle={(id, value) => controller.toggle(group, id, value)} busy={controller.busy} group={group} />
         <SkippedEntriesNotice paths={workspace.skippedPaths} />
       </div>

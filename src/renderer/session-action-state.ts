@@ -15,3 +15,19 @@ export function sessionActionState(session: SessionView, included: ReadonlySet<s
     : item.records.some((record) => record.eligible));
   return { manageable, deletable, eligible, hasSource };
 }
+
+// Count existing source-account presence, not destinations or planned changes.
+// Supply the full current group so search and Viewing cannot hide selection.
+export function selectedSourceAccountIds(
+  sessions: readonly SessionView[], selected: ReadonlySet<string>, included: ReadonlySet<string>,
+): Set<string> {
+  const accountIds = new Set<string>();
+  for (const session of sessions) {
+    if (!selected.has(session.id)) continue;
+    for (const presence of session.presence) {
+      if (included.has(presence.accountId)
+        && (presence.records === undefined || presence.records.length > 0)) accountIds.add(presence.accountId);
+    }
+  }
+  return accountIds;
+}

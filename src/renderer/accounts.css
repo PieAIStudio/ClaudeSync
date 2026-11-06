@@ -9,7 +9,10 @@
   --cs-card: #fbfbfd; --cs-muted: #696575; --cs-faint: #696575;
   --cs-world-muted: rgb(255 255 255 / 80%);
 }
-.claudesync-app.theme-dark { --cs-card: #211c30; --cs-muted: #c2b9d1; --cs-faint: #c2b9d1; --cs-popover: #2a243a; }
+.claudesync-app.theme-dark {
+  --cs-world-bg: radial-gradient(740px 620px at 60% 20%, #512b705c, transparent 74%), linear-gradient(158deg, #21172f, #0d0b14 88%);
+  --cs-world-muted: #c9c0d5; --cs-card: #211c30; --cs-muted: #c2b9d1; --cs-faint: #c2b9d1; --cs-popover: #2a243a;
+}
 .claudesync-shell.game-ui-tool-window { background: var(--cs-world-bg); color: #fff; --swimmer-tool-text: #fff; --swimmer-tool-muted: var(--cs-world-muted); --swimmer-tool-selection: #ffffff24; }
 .claudesync-shell .game-ui-shell-sidebar { position: relative; }
 .claudesync-shell .game-ui-shell-sidebar::after { content: ""; position: absolute; right: 0; top: 20%; height: 60%; width: 1px; background: linear-gradient(transparent, #ffffff26 18%, #ffffff26 82%, transparent); pointer-events: none; }
@@ -23,71 +26,88 @@
 .stage-surface > .game-ui-page-surface-header .game-ui-page-surface-heading h1 { color: #fff; font-size: clamp(28px, 3vw, 36px); font-weight: 450; }
 .stage-surface > .game-ui-page-surface-header .game-ui-page-surface-heading :is(p, .game-ui-page-surface-eyebrow) { color: var(--cs-world-muted); }
 .stage-surface .game-ui-page-surface-heading p { font-size: 14px; margin-top: 8px; }
-.stage-surface--accounts.game-ui-page-surface { display: flex; flex-direction: column; min-height: 0; gap: 22px; color: #fff; }
-.stage-surface--accounts .game-ui-page-surface-header { align-items: center; flex-wrap: nowrap; }
+.stage-surface--accounts.game-ui-page-surface { display: flex; flex-direction: column; min-height: 0; gap: 26px; color: #fff; }
+.stage-surface--accounts .game-ui-page-surface-header { display: grid; grid-template-columns: minmax(0, 1fr) 184px; grid-template-areas: "heading art" "primary art"; column-gap: 28px; row-gap: 18px; align-items: center; }
+.stage-surface--accounts .game-ui-page-surface-heading { grid-area: heading; }
+.stage-surface--accounts .game-ui-page-surface-heading h1 { max-width: 22ch; line-height: 1.18; }
+.stage-surface--accounts .game-ui-page-surface-heading p { max-width: 64ch; }
+.stage-surface--accounts .game-ui-page-surface-primary { grid-area: primary; }
 .stage-surface--accounts .game-ui-page-surface-primary .game-ui-button { color: #fff; }
-.stage-surface--accounts .page-header-art { width: 104px; height: 104px; }
-.stage-surface--accounts .game-ui-page-surface-heading { flex: 1; }
-.stage-surface--accounts .game-ui-page-surface-body { gap: 20px; }
+.stage-surface--accounts .game-ui-page-surface-primary .game-ui-button:disabled { color: var(--swimmer-control-disabled-text); }
+.stage-surface--accounts .game-ui-page-surface-header-slot { grid-area: art; justify-content: center; }
+.stage-surface--accounts .page-header-art { width: 184px; height: 184px; }
+.stage-surface--accounts .game-ui-page-surface-body { gap: 14px; }
+.account-heading-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.account-heading-actions .game-ui-button { font-size: 14px; }
 .account-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.account-card { min-width: 0; padding: 20px 18px 14px; border: 1px solid #ffffff26; border-radius: 18px; background: linear-gradient(#ffffff12, #ffffff04), #1a074c30; box-shadow: inset 0 1px #ffffff1f, 0 18px 30px #1c03432b; }
-.account-card[data-current="true"] { border-color: #e6c8ff90; background: linear-gradient(155deg, #ffffff1c, #ffffff05), #25025938; }
-.account-card-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; min-height: 34px; }
-.account-avatar { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 11px; color: #47257c; background: linear-gradient(155deg, #eee3ff, #bba2ee); box-shadow: inset 0 1px #fff, 0 5px 9px #1e064b35; font-weight: 650; }
-.account-card-top .account-status { max-width: 160px; padding: 4px 7px; border-radius: 7px; background: #21104480; color: #eee8fa; font-size: 12px; line-height: 1.45; white-space: normal; text-align: right; }
-.account-card[data-current="true"] .account-status { color: #e9ffe8; background: #183326b3; }
+.account-card { min-width: 0; padding: 20px 20px 16px; border: 0; border-radius: 20px; background: linear-gradient(145deg, #ffffff16, #ffffff05), #1b0a493b; box-shadow: 0 16px 32px #1c034322; }
+.account-card[data-current="true"] { background: linear-gradient(145deg, #ffffff27, #ffffff0c), #34106a30; }
+.theme-dark .account-card { background: linear-gradient(145deg, #ffffff07, transparent), #241c30; box-shadow: 0 16px 32px #00000020; }
+.theme-dark .account-card[data-current="true"] { background: linear-gradient(145deg, #ffffff09, transparent), #33263f; }
+.account-card-top { display: flex; justify-content: space-between; gap: 10px; align-items: center; min-height: 36px; }
+.account-avatar { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 12px; color: #47257c; background: linear-gradient(155deg, #eee3ff, #bba2ee); box-shadow: inset 0 1px #fff8, 0 5px 9px #1e064b20; font-weight: 650; }
+.account-avatar .game-ui-icon { width: 20px; height: 20px; }
+.account-card-top .account-status { max-width: 175px; padding: 0; color: var(--cs-world-muted); font-size: 12px; line-height: 1.4; white-space: normal; text-align: right; }
+.account-card-top .account-status[data-status="current"] { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; color: #28573d; background: #eaf8ef; text-align: left; }
+.sign-in-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: #2e9e58; }
 .account-card h2 { margin: 18px 0 0; font-size: 16px; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; min-height: 48px; }
-.account-count { display: flex; align-items: baseline; gap: 8px; margin-top: 12px; }
-.account-count strong { font-size: 36px; line-height: 1; font-weight: 350; font-variant-numeric: tabular-nums; }
+.account-count { display: flex; align-items: baseline; gap: 8px; margin-top: 16px; }
+.account-count strong { font-size: 38px; line-height: 1; font-weight: 350; font-variant-numeric: tabular-nums; }
 .account-count span { color: var(--cs-world-muted); font-size: 13px; }
-.account-count-rule { margin: 10px 0 18px; min-height: 36px; color: var(--cs-world-muted); font-size: 12px; line-height: 1.5; }
-.account-difference { display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid #ffffff24; font-size: 13px; }
+.account-count-rule { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px 18px; margin: 0 2px; color: var(--cs-world-muted); font-size: 12px; line-height: 1.5; }
+.account-difference { display: grid; gap: 6px; margin-top: 16px; padding: 10px 0 4px; font-size: 13px; }
 .account-difference strong { font-weight: 500; }
-.account-difference span { color: var(--cs-world-muted); font-size: 12px; line-height: 1.5; min-height: 36px; }
-.account-other-counts { display: grid; gap: 4px; margin: 16px 0 12px; color: var(--cs-world-muted); font-size: 12px; }
+.account-other-counts { display: grid; gap: 7px; margin: 16px 0 8px; color: var(--cs-world-muted); font-size: 12px; }
 .account-other-counts > div { display: flex; justify-content: space-between; gap: 10px; }
 .account-other-counts dd { margin: 0; font-variant-numeric: tabular-nums; }
-.account-session-link { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 40px; border: 0; border-top: 1px solid #ffffff20; margin-top: 12px; padding: 12px 0 0; color: #fff; background: transparent; font-size: 13px; text-align: left; }
+.account-session-link { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 40px; border: 0; margin-top: 14px; padding: 10px 0 0; color: #fff; background: transparent; font-size: 13px; text-align: left; }
 .account-session-link .game-ui-icon { width: 16px; height: 16px; }
 .account-session-link:hover { text-decoration: underline; }
-.account-missing-summary { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 24px; border: 1px solid #ffffff24; border-radius: 16px; background: #1b074a38; }
-.account-missing-summary h2 { margin: 0 0 7px; font-size: 18px; font-weight: 500; line-height: 1.4; }
-.account-missing-summary p { margin: 0; color: var(--cs-world-muted); font-size: 13px; line-height: 1.5; }
-.account-missing-summary .game-ui-button { white-space: nowrap; }
 .accounts-safety { margin: 0; color: var(--cs-world-muted); font-size: 12px; }
-.account-identity-note, .account-welcome { padding: 14px 18px; border: 1px solid #ffffff30; border-radius: 12px; background: #ffffff10; color: var(--cs-world-muted); font-size: 13px; line-height: 1.6; margin: 0; }
+.account-identity-note, .account-welcome { padding: 16px 18px; border: 0; border-radius: 14px; background: #ffffff0d; color: var(--cs-world-muted); font-size: 13px; line-height: 1.6; margin: 0; }
 .account-identity-note { display: flex; align-items: center; gap: 10px; }
 .account-welcome p { margin: 0 0 8px; }
+.stage-surface--state .state-stage :is(p, small) { color: var(--cs-world-muted); }
 .stage-surface--sessions.game-ui-page-surface { min-height: 0; gap: 18px; }
-.stage-surface--sessions .game-ui-page-surface-content { grid-template-columns: minmax(0, 1fr); padding: 16px 18px 0; }
+.stage-surface--sessions .game-ui-page-surface-content { grid-template-columns: minmax(0, 1fr); padding: 12px 18px 0; }
+.stage-surface--sessions .review-main { gap: 4px; }
 .stage-surface--sessions .game-ui-page-surface-body { padding: 0; }
 .stage-surface--sessions .game-ui-page-surface-footer { margin-top: -18px; padding: 14px 18px; }
-.list-context { display: flex; align-items: center; gap: 14px; flex: none; }
-.list-context > label { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--cs-muted); font-size: 13px; }
-.list-context > label:first-child { flex: 1; }
-.list-context .game-ui-select-frame { min-width: 0; flex: 1; }
-.list-context select { min-width: 0; max-width: 100%; font-size: 13px; min-height: 36px; }
-.action-account-strip { min-width: 0; border: 0; border-bottom: 1px solid var(--cs-hairline); margin: 8px 0 4px; padding: 0 0 12px; }
-.action-account-strip legend { padding: 0; margin-bottom: 8px; color: var(--cs-muted); font-size: 12px; font-weight: 600; }
-.action-account-strip > div { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.action-account-strip label { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 100%; font-size: 12px; }
+.list-context { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; flex: none; padding-bottom: 6px; }
+.list-context > .viewing-control, .session-group-control { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--cs-muted); font-size: 13px; white-space: nowrap; }
+.list-context .game-ui-select-frame, .session-group-control .game-ui-select-frame { width: auto; min-width: 0; max-width: 100%; flex: none; }
+.list-context select, .session-group-control select { --swimmer-droplet-radius: 8px; width: auto; min-width: 100px; max-width: 220px; height: 32px; min-height: 32px; padding: 4px 10px; font-size: 13px; line-height: 20px; }
+.session-group-control { flex: none; }
+.session-group-control select { max-width: 210px; }
+.list-context > .game-ui-button-frame > .game-ui-button { white-space: nowrap; }
+@supports (field-sizing: content) {
+  .list-context select, .session-group-control select { field-sizing: content; }
+}
+.action-account-strip { min-width: 0; border: 0; margin: 0; padding: 0; }
+.action-account-strip legend { padding: 0; margin-bottom: 2px; color: var(--cs-muted); font-size: 12px; line-height: 16px; font-weight: 600; }
+.action-account-strip > div { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
+.action-account-strip label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; min-height: 20px; font-size: 12px; line-height: 16px; }
 .action-account-strip label span { overflow-wrap: anywhere; }
-.action-account-strip input { width: 15px; height: 15px; }
-.action-account-strip small { display: block; color: var(--cs-muted); font-size: 12px; margin-top: 8px; }
+.action-account-strip input { width: 15px; height: 15px; margin: 0; flex: none; }
+.action-account-strip small { display: block; color: var(--cs-muted); font-size: 12px; line-height: 16px; margin-top: 2px; }
 .list-toolbar { display: flex; gap: 8px; align-items: center; flex: none; }
-.list-toolbar > .game-ui-input-frame { flex: 1; min-width: 80px; }
-.list-toolbar input { width: 100%; font-size: 13px; min-height: 36px; }
-.list-toolbar .missing-filter { flex: none; padding: 8px 10px; min-height: 36px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: transparent; color: var(--cs-muted); font-size: 12px; white-space: nowrap; }
-.list-toolbar .missing-filter:hover { background: var(--cs-tint); }
+.list-toolbar > .game-ui-input { flex: 1; min-width: 120px; }
+.list-toolbar input { --swimmer-droplet-radius: 8px; width: 100%; height: 32px; min-height: 32px; padding: 4px 10px; font-size: 13px; line-height: 20px; }
+.list-toolbar .missing-filter { flex: none; padding: 6px 9px; min-height: 32px; border: 0; border-radius: 8px; background: var(--cs-tint); color: var(--cs-muted); font-size: 12px; line-height: 20px; white-space: nowrap; }
+.list-toolbar .missing-filter:hover { color: var(--swimmer-text); }
 .list-toolbar .missing-filter[aria-pressed="true"] { background: var(--cs-select); color: var(--swimmer-accent-ink); }
-.list-toolbar .filter-drawer > summary { font-size: 12px; padding-inline: 8px; }
-.stage-surface--sessions .select-line { min-height: 36px; font-size: 12px; gap: 8px; padding-left: 10px; }
+.list-toolbar .missing-filter:focus-visible { outline: 3px solid var(--swimmer-focus-ring); outline-offset: 3px; }
+.stage-surface--sessions .filter-drawer > summary { min-height: 32px; font-size: 12px; line-height: 20px; padding: 6px 8px; }
+.stage-surface--sessions .select-line { min-height: 28px; font-size: 12px; gap: 8px; padding-left: 10px; }
+.stage-surface--sessions .selection-menu > summary { min-height: 28px; padding: 4px 6px; font-size: 12px; line-height: 20px; }
 .visible-total { margin-left: auto; color: var(--cs-muted); text-align: right; }
-.stage-surface--sessions .session-row { min-height: 80px; gap: 10px; padding-top: 10px; padding-bottom: 10px; flex-wrap: wrap; }
+.stage-surface--sessions .session-row { min-height: 72px; gap: 10px; padding-top: 8px; padding-bottom: 8px; flex-wrap: wrap; }
 .stage-surface--sessions .session-title { font-size: 14px; }
-.stage-surface--sessions .session-meta { font-size: 12px; }
-.session-account-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.session-account-chip { max-width: 100%; padding: 2px 7px; border-radius: 5px; background: var(--cs-tint); color: var(--cs-muted); font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; }
+.stage-surface--sessions .session-meta { font-size: 12px; line-height: 16px; }
+.session-account-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.session-account-chip { max-width: 100%; padding: 1px 6px; border-radius: 5px; background: var(--cs-tint); color: var(--cs-muted); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+.session-missing-accounts { max-width: 100%; padding-block: 1px; color: var(--cs-muted); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+.stage-surface--sessions .session-details > summary { min-height: 32px; padding: 4px 6px; font-size: 12px; }
 .session-details[open] { flex: 1 1 100%; margin-left: 28px; }
 .session-details[open] > div { position: static; width: 100%; margin: 6px 0 12px; max-height: 260px; }
 .session-details h3 { position: sticky; top: -16px; background: var(--cs-popover); margin: -2px 0 10px; padding: 6px 0; color: var(--swimmer-text); font-size: 14px; }
@@ -96,7 +116,14 @@
 .session-group-note { display: flex; align-items: center; gap: 8px; padding: 10px; font-size: 13px; }
 .list-scope-note { margin: 0; padding: 5px 8px; color: var(--cs-muted); font-size: 12px; }
 .stage-surface--sessions .operation-warning { padding: 6px 10px; font-size: 12px; }
-.stage-surface--sessions .selection-summary span { font-size: 12px; max-width: 44ch; }
+.stage-surface--sessions .review-footer-actions { justify-content: flex-end; }
+.stage-surface--sessions .review-footer-actions > .action-buttons { width: 100%; gap: 8px 12px; }
+.stage-surface--sessions .selection-summary { flex: 0 1 auto; margin-right: 4px; text-align: right; }
+.stage-surface--sessions .selection-summary strong { font-size: 13px; line-height: 18px; }
+.stage-surface--sessions .selection-summary span { font-size: 12px; line-height: 16px; max-width: 44ch; }
+.stage-surface--sessions .action-buttons > .game-ui-button-frame > .game-ui-button { min-width: 136px; min-height: 40px; padding-block: 10px; font-size: 14px; line-height: 20px; }
+.stage-surface--sessions .action-buttons > .game-ui-button-frame > .game-ui-button:disabled { background: var(--swimmer-control-disabled-fill); color: var(--swimmer-control-disabled-text); border: 0; box-shadow: none; filter: none; opacity: 1; }
+.stage-surface--sessions .action-buttons > .game-ui-button-frame > .game-ui-button:disabled > .game-ui-droplet { display: none; }
 .nav-art { display: block; flex: none; width: 28px; height: 28px; object-fit: contain; }
 .claudesync-shell .game-ui-tool-sidebar-icon { width: 28px; height: 28px; }
 .shell-brand-art, .shell-brand-art .page-header-art { display: block; width: 32px; height: 32px; }
@@ -106,23 +133,25 @@
   .account-grid { gap: 12px; }
   .account-card { padding: 16px 14px 12px; }
   .account-card h2 { font-size: 14px; }
-  .stage-surface--accounts .page-header-art { width: 72px; height: 72px; }
-  .stage-surface--accounts .game-ui-page-surface-header { gap: 10px; }
+  .stage-surface--accounts .page-header-art { width: 144px; height: 144px; }
+  .stage-surface--accounts .game-ui-page-surface-header { grid-template-columns: minmax(0, 1fr) 144px; column-gap: 20px; }
   .account-other-counts { margin-block: 10px; }
   .account-card h2 { margin-top: 12px; }
-  .account-count-rule { margin-bottom: 12px; }
 }
 @media (max-width: 760px) {
   .claudesync-shell.game-ui-tool-window { grid-template-columns: minmax(0, 1fr); }
   .claudesync-shell .game-ui-shell-scene { padding-inline: 18px; }
   .account-grid { grid-template-columns: minmax(0, 1fr); }
-  .account-card h2, .account-count-rule, .account-difference span { min-height: 0; }
-  .account-missing-summary { flex-direction: column; align-items: stretch; gap: 16px; }
-  .stage-surface--accounts .game-ui-page-surface-header { flex-wrap: wrap; }
+  .account-card h2 { min-height: 0; }
+  .stage-surface--accounts .game-ui-page-surface-header { grid-template-columns: minmax(0, 1fr) 112px; column-gap: 12px; grid-template-areas: "heading art" "primary primary"; }
+  .stage-surface--accounts .page-header-art { width: 112px; height: 112px; }
+  .stage-surface--accounts .game-ui-page-surface-heading h1 { font-size: 28px; }
+  .account-heading-actions { gap: 8px; }
   .stage-surface--sessions .game-ui-page-surface-content { overflow: auto; padding: 12px 10px 0; }
   .stage-surface--sessions .game-ui-page-surface-body { min-height: 440px; }
-  .list-context { flex-wrap: wrap; gap: 8px; }
-  .list-context > label { flex: 1 1 40%; }
+  .list-context { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .list-context > .game-ui-button-frame > .game-ui-button { justify-self: end; }
+  .stage-surface--sessions .selection-summary { flex-basis: 100%; margin-right: 0; text-align: left; }
   .action-account-strip > div { gap: 8px; }
   .list-toolbar { flex-wrap: wrap; }
   .stage-surface--sessions .select-line { flex-wrap: wrap; }

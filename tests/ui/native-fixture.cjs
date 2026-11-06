@@ -167,7 +167,7 @@ async function refresh() {
   if (!(await js(`Boolean(document.querySelector('.account-view-filter'))`))) {
     await clickButton('本机会话');
   }
-  await clickButton('重新检查');
+  await clickButton('刷新');
   await waitFor(`Boolean(document.querySelector('.account-view-filter')) && !document.querySelector('.account-view-filter').disabled`, 'refresh results');
   await chooseFilter('.session-group-filter', 'visible');
   await waitFor(`Boolean(document.getElementById('session-${CHAT_A}'))`, 'refresh complete');

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Badge, Button, Callout, Panel as UIKitPanel } from '@pieai/swimmer-ui-kit';
+import { Badge, Button, Callout, Icon, Panel as UIKitPanel } from '@pieai/swimmer-ui-kit';
 import { useTranslation } from './i18n';
 import type { TranslationKey } from './i18n';
 import type { AccountView, DesktopIdentityState, OperationPreview, SessionGroup, SessionView } from '../shared/contracts';
@@ -9,6 +9,7 @@ import { TermTip } from './TermTip';
 import { messageText } from './errors';
 import { parseMessage } from '../error-copy';
 import { sessionActionState } from './session-action-state';
+import type { AccountMissingSummary } from './account-summary';
 
 export const groupLabels: Record<SessionGroup, TranslationKey> = {
   visible: 'visibleGroup', archived: 'archived', scheduled: 'scheduledGroup',
@@ -136,8 +137,8 @@ export function AccountSidebar({ accounts, included, currentFilter, onInclude, o
   </aside>;
 }
 
-export function SessionRows({ sessions, accounts, catalog, selected, filterId, included, onToggle, busy, idPrefix = 'session', statusMode = 'sync', group = 'visible' }: {
-  sessions: SessionView[]; accounts: AccountView[]; catalog?: SessionView[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string; statusMode?: 'sync' | 'cleanup'; group?: SessionGroup;
+export function SessionRows({ sessions, accounts, catalog, missingAccounts = [], selected, filterId, included, onToggle, busy, idPrefix = 'session', statusMode = 'sync', group = 'visible' }: {
+  sessions: SessionView[]; accounts: AccountView[]; catalog?: SessionView[]; missingAccounts?: readonly AccountMissingSummary[]; selected: Set<string>; filterId: string; included: Set<string>; onToggle(id: string, value: boolean): void; busy: boolean; idPrefix?: string; statusMode?: 'sync' | 'cleanup'; group?: SessionGroup;
 }) {
   const t = useTranslation();
   if (!sessions.length) return <p className="empty-state">{t.t('noSessions')}</p>;
@@ -145,6 +146,9 @@ export function SessionRows({ sessions, accounts, catalog, selected, filterId, i
     const presence = session.presence.filter((item) => filterId === 'all' || item.accountId === filterId);
     const allPresence = catalog?.find((item) => item.id === session.id)?.presence ?? session.presence;
     const presentIds = new Set(allPresence.filter((item) => item.records ? item.records.some((record) => record.group === group) : item.copies > 0).map((item) => item.accountId));
+    const missingNames = group === 'visible' ? accounts
+      .filter((account) => missingAccounts.some((summary) => summary.accountId === account.id && summary.missingSessionIds.has(session.id)))
+      .map((account) => accountName(account, t)) : [];
     const active = presence.some((item) => item.active);
     const actionState = sessionActionState(session, included);
     const eligible = actionState.eligible;
@@ -165,11 +169,14 @@ export function SessionRows({ sessions, accounts, catalog, selected, filterId, i
         <div className="session-meta"><span title={projectMissing ? t.t('projectMissing') : session.project}>{projectMissing ? t.t('projectMissing') : projectName}</span>
           {session.updatedAt && <time dateTime={session.updatedAt}>{t.date(session.updatedAt, { dateStyle: 'medium' })}</time>}
         </div>
-        <div className="session-account-chips" aria-label={t.t('accounts')}>{accounts.filter((account) => presentIds.has(account.id)).map((account) => <span key={account.id} className="session-account-chip" title={accountName(account, t)}>{accountName(account, t)}</span>)}</div>
+        <div className="session-account-chips" aria-label={t.t('accounts')}>
+          {accounts.filter((account) => presentIds.has(account.id)).map((account) => <span key={account.id} className="session-account-chip" title={accountName(account, t)}>{accountName(account, t)}</span>)}
+          {missingNames.length > 0 && <span className="session-missing-accounts">{t.t('sessionMissingAccounts', { accounts: missingNames.join(', ') })}</span>}
+        </div>
         {scheduledNotice && <p className="session-reason">{t.t(scheduledNotice)}</p>}
       </div>
       <span className={`session-status session-status--${status}`}>{t.t(status)}</span>
-      <details className="session-details" onToggle={(event) => { if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'instant' }); }}><summary><span>{t.t('rowDetails')}</span><span aria-hidden="true">›</span></summary><div>
+      <details className="session-details" onToggle={(event) => { if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'instant' }); }}><summary><span>{t.t('rowDetails')}</span><Icon icon="arrow-right" size="sm" /></summary><div>
         {reasons.length > 0 && <p className="session-detail-reason">{reasons.map((reason) => <span key={reason}>{reasonText(reason, t)}</span>)}</p>}
         <h3>{session.title || t.t('untitled')}</h3><p>{t.t('project')}: {session.project || '—'}</p>
         {!session.manageable && !scheduledNotice && <p>{t.t('unsupported')}</p>}

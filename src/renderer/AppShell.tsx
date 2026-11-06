@@ -41,7 +41,8 @@ function MobileNav({ controller }: { controller: AppController }) {
 function WindowBar({ controller }: { controller: AppController }) {
   const t = useTranslation();
   const stageLabel = controller.stage === 'home' ? t.t('accounts') : controller.stage === 'review' ? t.t('localSessions') : controller.stage === 'results' ? t.t('localSessions')
-    : controller.stage === 'settings' ? t.t('settings') : controller.stage === 'backups' ? t.t('backupTitle') : controller.stage === 'cloud' ? t.t('cloudSessions') : t.t('checking');
+    : controller.stage === 'settings' ? t.t('settings') : controller.stage === 'backups' ? t.t('backupTitle') : controller.stage === 'cloud' ? t.t('cloudSessions')
+    : controller.stage === 'progress' ? t.t('operationInProgress') : controller.stage === 'complete' ? t.t(!controller.error && controller.result?.verified === true ? 'operationCompleteTitle' : 'issue') : t.t('checkingAccounts');
   return <><span className="shell-window-title">{stageLabel}</span><span className="shell-window-actions">
     {controller.stage === 'cloud' && <IconButton label={t.t('checkAgain')} onClick={controller.refreshCloud} disabled={controller.busy}><Icon icon="redo" /></IconButton>}
     <IconButton label={controller.theme === 'dark' ? 'Light mode' : 'Dark mode'} onClick={() => controller.setTheme(controller.theme === 'dark' ? 'light' : 'dark')}><Icon icon={controller.theme === 'dark' ? 'sun' : 'moon'} /></IconButton>
@@ -50,7 +51,7 @@ function WindowBar({ controller }: { controller: AppController }) {
 
 export function AppShell({ controller, children }: { controller: AppController; children: ReactNode }) {
   const t = useTranslation();
-  const feedback = <div className="shell-feedback" role="status" aria-live="polite">{controller.error && <Callout heading={t.t('issue')} tone="danger">{controller.error}</Callout>}{controller.cleanupFeedback && <Callout tone="warning">{controller.cleanupFeedback}</Callout>}</div>;
+  const feedback = <div className="shell-feedback" role="status" aria-live="polite">{controller.error && controller.stage !== 'complete' && <Callout heading={t.t('issue')} tone="danger">{controller.error}</Callout>}{controller.cleanupFeedback && <Callout tone="warning">{controller.cleanupFeedback}</Callout>}</div>;
   return <ToolWindow title="ClaudeSync" world="violet" reducedMotion={controller.reducedMotion} className="claudesync-shell" sidebar={<Sidebar controller={controller} />}>
     <div className="game-ui-shell-main">
       <header className="game-ui-shell-window-bar"><WindowBar controller={controller} /></header>

@@ -4,14 +4,15 @@ import { useTranslation, locales } from './i18n';
 import type { TranslationKey } from './i18n';
 import type { AppController } from './app-controller';
 import { languageNames } from './app-types';
-import { homeAccountLabel } from './app-helpers';
-import { FolderSetting, Panel } from './components';
+import { accountName, FolderSetting, Panel } from './components';
 import { PageArt, RelayArt } from './visuals';
 import { resultOutcome, type ResultOutcome } from './result-copy';
 
 export function CompleteStage({ controller }: { controller: AppController }) {
   const t = useTranslation();
   const failed = Boolean(controller.error);
+  const verified = !failed && controller.result?.verified === true;
+  const receiptIcon = verified ? 'check' : 'alert';
   const preview = controller.lastPreview;
   const operation = preview?.kind;
   const outcome = resultOutcome(controller.deleted ? 'delete' : operation, controller.result);
@@ -24,16 +25,15 @@ export function CompleteStage({ controller }: { controller: AppController }) {
   const summary = t.t(summaryKey, outcome === 'trash' || outcome === 'trashAndBackup' ? { count: trashCount } : {});
   const changedSessionIds = new Set((preview?.selected.length ? preview.selected.map((item) => item.id) : preview?.changes.map((change) => change.sessionId) ?? []).filter(Boolean));
   const count = changedSessionIds.size || preview?.selected.length || preview?.changes.length || 0;
-  const title = failed ? t.t('issue')
+  const title = !verified ? t.t('issue')
     : operation === 'sync' ? t.t(count === 1 ? 'syncCompleteCountOne' : 'syncCompleteCount', { count })
     : operation === 'archive' ? t.t(count === 1 ? 'archiveCompleteCountOne' : 'archiveCompleteCount', { count })
     : operation === 'unarchive' ? t.t(count === 1 ? 'unarchiveCompleteCountOne' : 'unarchiveCompleteCount', { count })
     : operation === 'restore' && preview?.backup ? t.t('restoreComplete', { date: t.date(preview.backup.createdAt, { dateStyle: 'medium', timeStyle: 'short' }) })
     : t.t('operationCompleteTitle');
-  const includedIds = [...controller.included];
   const accountLabel = (id: string) => {
-    const index = includedIds.indexOf(id);
-    return index >= 0 ? homeAccountLabel(index, t) : t.t('unknown', { id: id.slice(0, 8) });
+    const account = controller.workspace?.accounts.find((item) => item.id === id);
+    return account ? accountName(account, t) : t.t('unknown', { id: id.slice(0, 8) });
   };
   const accountSeparator = t.locale === 'zh-CN' ? '、' : ', ';
   const scopeIds = preview?.backup?.affectedAccountIds?.length ? preview.backup.affectedAccountIds : preview?.accountIds ?? [];
@@ -43,7 +43,7 @@ export function CompleteStage({ controller }: { controller: AppController }) {
   const destination = t.t(destinationKey);
   const scopedDescription = operation && ['sync', 'archive', 'unarchive', 'restore'].includes(operation)
     ? t.t('receiptScopeDestination', { scope, destination }) : summary;
-  const description = failed ? controller.error : scopedDescription;
+  const description = failed ? undefined : scopedDescription;
   const completedItems = preview?.backup ? [{
     title: t.t(preview.backup.fileCount === 1 ? 'backupFilesOne' : 'backupFiles', { count: preview.backup.fileCount }),
     targets: t.t('receiptScopeDestination', { scope, destination }),
@@ -52,9 +52,9 @@ export function CompleteStage({ controller }: { controller: AppController }) {
     const itemScope = itemIds.map(accountLabel).join(accountSeparator) || scope;
     return { title: item.title || t.t('untitled'), targets: t.t('receiptScopeDestination', { scope: itemScope, destination }) };
   }) : [];
-  return <StageFrame className="stage-surface stage-surface--complete" title={title} description={description}><div className="complete-layout"><aside className="complete-art"><RelayArt state={failed ? 'attention' : 'complete'} celebrate={controller.celebrate} /></aside><section className="complete-card">
-    <header><h1>{title}</h1><p>{description}</p></header>{failed && <Callout tone="danger">{controller.error}</Callout>}<p className="complete-proof">{t.t(failed ? 'issue' : 'resultVerified')}</p>
-    <ul className="completion-list">{completedItems.length ? completedItems.map((item) => <li key={item.title}><Icon icon="check" /><strong>{item.title}</strong><span>{item.targets}</span></li>) : <><li><Icon icon={failed ? 'alert' : 'check'} /><strong>{failed ? t.t('issue') : t.t('resultVerified')}</strong><span>{controller.workspace ? t.t('checkedAt', { time: t.date(controller.workspace.checkedAt, { timeStyle: 'short' }) }) : ''}</span></li><li><Icon icon="lock" /><strong>{t.t('localOnly')}</strong><span>{t.t('operationCompleteBody')}</span></li></>}</ul>
+  return <StageFrame className="stage-surface stage-surface--complete" data-verified={verified} title={title} description={description}><div className="complete-layout"><aside className="complete-art"><RelayArt state={verified ? 'complete' : 'attention'} celebrate={verified && controller.celebrate} /></aside><section className="complete-card">
+    <header><h1>{title}</h1>{description && <p>{description}</p>}</header>{failed && <Callout tone="danger">{controller.error}</Callout>}<p className="complete-proof">{t.t(verified ? 'resultVerified' : 'resultUnverified')}</p>
+    <ul className="completion-list">{completedItems.length ? completedItems.map((item) => <li key={item.title}><Icon icon={receiptIcon} /><strong>{item.title}</strong><span>{item.targets}</span></li>) : <><li><Icon icon={receiptIcon} /><strong>{verified ? t.t('resultVerified') : t.t('resultUnverified')}</strong><span>{controller.workspace ? t.t('checkedAt', { time: t.date(controller.workspace.checkedAt, { timeStyle: 'short' }) }) : ''}</span></li><li><Icon icon="lock" /><strong>{t.t('localOnly')}</strong><span>{t.t('operationCompleteBody')}</span></li></>}</ul>
     <footer><Button variant="ghost" static onClick={() => controller.setStage('review')}>{t.t('viewScope')}</Button><Button variant="primary" onClick={() => { controller.setCelebrate(false); controller.setStage(controller.workspace ? 'review' : 'home'); }}>{t.t('returnToChats')}</Button></footer>
   </section></div></StageFrame>;
 }

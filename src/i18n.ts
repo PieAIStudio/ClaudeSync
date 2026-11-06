@@ -79,7 +79,7 @@ export const messages = {
   settings: ['设置', 'Settings', 'フォルダー設定', 'Carpetas', 'Pastas'],
   mobileMore: ['更多', 'More', 'その他', 'Más', 'Mais'],
   checkChats: ['检查聊天', 'Check chats', 'チャットを確認', 'Comprobar chats', 'Conferir chats'],
-  checkAgain: ['重新检查', 'Refresh', '再読み込み', 'Actualizar', 'Atualizar'],
+  checkAgain: ['刷新', 'Refresh', '再読み込み', 'Actualizar', 'Atualizar'],
   checking: ['正在检查…', 'Checking…', '確認中…', 'Comprobando…', 'Verificando…'],
   localOnly: ['本机与云端分开管理；先查看，再确认改动。', 'Local and cloud Code sessions stay separate; review before changing anything.', '端末とクラウドの Code セッションは別管理。確認してから変更します。', 'Las sesiones de Code locales y de nube van por separado; revisa antes de cambiar.', 'Sessões de Code locais e da nuvem ficam separadas; confira antes de alterar.'],
   sources: ['Code 会话来源', 'Code session source', 'Code セッションの保存場所', 'Origen de sesiones de Code', 'Origem das sessões de Code'],
