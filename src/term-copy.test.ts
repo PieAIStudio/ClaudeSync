@@ -13,15 +13,27 @@ for (const locale of locales) {
     expect(sentences.length).toBeLessThanOrEqual(2);
     expect(t.t('helpFor', { term: t.t(copy.label) })).not.toContain('{term}');
   });
-  it(`${locale}: names the Code product rather than generic chats`, () => {
+  it(`${locale}: explains the Code product in session content and help`, () => {
     const t = i18n.translator(locale);
-    for (const key of ['sessions', 'localSessions', 'cloudSessions', 'delete', 'selectedCount', 'untitled'] as const) {
+    for (const key of ['sessions', 'delete', 'selectedCount', 'untitled'] as const) {
       expect(t.t(key, { count: 4 })).toContain('Code');
     }
+    expect(t.t('localSub')).toContain('Claude Code');
+    expect(t.t('tipCode')).toContain('Code');
     expect(t.t('tipCode')).toContain('Cowork');
     expect(t.t('tipCode')).not.toMatch(/Code Code/u);
   });
 }
+it.each([
+  ['zh-CN', '账号', '本机会话', '云端会话', '本地 Claude Code 会话 · 云端历史单独管理'],
+  ['en', 'Accounts', 'On this Mac', 'Cloud', 'Local Claude Code sessions · cloud history is separate'],
+] as const)('%s: uses the agreed account-first navigation and scope disclosure', (locale, accounts, local, cloud, scope) => {
+  const t = i18n.translator(locale);
+  expect(t.t('accounts')).toBe(accounts);
+  expect(t.t('localSessions')).toBe(local);
+  expect(t.t('cloudSessions')).toBe(cloud);
+  expect(t.t('localSub')).toBe(scope);
+});
 it('does not label old copies as proof of an account move or promise that every local operation is blocked', () => {
   const t = i18n.translator('zh-CN');
   expect(t.t('tipOldOrganization')).not.toContain('账号换过');
